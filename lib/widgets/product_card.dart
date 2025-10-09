@@ -154,32 +154,6 @@ class ProductCard extends StatelessWidget {
               ),
             ),
 
-            // Selo OFERTA
-            if (_isOffer)
-              Positioned(
-                right: 12,
-                top: 12,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(999),
-                    boxShadow: const [
-                      BoxShadow(color: Color(0x22000000), blurRadius: 6, offset: Offset(0, 2)),
-                    ],
-                  ),
-                  child: const Text(
-                    'OFERTA',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.3,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ),
-
             // Botão adicionar
             if (onAddToCart != null)
               Positioned(

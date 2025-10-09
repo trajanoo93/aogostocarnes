@@ -384,19 +384,50 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   Future<void> _finish() async {
     if (_numberCtrl.text.trim().isEmpty) return;
     setState(() => _busy = true);
-
-    // Aqui você pode chamar seu endpoint PHP para persistir, se quiser.
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs
-      ..setBool('onboarding_done', true)
-      ..setString('user_name', _nameCtrl.text.trim())
-      ..setString('user_phone', _digits(_phoneCtrl.text))
-      ..setString('user_cep', _digits(_cepCtrl.text));
-
-    if (!mounted) return;
-    setState(() => _busy = false);
-    Navigator.of(context).pop();
+    final customerData = {
+      'name': _nameCtrl.text.trim(),
+      'phone': _digits(_phoneCtrl.text),
+    };
+    final addressData = {
+      'street': _street ?? '',
+      'number': _numberCtrl.text.trim(),
+      'complement': _complementCtrl.text.trim(),
+      'neighborhood': _neighborhood ?? '',
+      'city': _city ?? '',
+      'state': _state ?? '',
+      'cep': _digits(_cepCtrl.text),
+    };
+    try {
+      final response = await http.post(
+        Uri.parse('https://aogosto.com.br/app/onboarding/register.php'),
+        headers: {'Content-Type': 'application/json; charset=utf-8'},
+        body: jsonEncode({'customer': customerData, 'address': addressData}),
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['ok'] == true && data['customer_id'] != null) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs
+            ..setBool('onboarding_done', true)
+            ..setInt('customer_id', data['customer_id'] as int)
+            ..setString('customer_name', customerData['name'] ?? '')
+            ..setString('customer_phone', customerData['phone'] ?? '')
+            ..setString('address_cep', addressData['cep'] ?? '');
+          if (!mounted) return;
+          Navigator.of(context).pop();
+        } else {
+          throw Exception('Registro falhou: ${data['error']}');
+        }
+      } else {
+        throw Exception('Erro HTTP: ${response.statusCode}');
+      }
+    } catch (e) {
+      if (kDebugMode) print('Erro ao registrar: $e');
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao registrar: ${e.toString()}')),
+      );
+    }
   }
 
   @override

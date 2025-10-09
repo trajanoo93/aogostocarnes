@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/customer.dart';
 
 class OnboardingAddress {
   final String? street, number, complement, neighborhood, city, state, cep;
@@ -17,18 +16,57 @@ class OnboardingAddress {
 }
 
 class OnboardingProfile {
+  final String? name;
   final String? phone;
   final OnboardingAddress? address;
-  OnboardingProfile({this.phone, this.address});
+  OnboardingProfile({this.name, this.phone, this.address});
+}
+
+class Customer {
+  final String name;
+  final String phone;
+
+  Customer({required this.name, required this.phone});
+
+  Map<String, dynamic> toJson() => {
+        'name': name,
+        'phone': phone,
+      };
+}
+
+class CustomerAddress {
+  final String street;
+  final String number;
+  final String? complement;
+  final String neighborhood;
+  final String city;
+  final String state;
+  final String cep;
+
+  CustomerAddress({
+    required this.street,
+    required this.number,
+    this.complement,
+    required this.neighborhood,
+    required this.city,
+    required this.state,
+    required this.cep,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'street': street,
+        'number': number,
+        'complement': complement ?? '',
+        'neighborhood': neighborhood,
+        'city': city,
+        'state': state,
+        'cep': cep,
+      };
 }
 
 class OnboardingService {
-  // === URL base do endpoint PHP no seu servidor ===
   static const String _base = 'https://aogosto.com.br/app/onboarding';
 
-  // ======================================================
-  // REGISTRO DE CLIENTE E ENDEREÇO
-  // ======================================================
   Future<int> register(Customer c, CustomerAddress a) async {
     final uri = Uri.parse('$_base/register.php');
     final resp = await http.post(
@@ -48,7 +86,6 @@ class OnboardingService {
     if (data['ok'] == true && data['customer_id'] is int) {
       return data['customer_id'] as int;
     }
-
     throw Exception('Resposta inválida do servidor: ${resp.body}');
   }
 
@@ -114,27 +151,39 @@ class OnboardingService {
   }
 
   // ======================================================
-  // RECUPERA PERFIL SALVO LOCALMENTE (USADO PELO CHECKOUT)
+  // RECUPERA PERFIL SALVO NO BACKEND
   // ======================================================
   Future<OnboardingProfile> getProfile() async {
     final sp = await SharedPreferences.getInstance();
+    final customerId = sp.getInt('customer_id');
 
-    final phone = sp.getString('customer_phone') ?? '';
-    final name = sp.getString('customer_name') ?? '';
+    if (customerId == null) {
+      return OnboardingProfile(name: '', phone: '', address: null);
+    }
 
-    final address = OnboardingAddress(
-      street: sp.getString('address_street') ?? '',
-      number: sp.getString('address_number') ?? '',
-      complement: sp.getString('address_complement'),
-      neighborhood: sp.getString('address_neighborhood') ?? '',
-      city: sp.getString('address_city') ?? '',
-      state: sp.getString('address_state') ?? '',
-      cep: sp.getString('address_cep') ?? '',
-    );
-
-    return OnboardingProfile(
-      phone: phone,
-      address: address,
-    );
+    // Busca do backend
+    final uri = Uri.parse('$_base/get_profile.php?customer_id=$customerId');
+    final resp = await http.get(uri);
+    if (resp.statusCode == 200) {
+      final data = json.decode(resp.body) as Map<String, dynamic>;
+      if (data['ok'] == true) {
+        final customer = data['customer'];
+        final address = data['address'];
+        return OnboardingProfile(
+          name: customer['name'] ?? '',
+          phone: customer['phone'] ?? '',
+          address: OnboardingAddress(
+            street: address['street'] ?? '',
+            number: address['number'] ?? '',
+            complement: address['complement'] ?? '',
+            neighborhood: address['neighborhood'] ?? '',
+            city: address['city'] ?? '',
+            state: address['state'] ?? '',
+            cep: address['cep'] ?? '',
+          ),
+        );
+      }
+    }
+    return OnboardingProfile(name: '', phone: '', address: null);
   }
 }

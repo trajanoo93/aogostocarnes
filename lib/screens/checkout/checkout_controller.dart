@@ -1,8 +1,14 @@
+// lib/screens/checkout/checkout_controller.dart
+
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
 import 'package:aogosto_carnes_flutter/state/cart_controller.dart';
 import 'package:aogosto_carnes_flutter/api/shipping_service.dart';
 import 'package:aogosto_carnes_flutter/api/onboarding_service.dart';
+import 'package:aogosto_carnes_flutter/api/order_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum DeliveryType { delivery, pickup }
 
@@ -67,12 +73,19 @@ class CheckoutController extends ChangeNotifier {
   int currentStep = 1; // 1: onde/quando | 2: pagamento
   DeliveryType deliveryType = DeliveryType.delivery;
 
+  // Loading
+  bool isLoading = true;
+
+  // Perfil
+  OnboardingProfile? profile;
+  int? customerId;
+
   // Contato
   String userPhone = '';
   bool isEditingPhone = false;
 
   // Endereços e retirada
-  List<Address> addresses = const [];
+  List<Address> addresses = [];
   String? selectedAddressId;
   double deliveryFee = 0.0;
 
@@ -114,6 +127,7 @@ class CheckoutController extends ChangeNotifier {
 
   // Tela sucesso
   bool orderPlaced = false;
+  String? orderId;
 
   // Intl
   final NumberFormat currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
@@ -135,33 +149,38 @@ class CheckoutController extends ChangeNotifier {
   // -------- INÍCIO: carrega dados do onboarding (telefone + endereços) ------
   Future<void> bootstrapFromOnboarding() async {
     try {
-      final profile = await OnboardingService().getProfile(); // já existe no seu app
-      userPhone = profile.phone ?? userPhone;
+      final sp = await SharedPreferences.getInstance();
+      customerId = sp.getInt('customer_id');
 
-      // monta address com base no que você salvou (adapte se seu perfil tiver estrutura diferente)
-      final addrs = <Address>[];
-      if (profile.address != null) {
-        final a = profile.address!;
-        addrs.add(Address(
-          id: 'addr1',
-          street: a.street ?? 'Rua',
-          number: a.number ?? '0',
-          complement: a.complement,
-          neighborhood: a.neighborhood ?? '',
-          city: a.city ?? '',
-          state: a.state ?? '',
-          cep: a.cep ?? '',
-        ));
-      }
-      addresses = addrs;
-      selectedAddressId = addresses.isNotEmpty ? addresses.first.id : null;
+      if (customerId != null) {
+        profile = await OnboardingService().getProfile();
+        userPhone = profile?.phone ?? userPhone;
 
-      // calcula frete se delivery e tem CEP
-      if (deliveryType == DeliveryType.delivery && addresses.isNotEmpty) {
-        await refreshShippingFee();
+        final addrs = <Address>[];
+        if (profile?.address != null) {
+          final a = profile!.address!;
+          addrs.add(Address(
+            id: 'addr1',
+            street: a.street ?? 'Rua',
+            number: a.number ?? '0',
+            complement: a.complement,
+            neighborhood: a.neighborhood ?? '',
+            city: a.city ?? '',
+            state: a.state ?? '',
+            cep: a.cep ?? '',
+          ));
+        }
+        addresses = addrs;
+        selectedAddressId = addresses.isNotEmpty ? addresses.first.id : null;
+
+        if (deliveryType == DeliveryType.delivery && addresses.isNotEmpty) {
+          await refreshShippingFee();
+        }
       }
     } catch (_) {
       // fallback silencioso
+    } finally {
+      isLoading = false;
     }
     notifyListeners();
   }
@@ -200,7 +219,7 @@ class CheckoutController extends ChangeNotifier {
   }
 
   void setPhone(String raw) {
-    userPhone = raw;
+    userPhone = raw.replaceAll(RegExp(r'[^0-9]'), ''); // Remove máscara ao salvar
     notifyListeners();
   }
 
@@ -228,16 +247,54 @@ class CheckoutController extends ChangeNotifier {
     isApplyingCoupon = true;
     couponError = null;
     notifyListeners();
-    await Future.delayed(const Duration(milliseconds: 800));
-    if (couponCode.trim().toUpperCase() == 'AOGOSTO20') {
-      appliedCoupon = const Coupon(code: 'AOGOSTO20', discount: 20.0);
-      showCouponInput = false;
-      couponCode = '';
-    } else {
-      couponError = 'Cupom inválido ou expirado.';
+
+    try {
+      final coupon = await _fetchCoupon(couponCode.trim());
+      if (coupon != null) {
+        double discountValue = 0.0;
+        final amount = double.parse(coupon['amount']);
+        if (coupon['discount_type'] == 'percent') {
+          discountValue = subtotal * (amount / 100);
+        } else if (coupon['discount_type'] == 'fixed_cart') {
+          discountValue = amount;
+        } // Adicione outros tipos se necessário
+
+        appliedCoupon = Coupon(code: couponCode.trim(), discount: discountValue);
+        showCouponInput = false;
+        couponCode = '';
+      } else {
+        couponError = 'Cupom inválido ou expirado.';
+      }
+    } catch (e) {
+      couponError = 'Erro ao validar cupom.';
     }
+
     isApplyingCoupon = false;
     notifyListeners();
+  }
+
+  Future<Map<String, dynamic>?> _fetchCoupon(String code) async {
+    final url = 'https://aogosto.com.br/delivery/wp-json/wc/v3/coupons?code=$code';
+    final auth = base64Encode(utf8.encode('ck_5156e2360f442f2585c8c9a761ef084b710e811f:cs_c62f9d8f6c08a1d14917e2a6db5dccce2815de8c'));
+    final response = await http.get(
+      Uri.parse(url),
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Basic $auth',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body) as List<dynamic>;
+      if (data.isNotEmpty) {
+        final coupon = data.first as Map<String, dynamic>;
+        // Verificar validade
+        if (coupon['status'] == 'publish' && (coupon['date_expires'] == null || DateTime.parse(coupon['date_expires']).isAfter(DateTime.now()))) {
+          return coupon;
+        }
+      }
+    }
+    return null;
   }
 
   void removeCoupon() {
@@ -266,11 +323,10 @@ class CheckoutController extends ChangeNotifier {
   Future<void> nextStep() async {
     if (currentStep == 1) {
       currentStep = 2;
+      notifyListeners();
     } else {
-      // “real” submit virá depois; por agora, simula sucesso
-      orderPlaced = true;
+      await placeOrder();
     }
-    notifyListeners();
   }
 
   void prevStep() {
@@ -288,7 +344,7 @@ class CheckoutController extends ChangeNotifier {
     }
     final addr = addresses.firstWhere(
       (a) => a.id == selectedAddressId,
-      orElse: () => addresses.isNotEmpty ? addresses.first : Address(
+      orElse: () => addresses.isNotEmpty ? addresses.first : const Address(
         id: 'none',
         street: '',
         number: '',
@@ -305,6 +361,157 @@ class CheckoutController extends ChangeNotifier {
     }
     final v = await _shippingService.fetchDeliveryFee(addr.cep);
     deliveryFee = v;
+    notifyListeners();
+  }
+
+  Future<void> placeOrder() async {
+    if (profile == null) return;
+
+    final selectedAddress = addresses.firstWhere(
+      (a) => a.id == selectedAddressId,
+      orElse: () => const Address(
+        id: 'none',
+        street: '',
+        number: '',
+        neighborhood: '',
+        city: '',
+        state: '',
+        cep: '',
+      ),
+    );
+
+    Map<String, dynamic> billing = {
+      "first_name": profile!.name ?? '',
+      "last_name": "",
+      "company": "",
+      "address_1": "${selectedAddress.street}, ${selectedAddress.number}",
+      "address_2": selectedAddress.complement ?? '',
+      "city": selectedAddress.city,
+      "state": selectedAddress.state,
+      "postcode": selectedAddress.cep,
+      "country": "BR",
+      "email": "", // Adicione se tiver email no profile
+      "phone": userPhone,
+    };
+
+    Map<String, dynamic> shipping = Map.from(billing);
+
+    if (deliveryType == DeliveryType.pickup) {
+      final loc = pickupLocations[selectedPickupKey]!;
+      shipping = {
+        "first_name": profile!.name ?? '',
+        "last_name": "",
+        "company": loc.name,
+        "address_1": loc.address,
+        "address_2": "",
+        "city": "Belo Horizonte",
+        "state": "MG",
+        "postcode": "",
+        "country": "BR",
+      };
+    }
+
+    final lineItems = CartController.instance.items.map((it) => {
+          "product_id": it.product.id,
+          "quantity": it.quantity,
+          // Se houver variações: "variation_id": it.product.variationId,
+        }).toList();
+
+    final shippingLines = deliveryType == DeliveryType.delivery
+        ? [
+            {
+              "method_id": "flat_rate", // Ajuste conforme configurado no Woo
+              "method_title": "Entrega Padrão",
+              "total": deliveryFee.toStringAsFixed(2),
+            }
+          ]
+        : [];
+
+    final couponLines = appliedCoupon != null
+        ? [
+            {"code": appliedCoupon!.code}
+          ]
+        : [];
+
+    final metaData = <Map<String, dynamic>>[
+      if (deliveryType == DeliveryType.pickup)
+        {"key": "_pickup_location", "value": selectedPickupKey},
+      if (needsChange && changeForAmount.isNotEmpty)
+        {"key": "_change_for", "value": changeForAmount},
+    ];
+
+    String paymentTitle = '';
+    switch (paymentMethod) {
+      case 'pix':
+        paymentTitle = 'PIX';
+        break;
+      case 'money':
+        paymentTitle = 'Dinheiro na Entrega';
+        break;
+      case 'card-on-delivery':
+        paymentTitle = 'Cartão na Entrega';
+        break;
+      case 'voucher':
+        paymentTitle = 'Vale Alimentação';
+        break;
+    }
+
+    final orderData = {
+      "customer_id": customerId ?? 0,
+      "payment_method": paymentMethod,
+      "payment_method_title": paymentTitle,
+      "set_paid": false, // Para PIX, ajuste se o plugin confirma via webhook
+      "billing": billing,
+      "shipping": shipping,
+      "line_items": lineItems,
+      "shipping_lines": shippingLines,
+      "coupon_lines": couponLines,
+      "customer_note": orderNotes,
+      "meta_data": metaData,
+    };
+
+    try {
+      final order = await OrderService().createOrder(orderData);
+      orderId = order['id'].toString();
+      CartController.instance.clear();
+      orderPlaced = true;
+    } catch (e) {
+      // TODO: Mostrar erro ao usuário (ex.: Snackbar)
+      if (kDebugMode) {
+        print('Erro ao criar pedido: $e');
+      }
+    }
+    notifyListeners();
+  }
+
+  // -------- MÉTODOS ADICIONAIS --------
+  String formatPhone(String rawPhone) {
+    if (rawPhone.length == 11 && RegExp(r'^\d{11}$').hasMatch(rawPhone)) {
+      return '(${rawPhone.substring(0, 2)}) ${rawPhone.substring(2, 7)}-${rawPhone.substring(7)}';
+    }
+    return rawPhone;
+  }
+
+  Future<void> addOrUpdateAddress(Address address) async {
+    // Simulação de chamada ao backend (substitua pelo endpoint real)
+    final newAddress = Address(
+      id: DateTime.now().millisecondsSinceEpoch.toString(), // Temporário, substitua por ID do backend
+      street: address.street,
+      number: address.number,
+      complement: address.complement,
+      neighborhood: address.neighborhood,
+      city: address.city,
+      state: address.state,
+      cep: address.cep,
+    );
+    addresses.add(newAddress);
+    selectedAddressId = newAddress.id;
+    await refreshShippingFee();
+    notifyListeners();
+  }
+
+  void editAddress(String id) {
+    // Lógica para abrir um diálogo de edição (implementada no widget)
     notifyListeners();
   }
 }
