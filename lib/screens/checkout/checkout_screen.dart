@@ -3,9 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:aogosto_carnes_flutter/utils/app_colors.dart';
-import 'package:aogosto_carnes_flutter/state/cart_controller.dart';
-import 'package:aogosto_carnes_flutter/screens/checkout/checkout_controller.dart';
+import 'package:ao_gosto_app/utils/app_colors.dart';
+import 'package:ao_gosto_app/state/cart_controller.dart';
+import 'package:ao_gosto_app/screens/checkout/checkout_controller.dart';
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 
 class CheckoutScreen extends StatelessWidget {

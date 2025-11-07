@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:aogosto_carnes_flutter/models/product.dart';
-import 'package:aogosto_carnes_flutter/utils/app_colors.dart';
+import 'package:ao_gosto_app/models/product.dart';
+import 'package:ao_gosto_app/utils/app_colors.dart';
 
 class ProductCard extends StatelessWidget {
   final Product product;

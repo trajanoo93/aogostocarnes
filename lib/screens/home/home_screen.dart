@@ -1,14 +1,16 @@
-import 'package:flutter/material.dart';
-import 'package:aogosto_carnes_flutter/utils/app_colors.dart';
-import 'package:aogosto_carnes_flutter/api/product_service.dart';
-import 'package:aogosto_carnes_flutter/models/product.dart';
-import 'package:aogosto_carnes_flutter/widgets/product_card.dart';
-import 'package:aogosto_carnes_flutter/screens/home/widgets/all_cuts_section.dart';
+// screens/home/home_screen.dart:
 
-import 'package:aogosto_carnes_flutter/screens/home/widgets/section_hero.dart' as hero;
-import 'package:aogosto_carnes_flutter/screens/home/widgets/search_filter.dart';
-import 'package:aogosto_carnes_flutter/screens/home/widgets/section_header.dart' as header;
-import 'package:aogosto_carnes_flutter/screens/home/widgets/product_carousel.dart';
+import 'package:flutter/material.dart';
+import 'package:ao_gosto_app/utils/app_colors.dart';
+import 'package:ao_gosto_app/api/product_service.dart';
+import 'package:ao_gosto_app/models/product.dart';
+import 'package:ao_gosto_app/widgets/product_card.dart';
+import 'package:ao_gosto_app/screens/home/widgets/all_cuts_section.dart';
+
+import 'package:ao_gosto_app/screens/home/widgets/section_hero.dart' as hero;
+import 'package:ao_gosto_app/screens/home/widgets/search_filter.dart';
+import 'package:ao_gosto_app/screens/home/widgets/section_header.dart' as header;
+import 'package:ao_gosto_app/screens/home/widgets/product_carousel.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

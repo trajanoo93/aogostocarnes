@@ -1,40 +1,31 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:ao_gosto_app/state/cart_controller.dart';
+import 'package:ao_gosto_app/utils/app_colors.dart';
+import 'package:ao_gosto_app/models/cart_item.dart';
+import 'package:ao_gosto_app/models/product.dart';
+import 'package:ao_gosto_app/screens/checkout/checkout_screen.dart';
 
-import 'package:aogosto_carnes_flutter/state/cart_controller.dart';
-import 'package:aogosto_carnes_flutter/utils/app_colors.dart';
-import 'package:aogosto_carnes_flutter/models/cart_item.dart';
-import 'package:aogosto_carnes_flutter/models/product.dart';
-import 'package:aogosto_carnes_flutter/screens/checkout/checkout_screen.dart';
-
-/// Chame `showCartDrawer(context)` para abrir o carrinho.
 Future<void> showCartDrawer(BuildContext context) {
   final width = MediaQuery.of(context).size.width;
-  final panelW = math.min(420.0, width * 0.94);
+  final panelWidth = math.min(480.0, width * 0.9);
 
   return showGeneralDialog(
     context: context,
     barrierLabel: 'Carrinho',
     barrierDismissible: true,
-    barrierColor: Colors.black54,
-    pageBuilder: (_, __, ___) {
-      return Align(
-        alignment: Alignment.centerRight,
-        child: SizedBox(
-          width: panelW,
-          child: const _CartPanel(),
-        ),
-      );
+    barrierColor: Colors.black.withOpacity(0.7),
+    transitionDuration: const Duration(milliseconds: 400),
+    pageBuilder: (_, __, ___) => Align(
+      alignment: Alignment.centerRight,
+      child: SizedBox(width: panelWidth, child: const _CartPanel()),
+    ),
+    transitionBuilder: (_, animation, __, child) {
+      final slide = Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+          .animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+      return SlideTransition(position: slide, child: FadeTransition(opacity: animation, child: child));
     },
-    transitionBuilder: (_, anim, __, child) {
-      final offset = Tween<Offset>(
-        begin: const Offset(1, 0),
-        end: Offset.zero,
-      ).animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic));
-      return SlideTransition(position: offset, child: child);
-    },
-    transitionDuration: const Duration(milliseconds: 300),
   );
 }
 
@@ -45,188 +36,207 @@ class _CartPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = CartController.instance;
     final brl = NumberFormat.simpleCurrency(locale: 'pt_BR');
+    final theme = Theme.of(context);
 
     return Material(
       color: Colors.white,
-      elevation: 12,
-      borderRadius: const BorderRadius.only(
-        topLeft: Radius.circular(16),
-        bottomLeft: Radius.circular(16),
-      ),
+      elevation: 24,
+      shadowColor: Colors.black.withOpacity(0.2),
+      borderRadius: const BorderRadius.horizontal(left: Radius.circular(24)),
       child: SafeArea(
-        child: AnimatedBuilder(
-          animation: controller,
-          builder: (context, _) {
-            final items = controller.items;
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Header
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                  decoration: const BoxDecoration(
-                    border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
-                    gradient: LinearGradient(
-                      colors: [Color(0xFFFFF1F2), Colors.white],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
+        child: Column(
+          children: [
+            // HEADER
+            Container(
+              padding: const EdgeInsets.fromLTRB(24, 20, 16, 16),
+              decoration: const BoxDecoration(
+                border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+              ),
+              child: Row(
+                children: [
+                  Text('Meu Carrinho', style: theme.textTheme.displayLarge),
+                  const Spacer(),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.close, size: 28),
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.grey[100],
+                      shape: const CircleBorder(),
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.shopping_cart_outlined,
-                          color: AppColors.primary, size: 24),
-                      const SizedBox(width: 12),
-                      const Text('Meu Carrinho',
-                          style: TextStyle(
-                              fontSize: 20, fontWeight: FontWeight.bold)),
-                      const Spacer(),
-                      IconButton(
-                        tooltip: 'Fechar',
-                        onPressed: () => Navigator.of(context).maybePop(),
-                        icon:
-                            const Icon(Icons.close, color: Colors.black54),
-                      ),
-                    ],
+                ],
+              ),
+            ),
+
+            // CONTENT
+            Expanded(
+              child: AnimatedBuilder(
+                animation: controller,
+                builder: (context, _) {
+                  return controller.items.isEmpty
+                      ? const EmptyCartWidget()
+                      : _CartItemsList(items: controller.items, brl: brl);
+                },
+              ),
+            ),
+
+            // FOOTER
+            const _CartSummaryFooter(),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CartItemsList extends StatelessWidget {
+  final List<CartItem> items;
+  final NumberFormat brl;
+  const _CartItemsList({required this.items, required this.brl});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+      itemCount: items.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 16),
+      itemBuilder: (_, i) => CartItemWidget(item: items[i], brl: brl),
+    );
+  }
+}
+
+class CartItemWidget extends StatelessWidget {
+  final CartItem item;
+  final NumberFormat brl;
+  const CartItemWidget({required this.item, required this.brl});
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = CartController.instance;
+    final p = item.product;
+    final theme = Theme.of(context);
+
+    String? imageUrl;
+    try {
+      final url = (p as dynamic).imageUrl as String?;
+      imageUrl = url?.isNotEmpty == true ? url : null;
+    } catch (_) {}
+
+    return Dismissible(
+      key: ValueKey(p.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 24),
+        decoration: BoxDecoration(
+          color: Colors.red[600],
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Icon(Icons.delete, color: Colors.white, size: 28),
+      ),
+      onDismissed: (_) => controller.remove(p),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppColors.backgroundSecondary,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Row(
+          children: [
+            // Imagem
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                width: 80,
+                height: 80,
+                child: imageUrl != null
+                    ? Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (_, __, ___) => _placeholder())
+                    : _placeholder(),
+              ),
+            ),
+            const SizedBox(width: 16),
+
+            // Texto
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(p.name, style: theme.textTheme.titleLarge, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 4),
+                  Text(brl.format(item.totalPrice), style: theme.textTheme.headlineMedium),
+                ],
+              ),
+            ),
+
+            // Quantidade
+            Container(
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _qtyBtn(Icons.remove, () => controller.decrement(p)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Text('${item.quantity}', style: theme.textTheme.bodyLarge),
                   ),
-                ),
-
-                // Content
-                Expanded(
-                  child: items.isEmpty
-                      ? _EmptyCart(
-                          onClose: () => Navigator.of(context).maybePop())
-                      : ListView.separated(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 12),
-                          itemBuilder: (_, i) =>
-                              _CartItemTile(items[i], brl),
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 8),
-                          itemCount: items.length,
-                        ),
-                ),
-
-                // Footer
-                if (items.isNotEmpty)
-                  Container(
-                    padding:
-                        const EdgeInsets.fromLTRB(20, 14, 20, 20),
-                    decoration: const BoxDecoration(
-                      border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
-                      color: Colors.white,
-                    ),
-                    child: Column(
-                      children: [
-                        _row('Subtotal', brl.format(controller.subtotal)),
-                        const SizedBox(height: 6),
-                        _row('Taxa de Entrega',
-                            brl.format(controller.deliveryFee)),
-                        const Divider(height: 20),
-                        _row('Total', brl.format(controller.total),
-                            isEmphasis: true),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
-                              elevation: 3,
-                            ),
-                            onPressed: () async {
-                              // Fecha o drawer
-                              Navigator.of(context).maybePop();
-
-                              // Pequeno delay para a transição
-                              await Future.delayed(
-                                  const Duration(milliseconds: 250));
-
-                              // Abre a tela de checkout
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                    builder: (_) =>
-                                        const CheckoutScreen()),
-                              );
-                            },
-                            icon: const Icon(
-                                Icons.arrow_forward_rounded),
-                            label: const Text('Finalizar Compra',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w600)),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            );
-          },
+                  _qtyBtn(Icons.add, () => controller.increment(p)),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _row(String l, String r, {bool isEmphasis = false}) {
-    final styleL = TextStyle(
-      color: Colors.grey[700],
-      fontSize: isEmphasis ? 16 : 14,
-      fontWeight: isEmphasis ? FontWeight.w700 : FontWeight.w500,
-    );
-    final styleR = TextStyle(
-      color: isEmphasis ? AppColors.primary : Colors.grey[800],
-      fontSize: isEmphasis ? 18 : 14,
-      fontWeight: isEmphasis ? FontWeight.w800 : FontWeight.w600,
-    );
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [Text(l, style: styleL), Text(r, style: styleR)],
+  Widget _qtyBtn(IconData icon, VoidCallback onPressed) {
+    return IconButton(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 20, color: Colors.black54),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
     );
   }
+
+  Widget _placeholder() => Container(color: const Color(0xFFE5E7EB), child: const Icon(Icons.image_not_supported_outlined, color: Colors.black26));
 }
 
-class _EmptyCart extends StatelessWidget {
-  final VoidCallback onClose;
-  const _EmptyCart({required this.onClose});
+class EmptyCartWidget extends StatelessWidget {
+  const EmptyCartWidget();
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Center(
       child: Padding(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 28.0),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.shopping_cart_outlined,
-                size: 64, color: Color(0xFFFFE4E6)),
-            const SizedBox(height: 12),
-            const Text('Seu carrinho está vazio',
-                style: TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.w700)),
-            const SizedBox(height: 6),
-            const Text(
-              'Adicione cortes premium para montar o melhor churrasco!',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.black54),
-            ),
+            Icon(Icons.shopping_cart_outlined, size: 80, color: Colors.grey[300]),
             const SizedBox(height: 16),
+            Text('Seu carrinho está vazio.', style: theme.textTheme.displayLarge!.copyWith(fontSize: 22)),
+            const SizedBox(height: 8),
+            Text(
+              'Adicione seus cortes favoritos para montar um churrasco inesquecível!',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium,
+            ),
+            const SizedBox(height: 24),
             OutlinedButton(
-              onPressed: onClose,
+              onPressed: () => Navigator.of(context).maybePop(),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
-                side: const BorderSide(color: AppColors.primary),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 18, vertical: 10),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
+                side: const BorderSide(color: AppColors.primary, width: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('Continuar comprando'),
+              child: Text('Continuar comprando', style: theme.textTheme.labelLarge),
             ),
           ],
         ),
@@ -235,117 +245,79 @@ class _EmptyCart extends StatelessWidget {
   }
 }
 
-class _CartItemTile extends StatelessWidget {
-  final CartItem item;
-  final NumberFormat brl;
-  const _CartItemTile(this.item, this.brl);
+class _CartSummaryFooter extends StatelessWidget {
+  const _CartSummaryFooter();
 
   @override
   Widget build(BuildContext context) {
     final controller = CartController.instance;
-    final p = item.product;
+    final brl = NumberFormat.simpleCurrency(locale: 'pt_BR');
+    final theme = Theme.of(context);
 
-    String? imageUrl;
-    try {
-      final url = (p as dynamic).imageUrl as String?;
-      imageUrl = (url != null && url.isNotEmpty) ? url : null;
-    } catch (_) {}
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        if (controller.items.isEmpty) return const SizedBox.shrink();
 
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF9FAFB),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: SizedBox(
-              width: 64,
-              height: 64,
-              child: imageUrl != null
-                  ? Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _placeholder(),
-                    )
-                  : _placeholder(),
-            ),
+        return Container(
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: DefaultTextStyle(
-              style:
-                  const TextStyle(color: Colors.black87),
-              child: Column(
-                crossAxisAlignment:
-                    CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    p.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700),
+          child: Column(
+            children: [
+              _row('Subtotal', brl.format(controller.subtotal), theme),
+              const SizedBox(height: 8),
+              _row('Taxa de Entrega', brl.format(controller.deliveryFee), theme),
+              const Divider(height: 32),
+              _row('Total', brl.format(controller.total), theme, isTotal: true),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () async {
+                    Navigator.of(context).maybePop();
+                    await Future.delayed(const Duration(milliseconds: 300));
+                    if (context.mounted) {
+                      Navigator.of(context).push(
+                        PageRouteBuilder(
+                          pageBuilder: (_, __, ___) => const CheckoutScreen(),
+                          transitionsBuilder: (_, a, __, c) => FadeTransition(opacity: a, child: c),
+                        ),
+                      );
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    elevation: 8,
+                    shadowColor: AppColors.primary.withOpacity(0.4),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    brl.format(item.totalPrice),
-                    style: const TextStyle(
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.bold),
-                  ),
-                ],
+                  child: Text('Finalizar Compra', style: theme.textTheme.headlineMedium!.copyWith(color: Colors.white)),
+                ),
               ),
-            ),
+            ],
           ),
-          Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: const Color(0xFFE5E7EB)),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  tooltip: 'Diminuir',
-                  onPressed: () => controller.decrement(p),
-                  icon: const Icon(Icons.remove,
-                      size: 18, color: Colors.black54),
-                  constraints:
-                      const BoxConstraints.tightFor(width: 36, height: 36),
-                  padding: EdgeInsets.zero,
-                ),
-                Text('${item.quantity}',
-                    style:
-                        const TextStyle(fontWeight: FontWeight.w600)),
-                IconButton(
-                  tooltip: 'Aumentar',
-                  onPressed: () => controller.increment(p),
-                  icon: const Icon(Icons.add,
-                      size: 18, color: Colors.black54),
-                  constraints:
-                      const BoxConstraints.tightFor(width: 36, height: 36),
-                  padding: EdgeInsets.zero,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 6),
-          IconButton(
-            tooltip: 'Remover',
-            onPressed: () => controller.remove(p),
-            icon: const Icon(Icons.close,
-                size: 18, color: Colors.redAccent),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Widget _placeholder() => Container(
-        color: const Color(0xFFE5E7EB),
-        child: const Icon(Icons.image_not_supported_outlined,
-            color: Colors.black26),
-      );
+  Widget _row(String label, String value, ThemeData theme, {bool isTotal = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label, style: isTotal ? theme.textTheme.titleMedium : theme.textTheme.bodyMedium),
+        Text(
+          value,
+          style: isTotal
+              ? theme.textTheme.headlineSmall
+              : theme.textTheme.bodyLarge!.copyWith(fontWeight: FontWeight.w600),
+        ),
+      ],
+    );
+  }
 }

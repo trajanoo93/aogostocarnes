@@ -24,7 +24,7 @@ mais _placeholders_ para os que estavam faltando.
   - `pubspec.yaml` (com deps: `http`, `google_fonts`, `intl`, `carousel_slider`, etc.)
 
 ## Como usar
-1. Copie a pasta `aogosto_carnes_flutter/` para o seu projeto (ou substitua apenas os arquivos que estavam faltando).
+1. Copie a pasta `ao_gosto_app/` para o seu projeto (ou substitua apenas os arquivos que estavam faltando).
 2. Rode:
    ```bash
    flutter pub get

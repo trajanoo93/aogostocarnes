@@ -1,10 +1,12 @@
+// screens/main_screen.dart
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:aogosto_carnes_flutter/state/cart_controller.dart';
-import 'package:aogosto_carnes_flutter/screens/cart/cart_drawer.dart';
-import 'package:aogosto_carnes_flutter/screens/home/home_screen.dart';
-import 'package:aogosto_carnes_flutter/utils/app_colors.dart';
-import 'package:aogosto_carnes_flutter/screens/onboarding/onboarding_flow.dart';
+import 'package:ao_gosto_app/state/cart_controller.dart';
+import 'package:ao_gosto_app/screens/cart/cart_drawer.dart';
+import 'package:ao_gosto_app/screens/home/home_screen.dart';
+import 'package:ao_gosto_app/utils/app_colors.dart';
+import 'package:ao_gosto_app/screens/onboarding/onboarding_flow.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});

@@ -1,6 +1,6 @@
-name: aogosto_carnes_flutter
-description: "An extremely modern mobile e-commerce application for Ao Gosto Carnes."
-publish_to: 'none' 
+name: ao_gosto_app
+description: "O app oficial da Ao Gosto Carnes — sua boutique de carnes premium em Belo Horizonte. Peça seus cortes favoritos, kits de churrasco e produtos exclusivos com poucos toques. Experiência gourmet, entrega expressa e o verdadeiro sabor ao seu gosto."
+publish_to: 'none'
 version: 1.0.0+1
 
 environment:
@@ -23,7 +23,20 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^3.0.0
 
+  # 🔹 Geração automática de ícones (Android e iOS)
+  flutter_launcher_icons: ^0.13.1
+
 flutter:
   uses-material-design: true
-  # assets:
-  #   - assets/images/
+
+  # 🔹 Diretórios de assets (ícones e imagens gerais)
+  assets:
+    - assets/icon/app_icon.png
+    - assets/images/
+
+# 🔹 Configuração do flutter_launcher_icons
+flutter_icons:
+  android: true
+  ios: true
+  image_path: "assets/icon/app_icon.png"
+  remove_alpha_ios: true

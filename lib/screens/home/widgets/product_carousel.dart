@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:aogosto_carnes_flutter/models/product.dart';
-import 'package:aogosto_carnes_flutter/widgets/product_card.dart';
-import 'package:aogosto_carnes_flutter/state/cart_controller.dart';
-import 'package:aogosto_carnes_flutter/utils/app_colors.dart';
-import 'package:aogosto_carnes_flutter/screens/cart/cart_drawer.dart';
-import 'package:aogosto_carnes_flutter/screens/product/product_details_page.dart';
+import 'package:ao_gosto_app/models/product.dart';
+import 'package:ao_gosto_app/widgets/product_card.dart';
+import 'package:ao_gosto_app/state/cart_controller.dart';
+import 'package:ao_gosto_app/utils/app_colors.dart';
+import 'package:ao_gosto_app/screens/cart/cart_drawer.dart';
+import 'package:ao_gosto_app/screens/product/product_details_page.dart';
 
 class ProductCarousel extends StatelessWidget {
   final Future<List<Product>> productsFuture;

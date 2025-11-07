@@ -1,4 +1,4 @@
-import 'package:aogosto_carnes_flutter/models/product.dart';
+import 'package:ao_gosto_app/models/product.dart';
 
 class CartItem {
   final Product product;

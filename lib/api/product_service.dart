@@ -2,7 +2,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:aogosto_carnes_flutter/models/product.dart';
+import 'package:ao_gosto_app/models/product.dart';
 
 class ProductService {
   final String _baseUrl = 'https://aogosto.com.br/delivery/wp-json/wc/v3';

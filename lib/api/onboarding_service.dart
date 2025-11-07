@@ -1,3 +1,4 @@
+// api/onboarding_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -118,30 +119,35 @@ class OnboardingService {
   // ======================================================
   // PERSISTE PERFIL LOCALMENTE
   // ======================================================
-  Future<void> persistProfile({
-    required int id,
-    required String name,
-    required String phone,
-    CustomerAddress? a, // 👈 permite salvar também o endereço
-  }) async {
-    final sp = await SharedPreferences.getInstance();
+ // api/onboarding_service.dart
+Future<void> persistProfile({
+  required int id,
+  required String name,
+  required String phone,
+  CustomerAddress? a,
+  double? deliveryFee, // ← NOVO!
+}) async {
+  final sp = await SharedPreferences.getInstance();
+  await sp
+    ..setInt('customer_id', id)
+    ..setString('customer_name', name)
+    ..setString('customer_phone', phone);
 
-    await sp.setInt('customer_id', id);
-    await sp.setString('customer_name', name);
-    await sp.setString('customer_phone', phone);
-
-    // Armazena também os campos de endereço (se existirem)
-    if (a != null) {
-      await sp.setString('address_street', a.street ?? '');
-      await sp.setString('address_number', a.number ?? '');
-      await sp.setString('address_complement', a.complement ?? '');
-      await sp.setString('address_neighborhood', a.neighborhood ?? '');
-      await sp.setString('address_city', a.city ?? '');
-      await sp.setString('address_state', a.state ?? '');
-      await sp.setString('address_cep', a.cep ?? '');
-    }
+  if (a != null) {
+    await sp
+      ..setString('address_street', a.street)
+      ..setString('address_number', a.number)
+      ..setString('address_complement', a.complement ?? '')
+      ..setString('address_neighborhood', a.neighborhood)
+      ..setString('address_city', a.city)
+      ..setString('address_state', a.state)
+      ..setString('address_cep', a.cep);
   }
 
+  if (deliveryFee != null) {
+    await sp.setDouble('delivery_fee', deliveryFee);
+  }
+}
   // ======================================================
   // VERIFICA SE O PERFIL EXISTE
   // ======================================================

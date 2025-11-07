@@ -4,10 +4,10 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
-import 'package:aogosto_carnes_flutter/state/cart_controller.dart';
-import 'package:aogosto_carnes_flutter/api/shipping_service.dart';
-import 'package:aogosto_carnes_flutter/api/onboarding_service.dart';
-import 'package:aogosto_carnes_flutter/api/order_service.dart';
+import 'package:ao_gosto_app/state/cart_controller.dart';
+import 'package:ao_gosto_app/api/shipping_service.dart';
+import 'package:ao_gosto_app/api/onboarding_service.dart';
+import 'package:ao_gosto_app/api/order_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum DeliveryType { delivery, pickup }
