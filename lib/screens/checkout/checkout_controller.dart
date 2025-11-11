@@ -1,59 +1,73 @@
 // lib/screens/checkout/checkout_controller.dart
-
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
-import 'package:intl/intl.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ao_gosto_app/state/cart_controller.dart';
 import 'package:ao_gosto_app/api/shipping_service.dart';
 import 'package:ao_gosto_app/api/onboarding_service.dart';
 import 'package:ao_gosto_app/api/order_service.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+class TimeSlot {
+  final String id;
+  final String label;
+  final bool available;
+  const TimeSlot({required this.id, required this.label, this.available = true});
+}
 
 enum DeliveryType { delivery, pickup }
 
 class Address {
   final String id;
-  final String street;
-  final String number;
-  final String? complement;
-  final String neighborhood;
-  final String city;
-  final String state;
-  final String cep;
-
+  final String street, number, complement, neighborhood, city, state, cep;
   const Address({
     required this.id,
     required this.street,
     required this.number,
-    this.complement,
+    this.complement = '',
     required this.neighborhood,
     required this.city,
     required this.state,
     required this.cep,
   });
+  String get short => '$street, $number';
 
-  String get shortLine => '$street, $number';
+  Address copyWith({
+    String? id,
+    String? street,
+    String? number,
+    String? complement,
+    String? neighborhood,
+    String? city,
+    String? state,
+    String? cep,
+  }) {
+    return Address(
+      id: id ?? this.id,
+      street: street ?? this.street,
+      number: number ?? this.number,
+      complement: complement ?? this.complement,
+      neighborhood: neighborhood ?? this.neighborhood,
+      city: city ?? this.city,
+      state: state ?? this.state,
+      cep: cep ?? this.cep,
+    );
+  }
 }
 
-class PickupLocation {
-  final String key;
-  final String name;
-  final String address;
-
-  const PickupLocation({required this.key, required this.name, required this.address});
-}
-
-class PaymentOption {
-  final String id;
-  final String name;
-  final String subtitle;
-  final bool disabled;
-  const PaymentOption({
-    required this.id,
-    required this.name,
-    required this.subtitle,
-    this.disabled = false,
+class StoreDecision {
+  final String storeFinal;
+  final String effectiveStore;
+  final String storeId;
+  final List<Map<String, dynamic>> paymentMethods;
+  final Map<String, String> paymentAccounts;
+  StoreDecision({
+    required this.storeFinal,
+    required this.effectiveStore,
+    required this.storeId,
+    required this.paymentMethods,
+    required this.paymentAccounts,
   });
 }
 
@@ -64,454 +78,359 @@ class Coupon {
 }
 
 class CheckoutController extends ChangeNotifier {
-  final ShippingService _shippingService;
+  final ShippingService _shipping = ShippingService();
+  final String _storeDecisionUrl = 'https://aogosto.com.br/delivery/wp-json/custom/v1/store-decision';
 
-  CheckoutController({ShippingService? shippingService})
-      : _shippingService = shippingService ?? ShippingService();
-
-  // -------- STATE PRINCIPAL --------
-  int currentStep = 1; // 1: onde/quando | 2: pagamento
+  // === STATE ===
+  int currentStep = 1;
   DeliveryType deliveryType = DeliveryType.delivery;
-
-  // Loading
-  bool isLoading = true;
-
-  // Perfil
-  OnboardingProfile? profile;
-  int? customerId;
-
-  // Contato
-  String userPhone = '';
-  bool isEditingPhone = false;
-
-  // Endereços e retirada
-  List<Address> addresses = [];
   String? selectedAddressId;
-  double deliveryFee = 0.0;
-
-  // Retirada em loja
-  final Map<String, PickupLocation> pickupLocations = const {
-    'barreiro': PickupLocation(
-      key: 'barreiro',
-      name: 'Unidade Barreiro',
-      address: 'Av. Sinfrônio Brochado, 612 - Barreiro, Belo Horizonte',
-    ),
-    'sagradaFamilia': PickupLocation(
-      key: 'sagradaFamilia',
-      name: 'Central Distribuição',
-      address: 'Av. Silviano Brandão, 685 - Sagrada Família',
-    ),
-    'sion': PickupLocation(
-      key: 'sion',
-      name: 'Unidade Sion',
-      address: 'R. Haití, 354 - Sion',
-    ),
-  };
-  String selectedPickupKey = 'barreiro';
-
-  // Observações
-  bool showNotes = false;
+  String selectedPickup = 'sion';
+  DateTime selectedDate = DateTime.now();
+  String? selectedTimeSlot;
+  String paymentMethod = 'pix';
   String orderNotes = '';
+  bool isSummaryExpanded = false;
+  bool isLoading = false;
+  bool isProcessing = false;
+  String? orderId;
+  String? pixCode;
+  DateTime? pixExpiresAt;
 
-  // Cupom
-  bool showCouponInput = false;
-  bool isApplyingCoupon = false;
+  // === CUPOM ===
+  Coupon? appliedCoupon;
   String couponCode = '';
   String? couponError;
-  Coupon? appliedCoupon;
+  bool showCouponInput = false;
+  bool isApplyingCoupon = false;
 
-  // Pagamento
-  String paymentMethod = 'pix'; // pix, money, card-on-delivery, voucher
+  // === TROCO ===
   bool needsChange = false;
   String changeForAmount = '';
 
-  // Tela sucesso
-  bool orderPlaced = false;
-  String? orderId;
+  // === DADOS ===
+  List<Address> addresses = [];
+  double deliveryFee = 0.0;
+  StoreDecision? storeDecision;
+  OnboardingProfile? profile;
 
-  // Intl
-  final NumberFormat currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
+  // === TELEFONE ===
+  String userPhone = '';
+  bool isEditingPhone = false;
 
-  // -------- CARRINHO --------
-  double get subtotal {
-    final items = CartController.instance.items;
-    return items.fold<double>(0.0, (acc, it) => acc + it.product.price * it.quantity);
-  }
+  // === PICKUP LOCATIONS ===
+  final Map<String, Map<String, String>> pickupLocations = {
+    'barreiro': {'name': 'Unidade Barreiro', 'address': 'Av. Sinfrônio Brochado, 612 - Barreiro'},
+    'sion': {'name': 'Unidade Sion', 'address': 'R. Haití, 354 - Sion'},
+    'central': {'name': 'Central Distribuição', 'address': 'Av. Silviano Brandão, 685 - Sagrada Família'},
+  };
 
-  double get discount => appliedCoupon?.discount ?? 0.0;
+  // === FERIADOS E FECHAMENTOS (NÃO PODEM SER const) ===
+  static final List<DateTime> holidays = [
+    DateTime(2025, 1, 1),
+    DateTime(2025, 3, 3),
+    DateTime(2025, 3, 4),
+    DateTime(2025, 3, 5),
+    DateTime(2025, 4, 18),
+    DateTime(2025, 4, 21),
+    DateTime(2025, 5, 1),
+    DateTime(2025, 6, 19),
+    DateTime(2025, 9, 7),
+    DateTime(2025, 10, 12),
+    DateTime(2025, 11, 2),
+    DateTime(2025, 11, 15),
+    DateTime(2025, 11, 20),
+    DateTime(2025, 12, 8),
+  ];
 
+  static final List<DateTime> closedDays = [
+    DateTime(2025, 12, 25),
+    DateTime(2026, 1, 1),
+  ];
+
+  // === COMPUTED ===
+  double get subtotal => CartController.instance.items.fold(0, (s, i) => s + i.product.price * i.quantity);
   double get total {
-    final fee = deliveryType == DeliveryType.delivery ? deliveryFee : 0.0;
-    final t = (subtotal + fee - discount);
-    return t < 0 ? 0.0 : t;
+    final base = subtotal + deliveryFee;
+    return appliedCoupon != null ? (base - appliedCoupon!.discount).clamp(0.0, double.infinity) : base;
   }
 
-  // -------- INÍCIO: carrega dados do onboarding (telefone + endereços) ------
-  Future<void> bootstrapFromOnboarding() async {
+  CheckoutController() {
+    _bootstrap();
+  }
+
+  // === BOOTSTRAP SEGURO ===
+  Future<void> _bootstrap() async {
+    isLoading = true;
     try {
       final sp = await SharedPreferences.getInstance();
-      customerId = sp.getInt('customer_id');
-
-      if (customerId != null) {
+      final id = sp.getInt('customer_id');
+      if (id != null) {
         profile = await OnboardingService().getProfile();
-        userPhone = profile?.phone ?? userPhone;
-
-        final addrs = <Address>[];
-        if (profile?.address != null) {
-          final a = profile!.address!;
-          addrs.add(Address(
-            id: 'addr1',
-            street: a.street ?? 'Rua',
-            number: a.number ?? '0',
-            complement: a.complement,
-            neighborhood: a.neighborhood ?? '',
-            city: a.city ?? '',
-            state: a.state ?? '',
-            cep: a.cep ?? '',
-          ));
-        }
-        addresses = addrs;
+        addresses = _buildAddressesFromProfile();
         selectedAddressId = addresses.isNotEmpty ? addresses.first.id : null;
-
-        if (deliveryType == DeliveryType.delivery && addresses.isNotEmpty) {
-          await refreshShippingFee();
-        }
+        userPhone = sp.getString('user_phone') ?? '';
+        await _refreshFee();
       }
-    } catch (_) {
-      // fallback silencioso
+    } catch (e) {
+      if (kDebugMode) print('Bootstrap error: $e');
     } finally {
       isLoading = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) => notifyListeners());
     }
-    notifyListeners();
   }
 
-  // -------- AÇÕES / MUTATIONS --------
-  void setDeliveryType(DeliveryType type) {
-    deliveryType = type;
-    notifyListeners();
+  List<Address> _buildAddressesFromProfile() {
+    if (profile?.address == null) return [];
+    final a = profile!.address!;
+    return [
+      Address(
+        id: '1',
+        street: a.street ?? '',
+        number: a.number ?? '',
+        complement: a.complement ?? '',
+        neighborhood: a.neighborhood ?? '',
+        city: a.city ?? '',
+        state: a.state ?? '',
+        cep: a.cep ?? '',
+      ),
+    ];
+  }
+
+  // === ENDEREÇO ===
+  Future<void> addAddress(Address address) async {
+    final newAddr = address.copyWith(id: DateTime.now().millisecondsSinceEpoch.toString());
+    addresses.add(newAddr);
+    selectedAddressId = newAddr.id;
+    await _refreshFee();
+    _safeNotify();
   }
 
   void selectAddress(String id) {
     selectedAddressId = id;
+    _refreshFee();
     notifyListeners();
   }
 
-  void toggleSummary() {
-    // no momento, o resumo abre/fecha dentro da tela (a lógica ficará no widget)
-    notifyListeners();
-  }
-
-  void startEditPhone() {
-    isEditingPhone = true;
-    notifyListeners();
-  }
-
-  void cancelEditPhone(String originalPhone) {
-    isEditingPhone = false;
-    userPhone = originalPhone;
-    notifyListeners();
-  }
-
-  void savePhone() {
-    isEditingPhone = false;
-    notifyListeners();
-    // aqui você poderia persistir no backend também
-  }
-
-  void setPhone(String raw) {
-    userPhone = raw.replaceAll(RegExp(r'[^0-9]'), ''); // Remove máscara ao salvar
+  // === ENTREGA/RETIRADA ===
+  void setDeliveryType(DeliveryType type) {
+    deliveryType = type;
+    if (type == DeliveryType.pickup) deliveryFee = 0;
+    _refreshFee();
     notifyListeners();
   }
 
   void selectPickup(String key) {
-    selectedPickupKey = key;
-    notifyListeners();
+    selectedPickup = key;
+    _safeNotify();
   }
 
-  void toggleNotes() {
-    showNotes = true;
-    notifyListeners();
+  // === FRETE ===
+  Future<void> _refreshFee() async {
+    if (deliveryType != DeliveryType.delivery || selectedAddressId == null) {
+      deliveryFee = 0;
+      _safeNotify();
+      return;
+    }
+    try {
+      final addr = addresses.firstWhere((a) => a.id == selectedAddressId);
+      deliveryFee = await _shipping.fetchDeliveryFee(addr.cep);
+    } catch (e) {
+      deliveryFee = 0;
+    }
+    _safeNotify();
   }
 
-  void setOrderNotes(String notes) {
-    orderNotes = notes;
-    notifyListeners();
+  // === NAVEGAÇÃO ===
+  Future<void> nextStep() async {
+    if (currentStep == 1) {
+      await callStoreDecision();
+      currentStep = 2;
+    } else {
+      await placeOrder();
+    }
+    _safeNotify();
   }
 
-  void showCoupon() {
-    showCouponInput = true;
-    notifyListeners();
+  void prevStep() {
+    if (currentStep > 1) currentStep--;
+    _safeNotify();
   }
 
-  Future<void> applyCoupon() async {
+  // === STORE DECISION ===
+  Future<void> callStoreDecision() async {
+    final addr = addresses.firstWhere(
+      (a) => a.id == selectedAddressId,
+      orElse: () => addresses.first,
+    );
+    final body = {
+      'cep': addr.cep,
+      'shipping_method': deliveryType == DeliveryType.delivery ? 'delivery' : 'pickup',
+      'pickup_store': deliveryType == DeliveryType.pickup ? selectedPickup : '',
+      'delivery_date': selectedDate.toIso8601String().split('T').first,
+    };
+    try {
+      final resp = await http.post(
+        Uri.parse(_storeDecisionUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(body),
+      );
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body);
+        storeDecision = StoreDecision(
+          storeFinal: data['store_final'],
+          effectiveStore: data['effective_store_final'],
+          storeId: data['pickup_store_id'],
+          paymentMethods: List<Map<String, dynamic>>.from(data['payment_methods']),
+          paymentAccounts: Map<String, String>.from(data['payment_accounts']),
+        );
+      }
+    } catch (e) {
+      storeDecision = StoreDecision(
+        storeFinal: 'Central',
+        effectiveStore: 'Central',
+        storeId: '86261',
+        paymentMethods: [],
+        paymentAccounts: {},
+      );
+    }
+    _safeNotify();
+  }
+
+  // === VALIDAÇÃO ===
+  bool get canProceedToPayment {
+    if (userPhone.isEmpty) return false;
+    return deliveryType == DeliveryType.delivery ? selectedAddressId != null : selectedPickup.isNotEmpty;
+  }
+
+  void goToPayment() {
+    if (canProceedToPayment) nextStep();
+  }
+
+  // === CUPOM ===
+  Future<void> applyCoupon(String code) async {
     isApplyingCoupon = true;
     couponError = null;
-    notifyListeners();
+    _safeNotify();
 
     try {
-      final coupon = await _fetchCoupon(couponCode.trim());
-      if (coupon != null) {
-        double discountValue = 0.0;
-        final amount = double.parse(coupon['amount']);
-        if (coupon['discount_type'] == 'percent') {
-          discountValue = subtotal * (amount / 100);
-        } else if (coupon['discount_type'] == 'fixed_cart') {
-          discountValue = amount;
-        } // Adicione outros tipos se necessário
+      final url = 'https://aogosto.com.br/delivery/wp-json/wc/v3/coupons?code=${code.trim()}';
+      final auth = base64Encode(utf8.encode('ck_5156e2360f442f2585c8c9a761ef084b710e811f:cs_c62f9d8f6c08a1d14917e2a6db5dccce2815de8c'));
+      final resp = await http.get(Uri.parse(url), headers: {'Authorization': 'Basic $auth'});
 
-        appliedCoupon = Coupon(code: couponCode.trim(), discount: discountValue);
-        showCouponInput = false;
-        couponCode = '';
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body);
+        if (data.isNotEmpty && data[0]['status'] == 'publish') {
+          final coupon = data[0];
+          final amount = double.tryParse(coupon['amount'].toString()) ?? 0.0;
+          final discount = coupon['discount_type'] == 'percent' ? subtotal * (amount / 100) : amount;
+          appliedCoupon = Coupon(code: code.trim(), discount: discount);
+          showCouponInput = false;
+        } else {
+          couponError = data.isEmpty ? 'Cupom não encontrado.' : 'Cupom inativo.';
+        }
       } else {
-        couponError = 'Cupom inválido ou expirado.';
+        couponError = 'Erro ao validar cupom.';
       }
     } catch (e) {
       couponError = 'Erro ao validar cupom.';
     }
 
     isApplyingCoupon = false;
-    notifyListeners();
-  }
-
-  Future<Map<String, dynamic>?> _fetchCoupon(String code) async {
-    final url = 'https://aogosto.com.br/delivery/wp-json/wc/v3/coupons?code=$code';
-    final auth = base64Encode(utf8.encode('ck_5156e2360f442f2585c8c9a761ef084b710e811f:cs_c62f9d8f6c08a1d14917e2a6db5dccce2815de8c'));
-    final response = await http.get(
-      Uri.parse(url),
-      headers: {
-        'Accept': 'application/json',
-        'Authorization': 'Basic $auth',
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body) as List<dynamic>;
-      if (data.isNotEmpty) {
-        final coupon = data.first as Map<String, dynamic>;
-        // Verificar validade
-        if (coupon['status'] == 'publish' && (coupon['date_expires'] == null || DateTime.parse(coupon['date_expires']).isAfter(DateTime.now()))) {
-          return coupon;
-        }
-      }
-    }
-    return null;
+    _safeNotify();
   }
 
   void removeCoupon() {
     appliedCoupon = null;
     couponCode = '';
     couponError = null;
-    notifyListeners();
+    _safeNotify();
   }
 
-  void setPaymentMethod(String id) {
-    paymentMethod = id;
-    notifyListeners();
+  // === TELEFONE ===
+  void startEditPhone() => isEditingPhone = true;
+  void cancelEditPhone() => isEditingPhone = false;
+
+  Future<void> savePhone(String phone) async {
+    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+    userPhone = cleanPhone;
+    isEditingPhone = false;
+    final sp = await SharedPreferences.getInstance();
+    await sp.setString('user_phone', cleanPhone);
+    _safeNotify();
   }
 
-  void toggleNeedsChange(bool v) {
-    needsChange = v;
-    if (!v) changeForAmount = '';
-    notifyListeners();
-  }
-
-  void setChangeAmount(String v) {
-    changeForAmount = v;
-    notifyListeners();
-  }
-
-  Future<void> nextStep() async {
-    if (currentStep == 1) {
-      currentStep = 2;
-      notifyListeners();
-    } else {
-      await placeOrder();
-    }
-  }
-
-  void prevStep() {
-    if (currentStep > 1) {
-      currentStep--;
-      notifyListeners();
-    }
-  }
-
-  Future<void> refreshShippingFee() async {
-    if (deliveryType != DeliveryType.delivery) {
-      deliveryFee = 0.0;
-      notifyListeners();
-      return;
-    }
-    final addr = addresses.firstWhere(
-      (a) => a.id == selectedAddressId,
-      orElse: () => addresses.isNotEmpty ? addresses.first : const Address(
-        id: 'none',
-        street: '',
-        number: '',
-        neighborhood: '',
-        city: '',
-        state: '',
-        cep: '',
-      ),
-    );
-    if (addr.cep.isEmpty) {
-      deliveryFee = 0.0;
-      notifyListeners();
-      return;
-    }
-    final v = await _shippingService.fetchDeliveryFee(addr.cep);
-    deliveryFee = v;
-    notifyListeners();
-  }
-
+  // === PEDIDO ===
   Future<void> placeOrder() async {
-    if (profile == null) return;
+    isProcessing = true;
+    _safeNotify();
 
-    final selectedAddress = addresses.firstWhere(
-      (a) => a.id == selectedAddressId,
-      orElse: () => const Address(
-        id: 'none',
-        street: '',
-        number: '',
-        neighborhood: '',
-        city: '',
-        state: '',
-        cep: '',
-      ),
-    );
+    await Future.delayed(const Duration(milliseconds: 1500));
+    orderId = '${DateTime.now().millisecondsSinceEpoch}'.substring(6);
+    pixCode = '00020126580014br.gov.bcb.pix2536e8b4af-e461-4a8c-9a4a-1f2b6e5e8e6f5204000053039865802BR5913Joao da Silva6009SAO PAULO62070503***6304E5B3';
+    pixExpiresAt = DateTime.now().add(const Duration(minutes: 15));
 
-    Map<String, dynamic> billing = {
-      "first_name": profile!.name ?? '',
-      "last_name": "",
-      "company": "",
-      "address_1": "${selectedAddress.street}, ${selectedAddress.number}",
-      "address_2": selectedAddress.complement ?? '',
-      "city": selectedAddress.city,
-      "state": selectedAddress.state,
-      "postcode": selectedAddress.cep,
-      "country": "BR",
-      "email": "", // Adicione se tiver email no profile
-      "phone": userPhone,
-    };
-
-    Map<String, dynamic> shipping = Map.from(billing);
-
-    if (deliveryType == DeliveryType.pickup) {
-      final loc = pickupLocations[selectedPickupKey]!;
-      shipping = {
-        "first_name": profile!.name ?? '',
-        "last_name": "",
-        "company": loc.name,
-        "address_1": loc.address,
-        "address_2": "",
-        "city": "Belo Horizonte",
-        "state": "MG",
-        "postcode": "",
-        "country": "BR",
-      };
-    }
-
-    final lineItems = CartController.instance.items.map((it) => {
-          "product_id": it.product.id,
-          "quantity": it.quantity,
-          // Se houver variações: "variation_id": it.product.variationId,
-        }).toList();
-
-    final shippingLines = deliveryType == DeliveryType.delivery
-        ? [
-            {
-              "method_id": "flat_rate", // Ajuste conforme configurado no Woo
-              "method_title": "Entrega Padrão",
-              "total": deliveryFee.toStringAsFixed(2),
-            }
-          ]
-        : [];
-
-    final couponLines = appliedCoupon != null
-        ? [
-            {"code": appliedCoupon!.code}
-          ]
-        : [];
-
-    final metaData = <Map<String, dynamic>>[
-      if (deliveryType == DeliveryType.pickup)
-        {"key": "_pickup_location", "value": selectedPickupKey},
-      if (needsChange && changeForAmount.isNotEmpty)
-        {"key": "_change_for", "value": changeForAmount},
-    ];
-
-    String paymentTitle = '';
-    switch (paymentMethod) {
-      case 'pix':
-        paymentTitle = 'PIX';
-        break;
-      case 'money':
-        paymentTitle = 'Dinheiro na Entrega';
-        break;
-      case 'card-on-delivery':
-        paymentTitle = 'Cartão na Entrega';
-        break;
-      case 'voucher':
-        paymentTitle = 'Vale Alimentação';
-        break;
-    }
-
-    final orderData = {
-      "customer_id": customerId ?? 0,
-      "payment_method": paymentMethod,
-      "payment_method_title": paymentTitle,
-      "set_paid": false, // Para PIX, ajuste se o plugin confirma via webhook
-      "billing": billing,
-      "shipping": shipping,
-      "line_items": lineItems,
-      "shipping_lines": shippingLines,
-      "coupon_lines": couponLines,
-      "customer_note": orderNotes,
-      "meta_data": metaData,
-    };
-
-    try {
-      final order = await OrderService().createOrder(orderData);
-      orderId = order['id'].toString();
-      CartController.instance.clear();
-      orderPlaced = true;
-    } catch (e) {
-      // TODO: Mostrar erro ao usuário (ex.: Snackbar)
-      if (kDebugMode) {
-        print('Erro ao criar pedido: $e');
-      }
-    }
-    notifyListeners();
+    isProcessing = false;
+    _safeNotify();
   }
 
-  // -------- MÉTODOS ADICIONAIS --------
-  String formatPhone(String rawPhone) {
-    if (rawPhone.length == 11 && RegExp(r'^\d{11}$').hasMatch(rawPhone)) {
-      return '(${rawPhone.substring(0, 2)}) ${rawPhone.substring(2, 7)}-${rawPhone.substring(7)}';
+  // === UTILIDADES ===
+  String formatPhone(String phone) {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 11) return '(${digits.substring(0, 2)}) ${digits.substring(2, 7)}-${digits.substring(7)}';
+    if (digits.length == 10) return '(${digits.substring(0, 2)}) ${digits.substring(2, 6)}-${digits.substring(6)}';
+    return phone;
+  }
+
+  // === SLOTS COM REGRAS (CORRIGIDO) ===
+  List<TimeSlot> getTimeSlots() {
+    final today = DateTime.now();
+    final isToday = this.selectedDate.year == today.year &&
+        this.selectedDate.month == today.month &&
+        this.selectedDate.day == today.day;
+    final isSunday = this.selectedDate.weekday == DateTime.sunday;
+    final isHoliday = holidays.any((h) =>
+        h.year == this.selectedDate.year &&
+        h.month == this.selectedDate.month &&
+        h.day == this.selectedDate.day);
+    final isClosed = closedDays.any((c) =>
+        c.year == this.selectedDate.year &&
+        c.month == this.selectedDate.month &&
+        c.day == this.selectedDate.day);
+
+    if (isClosed) return [];
+
+    List<String> slots;
+
+    if (this.deliveryType == DeliveryType.pickup || isSunday || isHoliday) {
+  slots = ['09:00 - 12:00'];
+} else {
+  slots = ['09:00 - 12:00', '12:00 - 15:00', '15:00 - 18:00', '18:00 - 20:00']; 
+}
+
+    if (isToday) {
+      final hour = today.hour;
+      slots = slots.where((s) {
+        final endHour = int.tryParse(s.split(' - ')[1].split(':')[0]) ?? 0;
+        return endHour > hour;
+      }).toList();
     }
-    return rawPhone;
+
+    return slots.map((label) => TimeSlot(id: label, label: label)).toList();
   }
 
-  Future<void> addOrUpdateAddress(Address address) async {
-    // Simulação de chamada ao backend (substitua pelo endpoint real)
-    final newAddress = Address(
-      id: DateTime.now().millisecondsSinceEpoch.toString(), // Temporário, substitua por ID do backend
-      street: address.street,
-      number: address.number,
-      complement: address.complement,
-      neighborhood: address.neighborhood,
-      city: address.city,
-      state: address.state,
-      cep: address.cep,
-    );
-    addresses.add(newAddress);
-    selectedAddressId = newAddress.id;
-    await refreshShippingFee();
-    notifyListeners();
+  // === MÉTODO ESTÁTICO PARA VERIFICAR DATAS INDISPONÍVEIS ===
+  static bool isDateUnavailable(DateTime date) {
+    return holidays.any((d) =>
+            d.year == date.year && d.month == date.month && d.day == date.day) ||
+        closedDays.any((d) =>
+            d.year == date.year && d.month == date.month && d.day == date.day);
   }
 
-  void editAddress(String id) {
-    // Lógica para abrir um diálogo de edição (implementada no widget)
-    notifyListeners();
+  // === NOTIFY SEGURO ===
+  void _safeNotify() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (hasListeners) notifyListeners();
+    });
   }
 }
