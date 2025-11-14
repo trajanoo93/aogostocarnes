@@ -1,10 +1,10 @@
 // screens/main_screen.dart
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:ao_gosto_app/state/cart_controller.dart';
 import 'package:ao_gosto_app/screens/cart/cart_drawer.dart';
 import 'package:ao_gosto_app/screens/home/home_screen.dart';
+import 'package:ao_gosto_app/screens/orders/orders_screen.dart'; // ADICIONADO
 import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'package:ao_gosto_app/screens/onboarding/onboarding_flow.dart';
 
@@ -18,17 +18,18 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
-  static const List<Widget> _pages = <Widget>[
-    HomeScreen(),
-    Center(child: Text('Categorias')),
-    Center(child: Text('Pedidos')),
+  // PÁGINAS ATUALIZADAS
+  static final List<Widget> _pages = <Widget>[
+    const HomeScreen(),
+    const Center(child: Text('Categorias')),
+    const OrdersScreen(), // NAVEGAÇÃO FUNCIONAL
   ];
 
   @override
   void initState() {
     super.initState();
 
-    // 👉 dispara o onboarding automaticamente na 1ª vez
+    // Onboarding automático
     WidgetsBinding.instance.addPostFrameCallback((_) {
       OnboardingFlow.maybeStart(context);
     });
@@ -50,7 +51,7 @@ class _MainScreenState extends State<MainScreen> {
     return Scaffold(
       body: _pages.elementAt(_selectedIndex),
 
-      // 🟠 botão flutuante discreto para testes (abre o formulário)
+      // FAB de debug
       floatingActionButton: kDebugMode
           ? FloatingActionButton.small(
               heroTag: 'fab-onboarding',
@@ -74,7 +75,7 @@ class _MainScreenState extends State<MainScreen> {
                 top: BorderSide(color: Color(0xFFD1D5DB), width: 0.6),
               ),
               boxShadow: [
-                BoxShadow(color: Color(0x0D000000), blurRadius: 6, offset: Offset(0, -2))
+                BoxShadow(color: Color(0x0D000000), blurRadius: 6, offset: Offset(0, -2)),
               ],
             ),
             child: SafeArea(

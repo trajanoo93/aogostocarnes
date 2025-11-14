@@ -1,4 +1,3 @@
-// lib/screens/checkout/thank_you_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -14,7 +13,10 @@ class ThankYouScreen extends StatelessWidget {
     final c = context.watch<CheckoutController>();
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
 
-    final address = c.addresses.firstWhere((a) => a.id == c.selectedAddressId, orElse: () => c.addresses.first);
+    final address = c.addresses.firstWhere(
+      (a) => a.id == c.selectedAddressId,
+      orElse: () => c.addresses.first,
+    );
     final pickup = c.pickupLocations[c.selectedPickup];
 
     final whatsappMessage = Uri.encodeComponent(
@@ -23,23 +25,42 @@ class ThankYouScreen extends StatelessWidget {
     final whatsappUrl = 'https://wa.me/553134613297?text=$whatsappMessage';
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF9FAFB),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // === ÍCONE DE SUCESSO ===
-              const Icon(Icons.check_circle_rounded, size: 90, color: Colors.green),
+              const Center(
+                child: Icon(
+                  Icons.check_circle_rounded,
+                  size: 90,
+                  color: Colors.green,
+                ),
+              ),
               const SizedBox(height: 16),
 
               // === TÍTULO + NÚMERO DO PEDIDO ===
-              Text('Pedido #${c.orderId}', style: const TextStyle(fontSize: 30, fontWeight: FontWeight.w900)),
+              Center(
+                child: Text(
+                  'Pedido #${c.orderId}',
+                  style: const TextStyle(
+                    fontSize: 30,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
               const SizedBox(height: 8),
-              const Text(
-                'Seu pedido foi realizado com sucesso. Estamos preparando tudo para que sua experiência seja incrível!',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Color(0xFF71717A), fontSize: 16),
+              const Center(
+                child: Text(
+                  'Seu pedido foi realizado com sucesso. Estamos preparando tudo para que sua experiência seja incrível!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xFF71717A),
+                    fontSize: 16,
+                  ),
+                ),
               ),
               const SizedBox(height: 24),
 
@@ -50,9 +71,17 @@ class ThankYouScreen extends StatelessWidget {
                 child: Column(
                   children: [
                     _SummaryRow('Subtotal', currency.format(c.subtotal)),
-                    _SummaryRow('Taxa de Entrega', currency.format(c.deliveryType == DeliveryType.delivery ? c.deliveryFee : 0.0)),
+                    _SummaryRow(
+                      'Taxa de Entrega',
+                      currency.format(c.deliveryType == DeliveryType.delivery ? c.deliveryFee : 0.0),
+                    ),
                     const Divider(height: 26),
-                    _SummaryRow('Total', currency.format(c.total), bold: true, big: true),
+                    _SummaryRow(
+                      'Total',
+                      currency.format(c.total),
+                      bold: true,
+                      big: true,
+                    ),
                   ],
                 ),
               ),
@@ -68,7 +97,10 @@ class ThankYouScreen extends StatelessWidget {
                   children: [
                     Text(
                       c.deliveryType == DeliveryType.delivery ? 'Entrega' : 'Retirada',
-                      style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 20,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     Container(
@@ -76,7 +108,10 @@ class ThankYouScreen extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: const Color(0xFFEFFAF1),
                         borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFF16A34A), width: 1),
+                        border: Border.all(
+                          color: const Color(0xFF16A34A),
+                          width: 1,
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -99,7 +134,10 @@ class ThankYouScreen extends StatelessWidget {
                               padding: EdgeInsets.only(top: 8),
                               child: Text(
                                 'Por favor, apresente o número do seu pedido ao chegar.',
-                                style: TextStyle(fontSize: 12, color: Color(0xFF71717A)),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF71717A),
+                                ),
                               ),
                             ),
                         ],
@@ -121,9 +159,19 @@ class ThankYouScreen extends StatelessWidget {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.note_alt_outlined, color: Color(0xFF71717A), size: 24),
+                          Icon(
+                            Icons.note_alt_outlined,
+                            color: Color(0xFF71717A),
+                            size: 24,
+                          ),
                           SizedBox(width: 12),
-                          Text('Observações', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+                          Text(
+                            'Observações',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 20,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 12),
@@ -136,14 +184,18 @@ class ThankYouScreen extends StatelessWidget {
                         ),
                         child: Text(
                           '"${c.orderNotes}"',
-                          style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 15),
+                          style: const TextStyle(
+                            fontStyle: FontStyle.italic,
+                            fontSize: 15,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
 
-              const Spacer(),
+              // === ESPAÇAMENTO ANTES DOS BOTÕES ===
+              const SizedBox(height: 32),
 
               // === BOTÕES DE AÇÃO ===
               Column(
@@ -153,12 +205,20 @@ class ThankYouScreen extends StatelessWidget {
                     child: ElevatedButton.icon(
                       onPressed: () => launchUrl(Uri.parse(whatsappUrl)),
                       icon: const Icon(Icons.chat, color: Colors.white),
-                      label: const Text('Falar no WhatsApp', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                      label: const Text(
+                        'Falar no WhatsApp',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                        ),
+                      ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.green,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 18),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
                     ),
                   ),
@@ -166,18 +226,31 @@ class ThankYouScreen extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+                      onPressed: () {
+                        Navigator.of(context).popUntil((route) => route.isFirst);
+                      },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.symmetric(vertical: 18),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
-                      child: const Text('Voltar para o Início', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
+                      child: const Text(
+                        'Voltar para o Início',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          fontSize: 18,
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
+
+              // === ESPAÇO FINAL PARA SCROLL SUAVE ===
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -186,6 +259,7 @@ class ThankYouScreen extends StatelessWidget {
   }
 }
 
+// === WIDGET AUXILIAR: LINHA DO RESUMO ===
 class _SummaryRow extends StatelessWidget {
   final String label, value;
   final bool bold, big;
@@ -197,18 +271,34 @@ class _SummaryRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(color: Color(0xFF71717A), fontSize: 16)),
+          Text(
+            label,
+            style: const TextStyle(color: Color(0xFF71717A), fontSize: 16),
+          ),
           const Spacer(),
-          Text(value, style: TextStyle(fontWeight: bold ? FontWeight.w900 : FontWeight.w600, fontSize: big ? 20 : 16)),
+          Text(
+            value,
+            style: TextStyle(
+              fontWeight: bold ? FontWeight.w900 : FontWeight.w600,
+              fontSize: big ? 20 : 16,
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
+// === DECORAÇÃO DOS CARDS ===
 BoxDecoration _cardDeco() => BoxDecoration(
       color: Colors.white,
       border: Border.all(color: const Color(0xFFE5E7EB)),
       borderRadius: BorderRadius.circular(20),
-      boxShadow: const [BoxShadow(color: Color(0x10000000), blurRadius: 10, offset: Offset(0, 2))],
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x10000000),
+          blurRadius: 10,
+          offset: Offset(0, 2),
+        )
+      ],
     );

@@ -333,9 +333,9 @@ class _DeliveryTypeCard extends StatelessWidget {
           const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(child: _DeliveryChip(label: 'Receber em Casa', emoji: 'house', active: c.deliveryType == DeliveryType.delivery, onTap: () => c.setDeliveryType(DeliveryType.delivery))),
+              Expanded(child: _DeliveryChip(label: 'Receber em Casa', emoji: '🛵', active: c.deliveryType == DeliveryType.delivery, onTap: () => c.setDeliveryType(DeliveryType.delivery))),
               const SizedBox(width: 16),
-              Expanded(child: _DeliveryChip(label: 'Retirar na Loja', emoji: 'store', active: c.deliveryType == DeliveryType.pickup, onTap: () => c.setDeliveryType(DeliveryType.pickup))),
+              Expanded(child: _DeliveryChip(label: 'Retirar na Loja', emoji: '🏠', active: c.deliveryType == DeliveryType.pickup, onTap: () => c.setDeliveryType(DeliveryType.pickup))),
             ],
           ),
         ],
@@ -607,49 +607,28 @@ class _ScheduleCard extends StatelessWidget {
           const SizedBox(height: 16),
 
           // === SLOTS (2 POR LINHA) ===
-          if (c.getTimeSlots().isNotEmpty)
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: c.getTimeSlots().map((slot) {
-                final active = c.selectedTimeSlot == slot.id;
-                return SizedBox(
-                  width: (MediaQuery.of(context).size.width - 80) / 2,
-                  child: InkWell(
-                    onTap: () {
-                      c.selectedTimeSlot = slot.id;
-                      c.notifyListeners();
-                    },
-                    borderRadius: BorderRadius.circular(16),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      decoration: BoxDecoration(
-                        color: active ? AppColors.primary : const Color(0xFFF9FAFB),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: active ? AppColors.primary : const Color(0xFFE5E7EB)),
-                      ),
-                      child: Center(
-                        child: Text(
-                          slot.label,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: active ? Colors.white : const Color(0xFF18181B),
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            )
-          else
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: const Color(0xFFFFF0F0), borderRadius: BorderRadius.circular(16)),
-              child: const Text('Loja fechada neste dia', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700)),
-            ),
-
+        // === SLOTS (2 POR LINHA) ===
+if (c.getTimeSlots().isNotEmpty)
+  TimeSlotGrid(
+    slots: c.getTimeSlots(),
+    selectedSlot: c.selectedTimeSlot,
+    onSlotSelected: (slot) {
+      c.selectedTimeSlot = slot;
+      c.notifyListeners();
+    },
+  )
+else
+  Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: const Color(0xFFFFF0F0),
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: const Text(
+      'Loja fechada neste dia',
+      style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700),
+    ),
+  ),
           // === RESUMO ===
           if (c.selectedTimeSlot != null)
             Container(

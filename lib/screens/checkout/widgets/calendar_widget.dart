@@ -1,8 +1,7 @@
 // lib/screens/checkout/widgets/calendar_widget.dart
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
-import 'package:ao_gosto_app/screens/checkout/checkout_controller.dart'; // IMPORTANTE
+import 'package:ao_gosto_app/screens/checkout/checkout_controller.dart'; // Para isDateUnavailable
 
 class CalendarWidget extends StatefulWidget {
   final DateTime selectedDate;
@@ -49,21 +48,31 @@ class _CalendarWidgetState extends State<CalendarWidget> {
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
-          // Cabeçalho do mês
+          // === CABEÇALHO DO MÊS ===
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              IconButton(onPressed: _prevMonth, icon: const Icon(Icons.chevron_left)),
+              IconButton(
+                onPressed: _prevMonth,
+                icon: const Icon(Icons.chevron_left, size: 24),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
               Text(
                 '${_monthName(displayMonth.month)} ${displayMonth.year}',
                 style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
               ),
-              IconButton(onPressed: _nextMonth, icon: const Icon(Icons.chevron_right)),
+              IconButton(
+                onPressed: _nextMonth,
+                icon: const Icon(Icons.chevron_right, size: 24),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
             ],
           ),
           const SizedBox(height: 12),
 
-          // Dias da semana
+          // === DIAS DA SEMANA ===
           Row(
             children: ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
                 .map((d) => Expanded(
@@ -78,7 +87,7 @@ class _CalendarWidgetState extends State<CalendarWidget> {
           ),
           const SizedBox(height: 8),
 
-          // Grid de dias
+          // === GRID DE DIAS ===
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),

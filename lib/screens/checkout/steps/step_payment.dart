@@ -68,12 +68,14 @@ class _QuickSummaryCard extends StatelessWidget {
   }
 }
 
-// === OPÇÕES DE PAGAMENTO ===
+// === OPÇÕES DE PAGAMENTO (2 GRUPOS ABERTOS) ===
 class _PaymentOptionsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.watch<CheckoutController>();
-    final isOnline = c.storeDecision?.paymentMethods.any((m) => m['id'] == 'pix') ?? true;
+
+    // PIX SEMPRE DISPONÍVEL (proxy externo)
+    const isOnline = true;
 
     return Container(
       decoration: _cardDeco(),
@@ -84,73 +86,73 @@ class _PaymentOptionsCard extends StatelessWidget {
           const Text('Como Pagar?', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 24)),
           const SizedBox(height: 16),
 
-          // === ONLINE ===
-          if (isOnline) ...[
-            const Text('Pagamentos Online', style: TextStyle(color: Color(0xFF71717A), fontWeight: FontWeight.w600, fontSize: 14)),
-            const SizedBox(height: 12),
-            _PaymentTile(
-              icon: Icons.qr_code_2,
-              title: 'PIX',
-              subtitle: 'Pagamento rápido e seguro',
-              active: c.paymentMethod == 'pix',
-              onTap: () => c.paymentMethod = 'pix',
+          // === PAGAMENTOS ONLINE ===
+          const Text('Pagamentos Online', style: TextStyle(color: Color(0xFF71717A), fontWeight: FontWeight.w600, fontSize: 14)),
+          const SizedBox(height: 12),
+          _PaymentTile(
+            icon: Icons.qr_code_2,
+            title: 'PIX',
+            subtitle: 'Pagamento rápido e seguro',
+            active: c.paymentMethod == 'pix',
+            onTap: () {
+              c.paymentMethod = 'pix';
+              c.notifyListeners();
+            },
+          ),
+          const SizedBox(height: 12),
+          _PaymentTile(
+            icon: Icons.credit_card,
+            title: 'Cartão de Crédito (Stripe)',
+            subtitle: 'Em breve!',
+            active: false,
+            onTap: () {},
+            disabled: true,
+            badge: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(color: const Color(0xFFFFF7ED), borderRadius: BorderRadius.circular(8)),
+              child: const Text('Em breve!', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w700)),
             ),
-            const SizedBox(height: 12),
-            _PaymentTile(
-              icon: Icons.credit_card,
-              title: 'Cartão de Crédito (Stripe)',
-              subtitle: 'Em breve!',
-              active: false,
-              onTap: () {}, // ADICIONADO: onTap obrigatório
-              disabled: true,
-            ),
-          ],
+          ),
 
           const SizedBox(height: 24),
 
-          // === NA ENTREGA ===
+          // === PAGAR NA ENTREGA (ABERTO) ===
           const Text('Pagar na Entrega', style: TextStyle(color: Color(0xFF71717A), fontWeight: FontWeight.w600, fontSize: 14)),
           const SizedBox(height: 12),
-          _ExpandablePaymentGroup(
-            icon: Icons.local_shipping_outlined,
-            title: 'Pagar na Entrega',
-            subtitle: 'Dinheiro, Cartão ou Vale',
-            isExpanded: ['money', 'card-on-delivery', 'voucher'].contains(c.paymentMethod),
-            onToggle: () {
-              if (!['money', 'card-on-delivery', 'voucher'].contains(c.paymentMethod)) {
-                c.paymentMethod = 'money';
-              }
+          _PaymentTile(
+            icon: Icons.payments,
+            title: 'Dinheiro',
+            active: c.paymentMethod == 'money',
+            onTap: () {
+              c.paymentMethod = 'money';
+              c.notifyListeners();
             },
-            children: [
-              _PaymentTile(
-                icon: Icons.payments,
-                title: 'Dinheiro',
-                active: c.paymentMethod == 'money',
-                onTap: () => c.paymentMethod = 'money',
-              ),
-              const SizedBox(height: 12),
-              _PaymentTile(
-                icon: Icons.credit_card,
-                title: 'Cartão na Entrega',
-                active: c.paymentMethod == 'card-on-delivery',
-                onTap: () => c.paymentMethod = 'card-on-delivery',
-              ),
-              const SizedBox(height: 12),
-              _PaymentTile(
-                icon: Icons.receipt_long,
-                title: 'Vale Alimentação',
-                active: c.paymentMethod == 'voucher',
-                onTap: () => c.paymentMethod = 'voucher',
-              ),
-            ],
+          ),
+          const SizedBox(height: 12),
+          _PaymentTile(
+            icon: Icons.credit_card,
+            title: 'Cartão na Entrega',
+            active: c.paymentMethod == 'card-on-delivery',
+            onTap: () {
+              c.paymentMethod = 'card-on-delivery';
+              c.notifyListeners();
+            },
+          ),
+          const SizedBox(height: 12),
+          _PaymentTile(
+            icon: Icons.receipt_long,
+            title: 'Vale Alimentação',
+            active: c.paymentMethod == 'voucher',
+            onTap: () {
+              c.paymentMethod = 'voucher';
+              c.notifyListeners();
+            },
           ),
         ],
       ),
     );
   }
 }
-
-
 
 // === TILE DE PAGAMENTO ===
 class _PaymentTile extends StatelessWidget {
@@ -231,107 +233,6 @@ class _PaymentTile extends StatelessWidget {
   }
 }
 
-// === GRUPO EXPANSÍVEL ===
-class _ExpandablePaymentGroup extends StatefulWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final bool isExpanded;
-  final VoidCallback onToggle;
-  final List<Widget> children;
-
-  const _ExpandablePaymentGroup({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.isExpanded,
-    required this.onToggle,
-    required this.children,
-  });
-
-  @override
-  State<_ExpandablePaymentGroup> createState() => _ExpandablePaymentGroupState();
-}
-
-class _ExpandablePaymentGroupState extends State<_ExpandablePaymentGroup> with SingleTickerProviderStateMixin {
-  late final AnimationController _anim;
-  late final Animation<double> _height;
-
-  @override
-  void initState() {
-    super.initState();
-    _anim = AnimationController(vsync: this, duration: const Duration(milliseconds: 300));
-    _height = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _anim, curve: Curves.easeInOut));
-    if (widget.isExpanded) _anim.forward();
-  }
-
-  @override
-  void didUpdateWidget(_ExpandablePaymentGroup old) {
-    super.didUpdateWidget(old);
-    if (widget.isExpanded != old.isExpanded) {
-      widget.isExpanded ? _anim.forward() : _anim.reverse();
-    }
-  }
-
-  @override
-  void dispose() {
-    _anim.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        InkWell(
-          onTap: widget.onToggle,
-          borderRadius: BorderRadius.circular(20),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: const Color(0xFFE5E7EB), width: 2),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                Icon(widget.icon, color: const Color(0xFFFA4815), size: 28),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(widget.title, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                      Text(widget.subtitle, style: const TextStyle(color: Color(0xFF71717A), fontSize: 14)),
-                    ],
-                  ),
-                ),
-                AnimatedRotation(
-                  turns: widget.isExpanded ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: const Icon(Icons.expand_more_rounded, size: 28, color: Color(0xFF71717A)),
-                ),
-              ],
-            ),
-          ),
-        ),
-        SizeTransition(
-          sizeFactor: _height,
-          child: Container(
-            margin: const EdgeInsets.only(top: 8),
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF9FAFB),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Column(children: widget.children),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 // === TROCO ===
 class _ChangeInfoCard extends StatefulWidget {
   @override
@@ -353,7 +254,10 @@ class _ChangeInfoCardState extends State<_ChangeInfoCard> {
             children: [
               Checkbox(
                 value: c.needsChange,
-                onChanged: (v) => setState(() => c.needsChange = v ?? false),
+                onChanged: (v) {
+                  c.needsChange = v ?? false;
+                  c.notifyListeners();
+                },
                 activeColor: AppColors.primary,
               ),
               const SizedBox(width: 12),

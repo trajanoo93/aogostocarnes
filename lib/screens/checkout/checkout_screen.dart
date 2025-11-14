@@ -44,7 +44,7 @@ class _CheckoutView extends StatelessWidget {
           body: Column(
             children: [
               // === HEADER ===
-              _buildHeader(c),
+              _buildHeader(context, c),
 
               // === BODY ===
               Expanded(
@@ -63,8 +63,8 @@ class _CheckoutView extends StatelessWidget {
     );
   }
 
-  // === HEADER ===
-  Widget _buildHeader(CheckoutController c) {
+  // === HEADER (COM CONTEXT) ===
+  Widget _buildHeader(BuildContext context, CheckoutController c) {
     return Container(
       color: const Color(0xFFF9FAFB),
       child: SafeArea(
@@ -76,8 +76,8 @@ class _CheckoutView extends StatelessWidget {
               Row(
                 children: [
                   IconButton(
-                    onPressed: c.prevStep,
-                    icon: const Icon(Icons.arrow_back_rounded, color: Color(0xFF3F3F46)),
+                    onPressed: () => Navigator.of(context).pop(), // FUNCIONA
+                    icon: const Icon(Icons.arrow_back_rounded),
                   ),
                   const SizedBox(width: 8),
                   const Text(
@@ -120,48 +120,62 @@ class _CheckoutView extends StatelessWidget {
           children: [
             Row(
               children: [
-                const Text('Total', style: TextStyle(color: Color(0xFF52525B), fontWeight: FontWeight.w600, fontSize: 18)),
+                const Text(
+                  'Total',
+                  style: TextStyle(color: Color(0xFF52525B), fontWeight: FontWeight.w600, fontSize: 18),
+                ),
                 const Spacer(),
-                Text(currency.format(c.total), style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                Text(
+                  currency.format(c.total),
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+                ),
               ],
             ),
             const SizedBox(height: 12),
+
+            // ---------- BOTÃO ----------
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: c.isProcessing ? null : c.nextStep,
+                onPressed: c.canProceedToPayment && !c.isProcessing ? c.nextStep : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   padding: const EdgeInsets.symmetric(vertical: 18),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
                 child: c.isProcessing
-                    ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white))
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(color: Colors.white),
+                      )
                     : Text(
-  _getButtonText(c, currency),
-  style: const TextStyle(
-    fontSize: 18,
-    fontWeight: FontWeight.w900,
-    color: Colors.white, 
-  ),
-)
+                        c.currentStep == 1
+                            ? 'Continuar para Pagamento'
+                            : c.paymentMethod == 'pix'
+                                ? 'Gerar QR Code Pix de ${currency.format(c.total)}'
+                                : 'Confirmar Pedido',
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                        ),
+                      ),
               ),
             ),
+
             if (c.currentStep == 2)
               const Padding(
                 padding: EdgeInsets.only(top: 8),
-                child: Text('Ambiente 100% seguro.', style: TextStyle(color: Color(0xFF71717A), fontSize: 12)),
+                child: Text(
+                  'Ambiente 100% seguro.',
+                  style: TextStyle(color: Color(0xFF71717A), fontSize: 12),
+                ),
               ),
           ],
         ),
       ),
     );
-  }
-
-  String _getButtonText(CheckoutController c, NumberFormat currency) {
-    if (c.currentStep == 1) return 'Continuar para Pagamento';
-    if (c.paymentMethod == 'pix') return 'Gerar QR Code Pix de ${currency.format(c.total)}';
-    return 'Confirmar Pedido';
   }
 }
 
@@ -222,7 +236,14 @@ class _StepDot extends StatelessWidget {
       child: Center(
         child: isDone
             ? const Icon(Icons.check, color: Colors.white, size: 18)
-            : Text('$number', style: TextStyle(fontWeight: FontWeight.w900, color: isActive ? AppColors.primary : const Color(0xFF6B7280), fontSize: 14)),
+            : Text(
+                '$number',
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  color: isActive ? AppColors.primary : const Color(0xFF6B7280),
+                  fontSize: 14,
+                ),
+              ),
       ),
     );
   }
