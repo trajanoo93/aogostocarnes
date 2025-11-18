@@ -1,6 +1,7 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:provider/provider.dart';
 import 'package:ao_gosto_app/firebase_options.dart';
 
 import 'package:ao_gosto_app/screens/main_screen.dart';
@@ -12,7 +13,6 @@ import 'package:ao_gosto_app/state/cart_controller.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // INICIALIZA FIREBASE (OBRIGATÓRIO!)
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -25,16 +25,21 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Ao Gosto Carnes',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      home: const OnboardingGate(),
+    return ChangeNotifierProvider(
+      create: (_) => CartController.instance,
+      child: MaterialApp(
+        title: 'Ao Gosto Carnes',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        home: const OnboardingGate(),
+      ),
     );
   }
 }
 
-// Wrapper que você já tinha (mantido 100% igual)
+// REMOVA O MainScreenWrapper SE NÃO FOR USADO!
+// Se você ainda usa ele no onboarding_gate.dart, mantenha abaixo:
+
 class MainScreenWrapper extends StatefulWidget {
   const MainScreenWrapper({super.key});
 
@@ -48,7 +53,7 @@ class _MainScreenWrapperState extends State<MainScreenWrapper> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       OnboardingFlow.maybeStart(context);
-      CartController.instance; // Carrega frete
+      CartController.instance; // Garante que o carrinho carregue
     });
   }
 

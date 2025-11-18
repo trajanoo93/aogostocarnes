@@ -1,4 +1,4 @@
-// screens/onboarding/onboarding_gate.dart
+// lib/screens/onboarding/onboarding_gate.dart
 import 'package:flutter/material.dart';
 import 'package:ao_gosto_app/api/onboarding_service.dart';
 import 'package:ao_gosto_app/screens/onboarding/onboarding_flow.dart';
@@ -11,46 +11,30 @@ class OnboardingGate extends StatelessWidget {
   Widget build(BuildContext context) {
     return FutureBuilder<bool>(
       future: OnboardingService().hasProfile(),
-      builder: (context, snap) {
-        if (!snap.hasData) {
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                valueColor: AlwaysStoppedAnimation<Color>(Color(0xFFFA4815)),
+              ),
+            ),
           );
         }
 
-        final needsOnboarding = !(snap.data ?? false);
-        return _Gate(needsOnboarding: needsOnboarding);
+        final hasProfile = snapshot.data ?? false;
+
+        if (!hasProfile) {
+          // Usuário NUNCA fez onboarding → força o fluxo
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            OnboardingFlow.maybeStart(context, force: true);
+          });
+        }
+
+        // Em ambos os casos (com ou sem perfil), vai direto pra MainScreen
+        return const MainScreen();
       },
     );
-  }
-}
-
-class _Gate extends StatefulWidget {
-  final bool needsOnboarding;
-  const _Gate({required this.needsOnboarding});
-
-  @override
-  State<_Gate> createState() => _GateState();
-}
-
-class _GateState extends State<_Gate> {
-  bool _kicked = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Dispara o onboarding novo apenas uma vez quando necessário.
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!_kicked && mounted && widget.needsOnboarding) {
-        _kicked = true;
-        await OnboardingFlow.maybeStart(context, force: true);
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // A app principal abre normalmente; se precisar, o OnboardingFlow aparece em cima.
-    return const MainScreen();
   }
 }
