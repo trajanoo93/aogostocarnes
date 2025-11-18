@@ -1,4 +1,3 @@
-// api/onboarding_service.dart
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -68,6 +67,9 @@ class CustomerAddress {
 class OnboardingService {
   static const String _base = 'https://aogosto.com.br/app/onboarding';
 
+  // ======================================================
+  // REGISTRA NOVO CLIENTE NO BACKEND
+  // ======================================================
   Future<int> register(Customer c, CustomerAddress a) async {
     final uri = Uri.parse('$_base/register.php');
     final resp = await http.post(
@@ -91,7 +93,7 @@ class OnboardingService {
   }
 
   // ======================================================
-  // BUSCA ENDEREÇO POR CEP (ViaCEP)
+  // BUSCA ENDEREÇO POR CEP
   // ======================================================
   Future<CustomerAddress?> lookupCep(String cep) async {
     final digits = cep.replaceAll(RegExp(r'\D'), '');
@@ -117,61 +119,62 @@ class OnboardingService {
   }
 
   // ======================================================
-  // PERSISTE PERFIL LOCALMENTE
+  // SALVA PERFIL LOCALMENTE
   // ======================================================
- // api/onboarding_service.dart
-Future<void> persistProfile({
-  required int id,
-  required String name,
-  required String phone,
-  CustomerAddress? a,
-  double? deliveryFee, // ← NOVO!
-}) async {
-  final sp = await SharedPreferences.getInstance();
-  await sp
-    ..setInt('customer_id', id)
-    ..setString('customer_name', name)
-    ..setString('customer_phone', phone);
+  Future<void> persistProfile({
+    required int id,
+    required String name,
+    required String phone,
+    CustomerAddress? a,
+    double? deliveryFee,
+  }) async {
+    final sp = await SharedPreferences.getInstance();
 
-  if (a != null) {
     await sp
-      ..setString('address_street', a.street)
-      ..setString('address_number', a.number)
-      ..setString('address_complement', a.complement ?? '')
-      ..setString('address_neighborhood', a.neighborhood)
-      ..setString('address_city', a.city)
-      ..setString('address_state', a.state)
-      ..setString('address_cep', a.cep);
+      ..setString('customer_id', id.toString())   // ← AGORA STRING
+      ..setString('customer_name', name)
+      ..setString('customer_phone', phone);
+
+    if (a != null) {
+      await sp
+        ..setString('address_street', a.street)
+        ..setString('address_number', a.number)
+        ..setString('address_complement', a.complement ?? '')
+        ..setString('address_neighborhood', a.neighborhood)
+        ..setString('address_city', a.city)
+        ..setString('address_state', a.state)
+        ..setString('address_cep', a.cep);
+    }
+
+    if (deliveryFee != null) {
+      await sp.setDouble('delivery_fee', deliveryFee);
+    }
   }
 
-  if (deliveryFee != null) {
-    await sp.setDouble('delivery_fee', deliveryFee);
-  }
-}
   // ======================================================
-  // VERIFICA SE O PERFIL EXISTE
+  // MODE DEV — SEMPRE IGNORA ONBOARDING
   // ======================================================
   Future<bool> hasProfile() async {
-    final sp = await SharedPreferences.getInstance();
-    return sp.getInt('customer_id') != null;
+    return true; // ← lembre de remover para produção
   }
 
   // ======================================================
-  // RECUPERA PERFIL SALVO NO BACKEND
+  // CARREGA PERFIL DO BACKEND
   // ======================================================
   Future<OnboardingProfile> getProfile() async {
     final sp = await SharedPreferences.getInstance();
-    final customerId = sp.getInt('customer_id');
+    final customerId = sp.getString('customer_id');  // ← AGORA STRING
 
     if (customerId == null) {
       return OnboardingProfile(name: '', phone: '', address: null);
     }
 
-    // Busca do backend
     final uri = Uri.parse('$_base/get_profile.php?customer_id=$customerId');
     final resp = await http.get(uri);
+
     if (resp.statusCode == 200) {
       final data = json.decode(resp.body) as Map<String, dynamic>;
+
       if (data['ok'] == true) {
         final customer = data['customer'];
         final address = data['address'];
@@ -190,6 +193,7 @@ Future<void> persistProfile({
         );
       }
     }
+
     return OnboardingProfile(name: '', phone: '', address: null);
   }
 }

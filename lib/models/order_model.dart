@@ -1,7 +1,7 @@
-// lib/models/order_models.dart
+// lib/models/order_model.dart
 import 'package:flutter/material.dart';
 
-class Order {
+class AppOrder {
   final String id;
   final DateTime date;
   final String status;
@@ -14,7 +14,7 @@ class Order {
   final PaymentMethod payment;
   final int? rating;
 
-  const Order({
+  const AppOrder({
     required this.id,
     required this.date,
     required this.status,
@@ -42,12 +42,15 @@ class OrderItem {
   });
 }
 
+
 class Address {
+  final String id;
   final String street, number, complement, neighborhood, city, state, cep;
   const Address({
+    required this.id,
     required this.street,
     required this.number,
-    required this.complement,
+    this.complement = '',
     required this.neighborhood,
     required this.city,
     required this.state,

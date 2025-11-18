@@ -1,12 +1,22 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:ao_gosto_app/firebase_options.dart';
+
 import 'package:ao_gosto_app/screens/main_screen.dart';
 import 'package:ao_gosto_app/utils/app_theme.dart';
 import 'package:ao_gosto_app/screens/onboarding/onboarding_gate.dart';
-import 'package:ao_gosto_app/screens/onboarding/onboarding_flow.dart'; 
+import 'package:ao_gosto_app/screens/onboarding/onboarding_flow.dart';
 import 'package:ao_gosto_app/state/cart_controller.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // INICIALIZA FIREBASE (OBRIGATÓRIO!)
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(const MyApp());
 }
 
@@ -24,7 +34,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
-// Wrapper opcional (pode manter ou remover)
+// Wrapper que você já tinha (mantido 100% igual)
 class MainScreenWrapper extends StatefulWidget {
   const MainScreenWrapper({super.key});
 

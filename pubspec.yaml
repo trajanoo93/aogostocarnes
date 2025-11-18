@@ -19,6 +19,8 @@ dependencies:
   provider: ^6.0.5
   url_launcher: ^6.2.0
   cloud_firestore: ^4.17.5
+  firebase_core: ^2.32.0
+  lottie: ^3.1.0
 
 dev_dependencies:
   flutter_test:
@@ -35,6 +37,7 @@ flutter:
   assets:
     - assets/icon/app_icon.png
     - assets/images/
+    - assets/lottie/empty_box.json
 
 # 🔹 Configuração do flutter_launcher_icons
 flutter_icons:

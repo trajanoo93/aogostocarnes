@@ -8,6 +8,7 @@ import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'package:ao_gosto_app/screens/checkout/checkout_controller.dart';
 import 'package:ao_gosto_app/screens/checkout/widgets/calendar_widget.dart';
 import 'package:ao_gosto_app/screens/checkout/widgets/time_slot_grid.dart';
+import 'package:ao_gosto_app/models/order_model.dart';
 
 class StepAddress extends StatelessWidget {
   const StepAddress({super.key});
@@ -459,7 +460,7 @@ void _showAddressDialog(BuildContext context) {
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
         ElevatedButton(
           onPressed: () {
-            final addr = Address(
+            final address = Address(
               id: DateTime.now().millisecondsSinceEpoch.toString(),
               street: streetCtrl.text,
               number: numberCtrl.text,
@@ -469,7 +470,7 @@ void _showAddressDialog(BuildContext context) {
               state: stateCtrl.text,
               cep: cepCtrl.text,
             );
-            c.addAddress(addr);
+            Navigator.pop(context, address);
             Navigator.pop(ctx);
           },
           child: const Text('Adicionar'),
