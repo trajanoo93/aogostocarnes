@@ -9,7 +9,7 @@ import 'package:ao_gosto_app/screens/home/home_screen.dart';
 import 'package:ao_gosto_app/screens/orders/orders_screen.dart';
 import 'package:ao_gosto_app/widgets/custom_bottom_navigation.dart';
 import 'package:ao_gosto_app/screens/onboarding/onboarding_flow.dart';
-import 'package:ao_gosto_app/widgets/header_menu_modal.dart'; // ← IMPORT NOVO
+import 'package:ao_gosto_app/widgets/header_menu_modal.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -19,6 +19,8 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+
   int _selectedIndex = 0;
 
   static final List<Widget> _pages = <Widget>[
@@ -50,32 +52,34 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // MENU LATERAL (abre com o hamburger do header)
+      key: _scaffoldKey, // 🔥 Obrigatório para abrir o drawer pelo header
       endDrawer: const HeaderMenuModal(),
 
-      // Conteúdo principal
       body: Stack(
         children: [
-          // PÁGINA ATUAL
+          /// Página atual
           _pages[_selectedIndex],
 
-          // BOTTOM NAVIGATION BAR CUSTOMIZADA
+          /// Bottom Navigation fixado e respeitando SafeArea
           Align(
             alignment: Alignment.bottomCenter,
-            child: Consumer<CartController>(
-              builder: (context, cart, child) {
-                return CustomBottomNavigation(
-                  currentIndex: _selectedIndex,
-                  onTap: _onItemTapped,
-                  cartItemCount: cart.totalItems,
-                );
-              },
+            child: SafeArea(
+              top: false,
+              child: Consumer<CartController>(
+                builder: (context, cart, child) {
+                  return CustomBottomNavigation(
+                    currentIndex: _selectedIndex,
+                    onTap: _onItemTapped,
+                    cartItemCount: cart.totalItems,
+                  );
+                },
+              ),
             ),
           ),
         ],
       ),
 
-      // Botão de debug (só em modo dev)
+      /// Botão extra para testes
       floatingActionButton: kDebugMode
           ? FloatingActionButton.small(
               onPressed: () => OnboardingFlow.maybeStart(context, force: true),
