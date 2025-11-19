@@ -87,6 +87,20 @@ class ProductService {
     }
   }
 
+    Future<List<Product>> fetchProductsBySearch(String query) async {
+    final url = '$_baseUrl/products?search=${Uri.encodeComponent(query)}&per_page=30&status=publish&stock_status=instock&_fields=$_FIELDS';
+    try {
+      final resp = await http.get(Uri.parse(url), headers: {'Authorization': _authHeader});
+      if (resp.statusCode == 200) {
+        final List data = json.decode(resp.body);
+        return data.map((e) => _mapProduct(e as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      return [];
+    }
+    return [];
+  }
+
   /// Uma categoria (com paginação).
   Future<List<Product>> fetchProductsByCategory(
     int categoryId, {

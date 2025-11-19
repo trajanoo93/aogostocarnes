@@ -1,3 +1,5 @@
+// lib/screens/product/product_details_page.dart
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:ao_gosto_app/models/product.dart';

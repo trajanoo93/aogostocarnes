@@ -9,6 +9,7 @@ import 'package:ao_gosto_app/screens/home/home_screen.dart';
 import 'package:ao_gosto_app/screens/orders/orders_screen.dart';
 import 'package:ao_gosto_app/widgets/custom_bottom_navigation.dart';
 import 'package:ao_gosto_app/screens/onboarding/onboarding_flow.dart';
+import 'package:ao_gosto_app/widgets/header_menu_modal.dart'; // ← IMPORT NOVO
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -47,26 +48,40 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    body: Stack(
-      children: [
-        _pages[_selectedIndex],
-        Align(
-          alignment: Alignment.bottomCenter,
-          child: CustomBottomNavigation(
-            currentIndex: _selectedIndex,
-            onTap: _onItemTapped,
-            cartItemCount: Provider.of<CartController>(context).totalItems,
+  Widget build(BuildContext context) {
+    return Scaffold(
+      // MENU LATERAL (abre com o hamburger do header)
+      endDrawer: const HeaderMenuModal(),
+
+      // Conteúdo principal
+      body: Stack(
+        children: [
+          // PÁGINA ATUAL
+          _pages[_selectedIndex],
+
+          // BOTTOM NAVIGATION BAR CUSTOMIZADA
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Consumer<CartController>(
+              builder: (context, cart, child) {
+                return CustomBottomNavigation(
+                  currentIndex: _selectedIndex,
+                  onTap: _onItemTapped,
+                  cartItemCount: cart.totalItems,
+                );
+              },
+            ),
           ),
-        ),
-      ],
-    ),
-    floatingActionButton: kDebugMode
-        ? FloatingActionButton.small(
-            onPressed: () => OnboardingFlow.maybeStart(context, force: true),
-            child: const Icon(Icons.person_add),
-          )
-        : null,
-  );
-}}
+        ],
+      ),
+
+      // Botão de debug (só em modo dev)
+      floatingActionButton: kDebugMode
+          ? FloatingActionButton.small(
+              onPressed: () => OnboardingFlow.maybeStart(context, force: true),
+              child: const Icon(Icons.person_add),
+            )
+          : null,
+    );
+  }
+}

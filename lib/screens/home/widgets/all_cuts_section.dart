@@ -1,3 +1,5 @@
+// lib/screens/home/widgets/all_cuts_section.dart
+
 import 'package:flutter/material.dart';
 import 'package:ao_gosto_app/api/product_service.dart';
 import 'package:ao_gosto_app/models/product.dart';

@@ -1,7 +1,7 @@
 name: ao_gosto_app
 description: "O app oficial da Ao Gosto Carnes — sua boutique de carnes premium em Belo Horizonte. Peça seus cortes favoritos, kits de churrasco e produtos exclusivos com poucos toques. Experiência gourmet, entrega expressa e o verdadeiro sabor ao seu gosto."
 publish_to: 'none'
-version: 1.0.0+2
+version: 1.0.0+3
 
 environment:
   sdk: '>=3.2.3 <4.0.0'

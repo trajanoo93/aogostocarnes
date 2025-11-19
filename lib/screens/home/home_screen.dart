@@ -1,16 +1,17 @@
-// screens/home/home_screen.dart:
-
+// lib/screens/home/home_screen.dart
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'package:ao_gosto_app/api/product_service.dart';
 import 'package:ao_gosto_app/models/product.dart';
-import 'package:ao_gosto_app/widgets/product_card.dart';
 import 'package:ao_gosto_app/screens/home/widgets/all_cuts_section.dart';
-
 import 'package:ao_gosto_app/screens/home/widgets/section_hero.dart' as hero;
 import 'package:ao_gosto_app/screens/home/widgets/search_filter.dart';
-import 'package:ao_gosto_app/screens/home/widgets/section_header.dart' as header;
 import 'package:ao_gosto_app/screens/home/widgets/product_carousel.dart';
+import 'package:ao_gosto_app/screens/home/widgets/featured_banner.dart';
+import 'package:ao_gosto_app/widgets/product_card.dart';
+
+
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,31 +20,12 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-/// Campo de busca fixo do header
-class _HeaderSearchBar extends StatelessWidget {
-  const _HeaderSearchBar();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.white, // garante fundo branco sob a busca
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 10),
-      child: const SearchFilter(),
-    );
-  }
-}
-
 class _HomeScreenState extends State<HomeScreen> {
   final ProductService _productService = ProductService();
   final _scrollCtrl = ScrollController();
 
-  /// controla o “encolher” da logo conforme rola
-  bool _isCollapsed = false;
-
-  // Ofertas
+  // Ofertas e seções
   late Future<List<Product>> _onSaleProducts;
-
-  // Extras (IDs fixos)
   static const _idPaoDeAlho = 73;
   static const _idEspetos = 59;
   static const _idPratosProntos = 172;
@@ -60,321 +42,348 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadProducts();
-    _scrollCtrl.addListener(_onScroll);
+    _scrollCtrl.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
-    _scrollCtrl.removeListener(_onScroll);
     _scrollCtrl.dispose();
     super.dispose();
   }
 
-  void _onScroll() {
-    // a partir de ~24px de scroll, consideramos “colapsado”
-    final collapsed = _scrollCtrl.hasClients && _scrollCtrl.offset > 24;
-    if (collapsed != _isCollapsed) {
-      setState(() => _isCollapsed = collapsed);
-    }
-  }
-
   void _loadProducts() {
     _onSaleProducts = _productService.fetchOnSaleProducts();
-
-    _paoDeAlho     = _productService.fetchProductsByCategory(_idPaoDeAlho);
-    _espetos       = _productService.fetchProductsByCategory(_idEspetos);
+    _paoDeAlho = _productService.fetchProductsByCategory(_idPaoDeAlho);
+    _espetos = _productService.fetchProductsByCategory(_idEspetos);
     _pratosProntos = _productService.fetchProductsByCategory(_idPratosProntos);
-    _bebidas       = _productService.fetchProductsByCategory(_idBebidas);
-    _outros        = _productService.fetchProductsByCategory(_idOutros);
+    _bebidas = _productService.fetchProductsByCategory(_idBebidas);
+    _outros = _productService.fetchProductsByCategory(_idOutros);
   }
 
   @override
   Widget build(BuildContext context) {
+    final scrollOffset = _scrollCtrl.hasClients ? _scrollCtrl.offset : 0.0;
+    final isScrolled = scrollOffset > 20;
+
     return Scaffold(
+      backgroundColor: Colors.white,
       body: CustomScrollView(
         controller: _scrollCtrl,
         slivers: [
-          // ====== HEADER DINÂMICO (logo encolhe e busca sempre visível) ======
+          // HEADER ORIGINAL (mantido)
           SliverAppBar(
             pinned: true,
-            backgroundColor: Colors.white,
-            elevation: _isCollapsed ? 0.6 : 0,
-            // não queremos “área de toolbar” quando colapsar
-            toolbarHeight: 0,
-            expandedHeight: 168, // espaço para a logo “respirar”
-            flexibleSpace: SafeArea(
-              bottom: false,
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOut,
-                  // Altura da logo varia um pouco ao rolar
-                  height: _isCollapsed ? 52 : 62,
-                  margin: const EdgeInsets.only(top: 10, bottom: 2), // suspiro acima da busca
-                  child: Image.network(
-                    'https://aogosto.com.br/delivery/wp-content/uploads/2023/12/Go-Express-fundo-400-x-200-px2-1.png',
-                    fit: BoxFit.contain,
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            automaticallyImplyLeading: false,
+            expandedHeight: 140,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: BoxDecoration(
+                  color: isScrolled ? Colors.white.withOpacity(0.92) : Colors.white,
+                  boxShadow: isScrolled
+                      ? [BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        )]
+                      : null,
+                ),
+                child: BackdropFilter(
+                  filter: isScrolled
+                      ? ImageFilter.blur(sigmaX: 16, sigmaY: 16)
+                      : ImageFilter.blur(sigmaX: 0),
+                  child: SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      child: Column(
+                        children: [
+                          SizedBox(
+                            height: isScrolled ? 48 : 60,
+                            child: Stack(
+                              children: [
+                                // Logo centro
+                                Center(
+                                  child: AnimatedScale(
+                                    scale: isScrolled ? 0.88 : 1.0,
+                                    duration: const Duration(milliseconds: 300),
+                                    child: Image.network(
+                                      'https://aogosto.com.br/delivery/wp-content/uploads/2023/12/Go-Express-fundo-400-x-200-px2-1.png',
+                                      height: isScrolled ? 46 : 58,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                ),
+                                // Menu clean (direita)
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: IconButton(
+                                    onPressed: () => Scaffold.of(context).openEndDrawer(),
+                                    icon: Icon(
+                                      Icons.menu_rounded,
+                                      size: 28,
+                                      color: Colors.grey[800],
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          const SearchFilter(),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ),
             ),
-            // Busca SEMPRE presente no “bottom” e pinada
-            bottom: const PreferredSize(
-              preferredSize: Size.fromHeight(68),
-              child: _HeaderSearchBar(),
-            ),
-            // borda suave só quando rolar
-            shape: _isCollapsed
-                ? const Border(
-                    bottom: BorderSide(color: Color(0xFFE5E7EB), width: 0.6),
-                  )
-                : null,
           ),
 
-          // ====== HERO / BANNERS ======
+          // HERO BANNER
           const SliverToBoxAdapter(
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: hero.SectionHero(),
+              padding: EdgeInsets.fromLTRB(16, 20, 16, 8),
+              child: hero.SectionHero(height: 180),
             ),
           ),
 
           const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
-          // ====== OFERTAS DA SEMANA ======
+          // OFERTAS DA SEMANA (BRANCO)
           SliverToBoxAdapter(
-            child: Container(
-              color: AppColors.backgroundSecondary,
-              padding: const EdgeInsets.symmetric(vertical: 24.0),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
               child: Column(
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.0),
-                    child: header.SectionHeader(title: '🔥 Ofertas da Semana'),
-                  ),
-                  const SizedBox(height: 16),
-                  ProductCarousel(productsFuture: _onSaleProducts),
-                ],
-              ),
-            ),
-          ),
-
-          // ====== TODOS OS CORTES (bolhas + grid) ======
-          const SliverToBoxAdapter(child: AllCutsSection()),
-
-          // ====== EXTRAS ======
-          _sliverSection(
-            title: '🥖 O Clássico Acompanhamento',
-            future: _paoDeAlho,
-            onViewAll: () =>
-                _openCategoryList('🥖 O Clássico Acompanhamento', _idPaoDeAlho),
-            shaded: false,
-          ),
-          _sliverSection(
-            title: '🍢 Praticidade na Grelha: Espetos',
-            future: _espetos,
-            onViewAll: () =>
-                _openCategoryList('🍢 Praticidade na Grelha: Espetos', _idEspetos),
-            shaded: true,
-          ),
-          _sliverSection(
-            title: '🍲 Sabor de Casa: Pratos Prontos',
-            future: _pratosProntos,
-            onViewAll: () =>
-                _openCategoryList('🍲 Sabor de Casa: Pratos Prontos', _idPratosProntos),
-            shaded: false,
-          ),
-
-          // Bebidas
-          SliverToBoxAdapter(
-            child: Container(
-              color: AppColors.backgroundSecondary,
-              padding: const EdgeInsets.symmetric(vertical: 24.0),
-              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                    child: header.SectionHeader(
-                      title: '🍻 Para Acompanhar: Bebidas',
-                      onViewAll: () =>
-                          _openCategoryList('🍻 Para Acompanhar: Bebidas', _idBebidas),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '🔥 Ofertas da Semana',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Aproveite enquanto dura!',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 16),
-                  ProductCarousel(productsFuture: _bebidas),
+                  ProductCarousel(
+                    productsFuture: _onSaleProducts,
+                    height: 295,
+                    itemWidth: 170,
+                  ),
                 ],
               ),
             ),
           ),
 
-          _sliverSection(
-            title: '🛒 Essenciais para o Churrasco',
-            future: _outros,
-            onViewAll: () =>
-                _openCategoryList('🛒 Essenciais para o Churrasco', _idOutros),
-            shaded: false,
+          // BANNER DESTAQUE
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
+              child: FeaturedBanner(
+                title: 'Churrasco Perfeito',
+                subtitle: 'Os melhores cortes para seu final de semana',
+                imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600',
+              ),
+            ),
           ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 80)), // espaço pro BottomNav
-        ],
-      ),
-    );
-  }
+          // TODOS OS CORTES
+          const SliverToBoxAdapter(child: AllCutsSection()),
 
-  // ====== HELPERS ======
-
-  SliverToBoxAdapter _sliverSection({
-    required String title,
-    required Future<List<Product>> future,
-    VoidCallback? onViewAll,
-    bool shaded = false,
-  }) {
-    final child = Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: header.SectionHeader(title: title, onViewAll: onViewAll),
-        ),
-        const SizedBox(height: 16),
-        ProductCarousel(productsFuture: future),
-      ],
-    );
-
-    return SliverToBoxAdapter(
-      child: shaded
-          ? Container(
-              color: AppColors.backgroundSecondary,
-              padding: const EdgeInsets.symmetric(vertical: 24.0),
-              child: child,
-            )
-          : Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24.0),
-              child: child,
-            ),
-    );
-  }
-
-  void _openCategoryList(String title, int categoryId) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => _CategoryListPage(
-          title: title,
-          categoryId: categoryId,
-          loader: (page) =>
-              _productService.fetchProductsByCategory(categoryId, perPage: 40),
-        ),
-      ),
-    );
-  }
-}
-
-// ====== LISTAGEM "VER TODOS" (tela enxuta dentro do mesmo arquivo) ======
-
-class _CategoryListPage extends StatefulWidget {
-  final String title;
-  final int categoryId;
-  final Future<List<Product>> Function(int page) loader;
-
-  const _CategoryListPage({
-    required this.title,
-    required this.categoryId,
-    required this.loader,
-  });
-
-  @override
-  State<_CategoryListPage> createState() => _CategoryListPageState();
-}
-
-class _CategoryListPageState extends State<_CategoryListPage> {
-  final _items = <Product>[];
-  int _page = 1;
-  bool _loading = true;
-  bool _end = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _fetch();
-  }
-
-  Future<void> _fetch({bool loadMore = false}) async {
-    if (_end) return;
-    setState(() => _loading = true);
-    final page = loadMore ? _page + 1 : 1;
-    final list = await widget.loader(page);
-    if (!mounted) return;
-    setState(() {
-      if (loadMore) {
-        _page = page;
-        _items.addAll(list);
-      } else {
-        _page = 1;
-        _items
-          ..clear()
-          ..addAll(list);
-      }
-      _loading = false;
-      if (list.isEmpty) _end = true;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.title,
-          style: const TextStyle(fontWeight: FontWeight.w800),
-        ),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        elevation: 0.5,
-      ),
-      body: RefreshIndicator(
-        onRefresh: () => _fetch(loadMore: false),
-        child: CustomScrollView(
-          slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-              sliver: SliverGrid(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  childAspectRatio: 0.72,
-                ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    if (index < _items.length) {
-                      return ProductCard(product: _items[index]);
-                    }
-                    // loader card
-                    return const Center(
-                      child: CircularProgressIndicator(color: AppColors.primary),
-                    );
-                  },
-                  childCount: _items.isEmpty
-                      ? (_loading ? 4 : 0)
-                      : _items.length + (_end ? 0 : 1),
-                ),
-              ),
-            ),
-            if (!_end && !_loading && _items.isNotEmpty)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12.0),
-                  child: Center(
-                    child: OutlinedButton.icon(
-                      onPressed: () => _fetch(loadMore: true),
-                      icon: const Icon(Icons.expand_more_rounded),
-                      label: const Text('Carregar mais'),
+          // PÃO DE ALHO (BRANCO)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      '🍞 O Clássico Acompanhamento',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+                  ProductCarousel(
+                    productsFuture: _paoDeAlho,
+                    height: 295,
+                    itemWidth: 170,
+                  ),
+                ],
               ),
-          ],
-        ),
+            ),
+          ),
+
+          // ESPETOS
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '🍢 Praticidade na Grelha',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Espetos prontos para o churrasco',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ProductCarousel(
+                    productsFuture: _espetos,
+                    height: 295,
+                    itemWidth: 170,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // PRATOS PRONTOS (BRANCO)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '🍽️ Sabor de Casa',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Pratos prontos deliciosos',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ProductCarousel(
+                    productsFuture: _pratosProntos,
+                    height: 295,
+                    itemWidth: 170,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // BEBIDAS
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      '🥤 Para Acompanhar',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ProductCarousel(
+                    productsFuture: _bebidas,
+                    height: 295,
+                    itemWidth: 170,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // OUTROS (BRANCO)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      '⚡ Essenciais para o Churrasco',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ProductCarousel(
+                    productsFuture: _outros,
+                    height: 295,
+                    itemWidth: 170,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 100)),
+        ],
       ),
     );
   }
