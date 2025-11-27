@@ -1,7 +1,19 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Permissão de internet -->
+    <!-- Permissão de internet (já tinha) -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
+    <!-- ==== PERMISSÕES PARA IMAGE_PICKER (CÂMERA E GALERIA) ==== -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+
+    <!-- Android 13+ (API 33) - novas permissões granulares de mídia -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+
+    <!-- Opcional, mas recomendado -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
     <application
         android:label="aogostocarnes"
@@ -20,7 +32,6 @@
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
 
-            <!-- Tema inicial visível enquanto o Flutter inicializa -->
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
@@ -29,18 +40,34 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-
         </activity>
 
-        <!-- Usado pelo Flutter para registrar plugins -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
 
     </application>
 
-    <!-- Necessário para plugins de texto (ProcessTextPlugin) -->
+    <!-- ==== QUERIES NECESSÁRIAS PARA IMAGE_PICKER NO ANDROID 11+ ==== -->
     <queries>
+        <!-- Para abrir a câmera -->
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+
+        <!-- Para abrir a galeria / seletor de arquivos -->
+        <intent>
+            <action android:name="android.intent.action.GET_CONTENT" />
+            <data android:mimeType="image/*" />
+        </intent>
+
+        <!-- Para abrir apps de galeria (ex: Google Fotos, Galeria do sistema) -->
+        <intent>
+            <action android:name="android.intent.action.PICK" />
+            <data android:mimeType="image/*" />
+        </intent>
+
+        <!-- Já tinha (ProcessText) - mantido -->
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT" />
             <data android:mimeType="text/plain" />

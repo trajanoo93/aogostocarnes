@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
+import 'package:ao_gosto_app/screens/profile/meu_perfil.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class HeaderMenuModal extends StatefulWidget {
@@ -65,7 +66,7 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
   }
 
   Future<void> _launchWhatsApp() async {
-    final uri = Uri.parse('https://wa.me/5531999999999');
+    final uri = Uri.parse('https://wa.me/553134613297');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
@@ -74,14 +75,10 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 300,
+      width: double.infinity, // 100% da tela
       height: double.infinity,
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(0),
-          bottomLeft: Radius.circular(0),
-        ),
       ),
       child: FadeTransition(
         opacity: _fadeAnimation,
@@ -103,15 +100,12 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
                         title: 'Meu Perfil',
                         onTap: () {
                           Navigator.pop(context);
-                          // Navigate to profile
-                        },
-                      ),
-                      _buildMenuItem(
-                        icon: Icons.location_on_outlined,
-                        title: 'Meus Endereços',
-                        onTap: () {
-                          Navigator.pop(context);
-                          // Navigate to addresses
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const MeuPerfilPage(),
+                            ),
+                          );
                         },
                       ),
                       _buildMenuItem(
@@ -173,7 +167,7 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
                 ),
               ),
 
-              // FOOTER
+              // FOOTER COM LOGO
               _buildFooter(),
             ],
           ),
@@ -186,9 +180,9 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
     return Container(
       padding: EdgeInsets.fromLTRB(
         20,
-        MediaQuery.of(context).padding.top + 20,
+        MediaQuery.of(context).padding.top + 12,
         20,
-        24,
+        20,
       ),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -203,14 +197,34 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Avatar + Status
+          // Botão voltar compacto
+          SizedBox(
+            height: 40,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 12),
+          
+          // Avatar + Nome (compacto)
           Row(
             children: [
               Stack(
                 children: [
                   Container(
-                    width: 60,
-                    height: 60,
+                    width: 52,
+                    height: 52,
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.2),
                       shape: BoxShape.circle,
@@ -222,15 +236,15 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
                     child: const Icon(
                       Icons.person_rounded,
                       color: Colors.white,
-                      size: 32,
+                      size: 28,
                     ),
                   ),
                   Positioned(
-                    right: 2,
-                    bottom: 2,
+                    right: 0,
+                    bottom: 0,
                     child: Container(
-                      width: 16,
-                      height: 16,
+                      width: 14,
+                      height: 14,
                       decoration: BoxDecoration(
                         color: const Color(0xFF10B981),
                         shape: BoxShape.circle,
@@ -243,7 +257,7 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
                   ),
                 ],
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,7 +266,7 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
                       'Olá,',
                       style: TextStyle(
                         color: Colors.white70,
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -260,9 +274,9 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
                       _userName,
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 20,
+                        fontSize: 18,
                         fontWeight: FontWeight.w900,
-                        height: 1.2,
+                        height: 1.1,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -273,13 +287,13 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
             ],
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
-          // Cashback Badge
+          // Cashback Badge (compacto)
           Container(
             padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
+              horizontal: 14,
+              vertical: 10,
             ),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.15),
@@ -293,7 +307,7 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: const EdgeInsets.all(5),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.2),
                     shape: BoxShape.circle,
@@ -301,10 +315,10 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
                   child: const Icon(
                     Icons.wallet_rounded,
                     color: Colors.white,
-                    size: 16,
+                    size: 14,
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -312,7 +326,7 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
                       'Cashback disponível',
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.9),
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -321,7 +335,7 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
                       'R\$ ${_cashbackBalance.toStringAsFixed(2).replaceAll('.', ',')}',
                       style: const TextStyle(
                         color: Colors.white,
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.w900,
                         height: 1,
                       ),
@@ -361,8 +375,14 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
                 decoration: BoxDecoration(
                   color: isComingSoon
                       ? Colors.grey[100]
-                      : (iconColor ?? AppColors.primary).withOpacity(0.1),
+                      : Colors.white,
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: isComingSoon
+                        ? Colors.grey[300]!
+                        : (iconColor ?? AppColors.primary).withOpacity(0.2),
+                    width: 1,
+                  ),
                 ),
                 child: Icon(
                   icon,
@@ -435,36 +455,22 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
 
   Widget _buildFooter() {
     return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
+      padding: const EdgeInsets.symmetric(vertical: 20),
+      decoration: const BoxDecoration(
+        color: Colors.white,
         border: Border(
           top: BorderSide(
-            color: Colors.grey[200]!,
+            color: Color(0xFFE5E7EB),
             width: 1,
           ),
         ),
       ),
-      child: Column(
-        children: [
-          Text(
-            'Versão 1.0.0',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[500],
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Ao Gosto Delivery',
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.grey[700],
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ],
+      child: Center(
+        child: Image.asset(
+          'assets/icon/app_icon.png',
+          height: 80,
+          fit: BoxFit.contain,
+        ),
       ),
     );
   }

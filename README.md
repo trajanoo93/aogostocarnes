@@ -1,49 +1,64 @@
-🥩 Ao Gosto Carnes — Aplicativo Oficial (Flutter)
+# 🥩 Ao Gosto Carnes — Aplicativo Oficial (Flutter)
 
 Aplicativo oficial Flutter da Ao Gosto Carnes, boutique de carnes premium com +10 unidades em Belo Horizonte.
 Um app moderno, rápido e totalmente integrado ao WooCommerce, Firestore e serviços internos da empresa.
 
-📱 Status Atual:
-Checkout 100% funcional + Histórico de Pedidos (Firestore) + Integração WooCommerce em produção
+---
 
-🌐 Visão Geral
+## 📱 Status Atual
+
+**✅ PRODUÇÃO:** Checkout 100% funcional + Histórico de Pedidos (Firestore) + Integração WooCommerce + Sistema de Categorias Completo + Perfil de Usuário
+
+---
+
+## 🌐 Visão Geral
 
 O aplicativo foi desenvolvido em Flutter (multiplataforma) e integra:
 
-WooCommerce REST API → Catálogo, preços, estoque e criação de pedidos reais
+- **WooCommerce REST API** → Catálogo, preços, estoque e criação de pedidos reais
+- **Firebase Firestore** → Histórico de pedidos em tempo real + tracker
+- **Backend PHP + MySQL** → Cadastro local via onboarding + Gestão de endereços
+- **ViaCEP + API Custom** → Cálculo de frete e definição da loja efetiva
+- **Animações Lottie** → UI fluida e moderna
+- **Persistência local** → Carrinho, perfil e informações do cliente (SharedPreferences)
 
-Firebase Firestore → Histórico de pedidos em tempo real + tracker
+---
 
-Backend PHP + MySQL → Cadastro local via onboarding
+## 🚀 Funcionalidades Implementadas
 
-ViaCEP + API Custom → Cálculo de frete e definição da loja efetiva
+| Status | Funcionalidade |
+|--------|----------------|
+| ✔️ Done | Catálogo completo via WooCommerce |
+| ✔️ Done | **Sistema de Categorias Completo (20 categorias)** |
+| ✔️ Done | **Subcategorias Dinâmicas (Bovinos, Kits, Linguiças, etc)** |
+| ✔️ Done | **Filtros: Todos, Churrasco, Dia a Dia, Fitness** |
+| ✔️ Done | Carrinho global persistente (singleton) |
+| ✔️ Done | Onboarding completo (nome, telefone, endereço) |
+| ✔️ Done | **Perfil de Usuário Completo (Meu Perfil)** |
+| ✔️ Done | **Gestão de Múltiplos Endereços** |
+| ✔️ Done | **Busca de CEP com ViaCEP** |
+| ✔️ Done | **Máscara de Telefone Brasileira** |
+| ✔️ Done | **Menu Drawer Premium com Cashback** |
+| ✔️ Done | Cálculo de frete via CEP + loja efetiva |
+| ✔️ Done | Checkout em duas etapas com validação total |
+| ✔️ Done | Agendamento inteligente (horários, domingos, feriados) |
+| ✔️ Done | Métodos de pagamento: PIX, Dinheiro, Cartão, Vale |
+| ✔️ Done | Criação de pedidos reais no WooCommerce |
+| ✔️ Done | Histórico de pedidos em tempo real via Firestore |
+| ✔️ Done | Status humanizados ("Registrado" → "Montado") |
+| ✔️ Done | Imagens de produtos carregadas dinamicamente |
+| ✔️ Done | KeepAlive para telas → performance máxima |
+| ✔️ Done | Lottie e animações integradas |
+| ✔️ Done | **Bottom Navigation corrigido (sem vão transparente)** |
+| 🔜 Next | Push notifications |
+| 🔜 Next | Busca avançada de produtos |
+| 🔜 Next | Lista de compras / favoritos |
 
-Animações Lottie → UI fluida e moderna
+---
 
-Persistência local → Carrinho e informações do cliente
+## 📁 Estrutura Completa de Pastas
 
-🚀 Funcionalidades Implementadas
-Status	Funcionalidade
-✔️ Done	Catálogo completo via WooCommerce
-✔️ Done	Carrinho global persistente (singleton)
-✔️ Done	Onboarding completo (nome, telefone, endereço)
-✔️ Done	Cálculo de frete via CEP + loja efetiva
-✔️ Done	Checkout em duas etapas com validação total
-✔️ Done	Agendamento inteligente (horários, domingos, feriados)
-✔️ Done	Métodos de pagamento: PIX, Dinheiro, Cartão, Vale
-✔️ Done	Criação de pedidos reais no WooCommerce
-✔️ Done	Histórico de pedidos em tempo real via Firestore
-✔️ Done	Status humanizados ("Registrado" → "Montado")
-✔️ Done	Imagens de produtos carregadas dinamicamente
-✔️ Done	KeepAlive para telas → performance máxima
-✔️ Done	Lottie e animações integradas
-🔜 Next	Push notifications
-🔜 Next	Filtros e buscas avançadas
-🔜 Next	Lista de compras / favoritos
-
-
-📁 Estrutura Completa de Pastas
-
+```
 lib/
 ├── main.dart                         ← inicialização, tema, e onboarding gate
 │
@@ -59,6 +74,7 @@ lib/
 │   ├── product.dart
 │   ├── cart_item.dart
 │   ├── customer.dart
+│   ├── category_data.dart            ← ✨ NOVO: 20 categorias + subcategorias
 │   └── order_model.dart              ← AppOrder, OrderItem, Address, PaymentMethod
 │
 ├── state/
@@ -66,13 +82,20 @@ lib/
 │   └── checkout_controller.dart      ← lógica completa do checkout
 │
 ├── screens/
-│   ├── main_screen.dart
+│   ├── main_screen.dart              ← ✨ ATUALIZADO: Nav com Categorias + Perfil
 │   │
 │   ├── home/
 │   │   └── home_screen.dart
 │   │
 │   ├── cart/
 │   │   └── cart_drawer.dart
+│   │
+│   ├── categories/                    ← ✨ NOVO: Sistema completo de categorias
+│   │   ├── categories_screen.dart    ← Grid de 20 categorias
+│   │   └── category_detail_screen.dart ← Detalhes + subcategorias
+│   │
+│   ├── profile/                       ← ✨ NOVO: Perfil de usuário
+│   │   └── meu_perfil.dart           ← Perfil + endereços + avatar
 │   │
 │   ├── onboarding/
 │   │   ├── onboarding_flow.dart
@@ -108,267 +131,150 @@ lib/
     ├── product_card.dart
     ├── app_button.dart
     ├── section_title.dart
-    └── custom_text_field.dart
-
-
-# 🎯 AJUSTES FINAIS - HOME PERFEITA
-
-## ✅ TUDO CORRIGIDO!
-
-### 1. ✅ **Header Original Mantido**
-- Logo no centro ✅
-- Blur e scale mantidos ✅
-- **Menu moderno**: ícone em container laranja sutil
-
-
-### 3. ✅ **Cards COMPACTOS e PERFEITOS**
-**Melhorias:**
-- ✅ Badges apenas com ÍCONES (sem texto)
-- ✅ Layout super compacto
-- ✅ Sem espaços grandes
-- ✅ Gramatura sempre visível
-- ✅ Oferta com gradiente + ícone
-- ✅ AspectRatio 1:1 (não corta)
-
-**Badges Ícones:**
-- ⭐ Mais vendido (amarelo)
-- ❄️ Congelado (azul)
-- 🌡️ Resfriado (verde)
-- 🍴 Temperado (vermelho)
-
-### 4. ✅ **Espaçamento Perfeito**
-- Sem "suspiros" entre título e valor
-- Padding compacto (10px)
-- Height ajustada (310px)
-- Tudo alinhado
-
-### 5. ✅ **Cards Não Cortados**
-- AspectRatio: 1.0 (quadrado perfeito)
-- Gramatura sempre aparece
-- Preço/kg sempre visível
-- Layout responsivo
-
-### 6. ✅ **Skeleton Loading**
-- Shimmer animado elegante
-- 4 cards falsos durante load
-- Transição suave
-
-### 7. ✅ **Query Otimizada**
-- Já usa `_fields` (WooCommerce)
-- Retorna só campos necessários
-- Performance++
-
----
-
-## 📦 ARQUIVOS FINAIS
-
-### 1. **[home_screen_FINAL.dart](computer:///mnt/user-data/outputs/home_screen_FINAL.dart)**
-**Mudanças:**
-- ✅ Header original mantido
-- ✅ Menu moderno (container laranja)
-- ✅ SEM grid de categorias
-- ✅ Emojis nos títulos
-- ✅ Subtítulos
-- ✅ Alternância branco/cinza
-- ✅ Height: 310px
-- ✅ Width: 170px
-
-### 2. **[product_card_COMPACTO_FINAL.dart](computer:///mnt/user-data/outputs/product_card_COMPACTO_FINAL.dart)**
-**Melhorias:**
-- ✅ Badges apenas ícones (26px)
-- ✅ Layout compacto
-- ✅ Oferta com gradiente
-- ✅ Sem espaços grandes
-- ✅ AspectRatio 1:1
-- ✅ Gramatura sempre visível
-- ✅ Preço destaque
-
-### 3. **[product_carousel_WITH_SKELETON.dart](computer:///mnt/user-data/outputs/product_carousel_WITH_SKELETON.dart)**
-**Melhorias:**
-- ✅ Skeleton loading animado
-- ✅ 4 cards falsos
-- ✅ Shimmer suave
-- ✅ Transição elegante
-
----
-
-## 🎨 LAYOUT FINAL DOS CARDS
-
-### Estrutura Compacta:
-```
-┌─────────────────┐
-│ ⭐❄️            🔥│ ← Badges ícones + Oferta
-│                 │
-│     IMAGEM      │ ← 1:1 (não corta)
-│                 │
-│              [+]│ ← Botão adicionar
-├─────────────────┤
-│ Nome do Produto │ ← 2 linhas max
-│                 │
-│ ~850g • R$/kg   │ ← Meta (1 linha)
-│                 │
-│ R$ 59,90        │ ← Preço destaque
-└─────────────────┘
-```
-
-### Dimensões:
-```
-Largura:   170px
-Altura:    310px
-Padding:   10px
-AspectRatio: 1:1
-```
-
-### Badges Ícones:
-```
-Tamanho:   26x26px
-Margin:    4px direita
-Círculo:   shape
-Sombra:    4px blur
-```
-
-
-## ✨ BADGES ÍCONES
-
-### Mapeamento:
-```dart
-isBestseller → workspace_premium (amarelo)
-isFrozen     → ac_unit (azul)
-isChilled    → thermostat (verde)
-isSeasoned   → restaurant_menu (vermelho)
-```
-
-### Visual:
-```
-⭐ = Mais vendido
-❄️ = Congelado
-🌡️ = Resfriado
-🍴 = Temperado
-```
-
-### Posição:
-```
-Topo esquerda, lado a lado
-Margin: 4px entre ícones
+    ├── custom_text_field.dart
+    ├── custom_bottom_navigation.dart  ← ✨ ATUALIZADO: Sem vão transparente
+    └── header_menu_modal.dart         ← ✨ ATUALIZADO: Menu drawer premium
 ```
 
 ---
 
-## 💡 SKELETON LOADING
+## 🎯 NOVIDADES - Sistema de Categorias
 
-### Como Funciona:
-1. FutureBuilder detecta `waiting`
-2. Mostra 4 cards skeleton
-3. Shimmer animado (1.5s)
-4. Gradiente move da esquerda→direita
-5. Transição suave para produtos reais
+### 📋 20 Categorias Reais:
 
-### Cores:
-```dart
-[#EBEBEB, #F4F4F4, #EBEBEB]
-```
+#### Churrasco (16 categorias):
+1. **Bovinos** (ID: 56)
+   - Subcategorias: Todos, Acém, Ancho, Angus, Chorizo, Maminha, Cortes Gourmet, Cortes Magros, Costela
 
----
+2. **Kits Prontos** (ID: 71)
+   - Subcategorias: Todos, Até 5, Até 10, Até 15, Até 20
 
-## 🎯 PERFORMANCE
+3. **Picanhas** (ID: 32)
+4. **Porco** (ID: 44)
+5. **Frango** (ID: 32)
+6. **Exóticos** (ID: 55)
+7. **Pescados** (ID: 63)
 
-### Query Otimizada:
-```dart
-// WooCommerce já usa _fields
-'id,name,price,images,categories,meta_data'
+8. **Linguiças** (ID: 51)
+   - Subcategorias: Todos, Linguiça Bovina, Linguiça Suína
 
-// Retorna APENAS campos necessários
-// Payload reduzido ~60%
-```
+9. **Pão de Alho** (ID: 73)
+10. **Espetinhos Gourmet** (ID: 59)
+11. **Queijos** (ID: 252)
+12. **Hambúrgueres** (ID: 390)
 
-### Sugestões Futuras:
-1. **Cache local**: SharedPreferences
-2. **Pagination**: Lazy load
-3. **Image optimization**: Thumbnail sizes
-4. **Debounce**: Já implementado na busca
+13. **Massas e Pratos Prontos** (ID: 8)
+    - Subcategorias: Todos, Massas, Massas e Tortas, Pratos Prontos
 
----
+14. **Complementos** (ID: 377)
+    - Subcategorias: Todos, Complementos, Molhos, Temperos
 
-## ✅ CHECKLIST FINAL
+15. **Bebidas** (ID: 69)
+16. **Boutique** (ID: 12)
+17. **Outros** (ID: 62)
 
-- ✅ Header original mantido
-- ✅ Menu moderno (container laranja)
-- ✅ Grid categorias removido
-- ✅ Badges apenas ícones
-- ✅ Cards compactos (170x310)
-- ✅ Layout sem suspiros
-- ✅ AspectRatio 1:1
-- ✅ Gramatura sempre visível
-- ✅ Oferta com gradiente
-- ✅ Skeleton loading
-- ✅ Performance otimizada
+#### Dia a Dia (5 categorias):
+1. **Linha Dia a Dia** (ID: 342)
+2. **Forno** (ID: 53)
+3. **Air Fryer** (ID: 350)
+4. **Massas e Pratos Prontos** (ID: 8)
+5. **Bebidas** (ID: 69)
 
----
+#### Fitness (1 categoria):
+1. **Linha Dia a Dia** (ID: 342)
 
-## 🔥 RESULTADO FINAL
+### ✨ Features das Categorias:
 
-### Visual:
-- ✨ Clean e profissional
-- ✨ Compacto mas legível
-- ✨ Badges inteligentes
-- ✨ Loading elegante
-
-### UX:
-- 🎯 Hierarquia clara
-- 🎯 Informação completa
-- 🎯 Feedback visual
-- 🎯 Navegação fluida
-
-### Performance:
-- ⚡ Skeleton loading
-- ⚡ Query otimizada
-- ⚡ Lazy loading
-- ⚡ Transitions suaves
+- ✅ **Grid responsivo** com cards animados
+- ✅ **Filtros inteligentes**: Todos, Churrasco, Dia a Dia, Fitness
+- ✅ **Hero header** com imagem e gradiente
+- ✅ **Subcategorias dinâmicas** para filtrar produtos
+- ✅ **Busca em tempo real** dentro da categoria
+- ✅ **Integração total** com WooCommerce API
+- ✅ **Loading states** elegantes
+- ✅ **Empty states** informativos
 
 ---
 
+## 👤 Sistema de Perfil de Usuário
 
+### 📱 Meu Perfil:
 
+**Features:**
+- ✅ Avatar com status online
+- ✅ Edição de nome
+- ✅ Edição de telefone (máscara brasileira)
+- ✅ Gestão de múltiplos endereços
+- ✅ Busca de CEP automática (ViaCEP)
+- ✅ Endereço padrão marcado
+- ✅ Apelidos personalizados para endereços
+- ✅ Validação completa de campos
 
+### 📍 Gestão de Endereços:
 
-🔄 Fluxo Completo do Checkout
-1. Usuário informa CEP
+**Campos:**
+- Apelido (Casa, Trabalho, etc)
+- CEP (com busca automática)
+- Rua, Número, Complemento
+- Bairro, Cidade, Estado
+- Marcar como padrão
+
+**Ações:**
+- ✅ Adicionar novo endereço
+- ✅ Editar endereço existente
+- ✅ Excluir endereço
+- ✅ Definir como padrão
+
+### 🎨 Menu Drawer Premium:
+
+**Features:**
+- ✅ Header com gradiente laranja
+- ✅ Avatar com status online
+- ✅ Badge de cashback disponível
+- ✅ Botão voltar
+- ✅ Logo no footer
+- ✅ Items: Perfil, WhatsApp, Features em breve
+- ✅ WhatsApp: +55 31 3461-3297
+
+---
+
+## 🔄 Fluxo Completo do Checkout
+
+### 1. Usuário informa CEP
 
 → shipping_service retorna:
 
+```json
 {
   "store": "Unidade Sion",
   "store_id": 12,
   "shipping_cost": 7.90
 }
+```
 
-
-2. checkout_controller guarda localmente
+### 2. checkout_controller guarda localmente
 
 Sem latência. Sem redirecionamentos.
 
-3. Usuário seleciona horário
+### 3. Usuário seleciona horário
 
-Regras (local):
+**Regras (local):**
 
-Retirada
+**Retirada:**
+- Seg–Sáb: 09–12, 12–15, 15–18
+- Domingo/Feriado: 09–12
 
-Seg–Sáb: 09–12, 12–15, 15–18
+**Entrega:**
+- Seg–Sáb: 09–12, 12–15, 15–18, 18–20
+- Domingo/Feriado: 09–12
 
-Domingo/Feriado: 09–12
-
-Entrega
-
-Seg–Sáb: 09–12, 12–15, 15–18, 18–20
-
-Domingo/Feriado: 09–12
-
-4. Pagamento
+### 4. Pagamento
 
 PIX, Dinheiro, Cartão, Vale.
 
-5. Pedido real enviado ao WooCommerce:
+### 5. Pedido real enviado ao WooCommerce:
 
+```json
 {
   "status": "pending",
   "created_via": "App",
@@ -384,14 +290,17 @@ PIX, Dinheiro, Cartão, Vale.
     { "key": "order_notes", "value": "Favor buzinar" }
   ]
 }
+```
 
+---
 
-🔥 Histórico em Tempo Real (Firestore)
+## 🔥 Histórico em Tempo Real (Firestore)
 
 Cada pedido é salvo no Firestore imediatamente após ser criado no WooCommerce.
 
-Estrutura:
+**Estrutura:**
 
+```json
 {
   "id": "9876",
   "status": "montado",
@@ -401,78 +310,167 @@ Estrutura:
   "customer": { "name": "Guilherme", "phone": "31999999999" },
   "created_at": 1731433282
 }
+```
 
+**Tela do app:**
+- Lista animada com Lottie
+- Status traduzidos
+- Tracker moderno
+- Produtos com imagens dinâmicas
 
-Tela do app:
+---
 
-Lista animada com Lottie
+## 🗄️ Backend (PHP + MySQL)
 
-Status traduzidos
+**Banco:** `u991329655_app`
 
-Tracker moderno
+### Tabelas:
 
-Produtos com imagens dinâmicas
-
-🗄️ Backend (PHP + MySQL)
-
-Banco: u991329655_app
-
-Tabelas
-
-customers
-
+#### customers
 | Campo | Tipo         |
 | ----- | ------------ |
 | id    | INT          |
 | name  | VARCHAR(100) |
 | phone | VARCHAR(20)  |
 
-
-customer_addresses
+#### customer_addresses
 | Campo               | Tipo    |
 | ------------------- | ------- |
 | id                  | INT     |
 | customer_id         | INT     |
 | street, number, cep | VARCHAR |
 
+---
 
-🛣️ Roadmap Oficial
+## 🎨 Padrões Visuais
 
-| Etapa                      | Status       |
-| -------------------------- | ------------ |
-| Estrutura Flutter          | ✔️ Done      |
-| Produtos via WooCommerce   | ✔️ Done      |
-| Carrinho global            | ✔️ Done      |
-| Onboarding                 | ✔️ Done      |
-| Frete por CEP              | ✔️ Done      |
-| Checkout completo          | ✔️ Done      |
-| Pedido real WooCommerce    | ✔️ Done      |
-| Histórico Firestore        | ✔️ Done      |
-| Push Notifications         | 🔜 Em breve  |
-| Melhorias UI/UX            | 🔜 Em breve  |
-| Filtros, buscas, favoritos | 🔜 Planejado |
+- **Tema primário:** `#FA4815` (AppColors.primary)
+- **Tipografia:** Custom em `app_text_styles.dart`
+- **Ícones:** Material Icons + Lottie animations
+- **Bottom Nav:** Branco com blur + botão central laranja
+- **Cards:** Bordas arredondadas 20px + sombras sutis
+- **UI consistente** com a marca Ao Gosto Carnes
 
+---
 
-🎨 Padrões Visuais
+## 📱 Navegação Bottom Nav
 
-Tema baseado em AppColors primário: #FA4815
+| Índice | Tela | Descrição |
+|--------|------|-----------|
+| 0 | HomeScreen | Ofertas, categorias, produtos |
+| 1 | CategoriesScreen | ✨ 20 categorias com filtros |
+| 2 | OrdersScreen | Histórico de pedidos |
+| 3 | MeuPerfilPage | ✨ Perfil + endereços |
+| 4 | CartDrawer | Carrinho (botão central) |
 
-Tipografia custom em app_text_styles.dart
+---
 
-Ícones e animações Lottie
+## 🛣️ Roadmap Oficial
 
-UI consistente com a marca Ao Gosto Carnes
+| Etapa | Status |
+| ----- | ------ |
+| Estrutura Flutter | ✔️ Done |
+| Produtos via WooCommerce | ✔️ Done |
+| Carrinho global | ✔️ Done |
+| Onboarding | ✔️ Done |
+| Frete por CEP | ✔️ Done |
+| Checkout completo | ✔️ Done |
+| Pedido real WooCommerce | ✔️ Done |
+| Histórico Firestore | ✔️ Done |
+| **Sistema de Categorias** | ✔️ Done |
+| **Perfil de Usuário** | ✔️ Done |
+| **Gestão de Endereços** | ✔️ Done |
+| **Menu Drawer Premium** | ✔️ Done |
+| Push Notifications | 🔜 Em breve |
+| Busca Avançada | 🔜 Em breve |
+| Filtros, favoritos | 🔜 Planejado |
 
+---
 
-🤝 Contribuição
+## 📊 Métricas de Qualidade
+
+### Performance:
+- ✅ KeepAlive em telas principais
+- ✅ Lazy loading de imagens
+- ✅ Cache de produtos (SharedPreferences)
+- ✅ Query otimizada WooCommerce (`_fields`)
+- ✅ Debounce em buscas
+
+### UX:
+- ✅ Loading states elegantes
+- ✅ Empty states informativos
+- ✅ Animações suaves (Lottie)
+- ✅ Feedback visual em ações
+- ✅ Navegação intuitiva
+
+### Code Quality:
+- ✅ Arquitetura modular
+- ✅ Separação de concerns
+- ✅ Services desacoplados
+- ✅ State management eficiente
+- ✅ Widgets reutilizáveis
+
+---
+
+## 🔧 Tecnologias
+
+### Flutter Packages:
+```yaml
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # State & Storage
+  provider: ^6.0.5
+  shared_preferences: ^2.2.0
+  
+  # Network
+  http: ^1.1.0
+  
+  # Firebase
+  cloud_firestore: ^4.13.0
+  firebase_core: ^2.24.0
+  
+  # UI
+  lottie: ^2.7.0
+  cached_network_image: ^3.3.0
+  
+  # Utils
+  intl: ^0.18.1
+  url_launcher: ^6.2.1
+  mask_text_input_formatter: ^2.5.0
+```
+
+---
+
+## 🤝 Contribuição
 
 Pull Requests são bem-vindos!
 O projeto possui estrutura modular pensada para expansão contínua.
 
-📎 Licença
+### Guidelines:
+1. Seguir padrões de código existentes
+2. Documentar novas features no README
+3. Testar em iOS e Android
+4. Commits descritivos em português
 
-Este projeto é proprietário da Ao Gosto Carnes.
-Distribuição ou uso externo não autorizado é proibido.
+---
 
+## 📎 Licença
 
+Este projeto é **proprietário da Ao Gosto Carnes**.
+Distribuição ou uso externo não autorizado é **proibido**.
 
+---
+
+## 📞 Contato
+
+**WhatsApp:** +55 31 3461-3297
+**Site:** aogosto.com.br
+
+---
+
+**🥩 Ao Gosto Carnes - A melhor experiência em carnes premium!**
+
+**Versão:** 1.0.0 (Produção)
+**Última atualização:** Novembro 2025

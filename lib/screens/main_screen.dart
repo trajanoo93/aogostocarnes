@@ -7,6 +7,8 @@ import 'package:ao_gosto_app/state/cart_controller.dart';
 import 'package:ao_gosto_app/screens/cart/cart_drawer.dart';
 import 'package:ao_gosto_app/screens/home/home_screen.dart';
 import 'package:ao_gosto_app/screens/orders/orders_screen.dart';
+import 'package:ao_gosto_app/screens/categories/categories_screen.dart';
+import 'package:ao_gosto_app/screens/profile/meu_perfil.dart';
 import 'package:ao_gosto_app/widgets/custom_bottom_navigation.dart';
 import 'package:ao_gosto_app/screens/onboarding/onboarding_flow.dart';
 import 'package:ao_gosto_app/widgets/header_menu_modal.dart';
@@ -25,9 +27,9 @@ class _MainScreenState extends State<MainScreen> {
 
   static final List<Widget> _pages = <Widget>[
     const HomeScreen(),
-    const Center(child: Text('Categorias - Em breve!', style: TextStyle(fontSize: 24))),
+    const CategoriesScreen(),
     const OrdersScreen(),
-    const Center(child: Text('Perfil - Em breve!', style: TextStyle(fontSize: 24))),
+    const MeuPerfilPage(),
   ];
 
   @override
@@ -52,7 +54,7 @@ class _MainScreenState extends State<MainScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: _scaffoldKey, // 🔥 Obrigatório para abrir o drawer pelo header
+      key: _scaffoldKey,
       endDrawer: const HeaderMenuModal(),
 
       body: Stack(
@@ -60,20 +62,17 @@ class _MainScreenState extends State<MainScreen> {
           /// Página atual
           _pages[_selectedIndex],
 
-          /// Bottom Navigation fixado e respeitando SafeArea
+          /// Bottom Navigation fixado
           Align(
             alignment: Alignment.bottomCenter,
-            child: SafeArea(
-              top: false,
-              child: Consumer<CartController>(
-                builder: (context, cart, child) {
-                  return CustomBottomNavigation(
-                    currentIndex: _selectedIndex,
-                    onTap: _onItemTapped,
-                    cartItemCount: cart.totalItems,
-                  );
-                },
-              ),
+            child: Consumer<CartController>(
+              builder: (context, cart, child) {
+                return CustomBottomNavigation(
+                  currentIndex: _selectedIndex,
+                  onTap: _onItemTapped,
+                  cartItemCount: cart.totalItems,
+                );
+              },
             ),
           ),
         ],
