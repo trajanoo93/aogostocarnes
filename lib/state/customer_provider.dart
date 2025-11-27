@@ -13,22 +13,9 @@ class CustomerProvider extends ChangeNotifier {
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Singleton
   static final CustomerProvider instance = CustomerProvider._();
   CustomerProvider._();
 
-  // Chave única baseada no telefone (ou device ID se preferir)
-  Future<String> _getUid() async {
-    final sp = await SharedPreferences.getInstance();
-    final phone = sp.getString('customer_phone')?.replaceAll(RegExp(r'\D'), '');
-    if (phone != null && phone.length >= 10) {
-      return phone;
-    }
-    // fallback: device identifier (pode melhorar depois)
-    return sp.getString('device_uid') ?? 'temp_${DateTime.now().millisecondsSinceEpoch}';
-  }
-
-  // Carrega ou cria cliente
   Future<void> loadOrCreateCustomer({
     required String name,
     required String phone,
@@ -41,17 +28,17 @@ class CustomerProvider extends ChangeNotifier {
     try {
       final uid = phone.replaceAll(RegExp(r'\D'), '');
       final docRef = _firestore.collection('clientes_app').doc(uid);
-
       final doc = await docRef.get();
 
       if (doc.exists) {
         _customer = CustomerData.fromDocument(doc);
       } else {
+        final addresses = initialAddress != null ? [initialAddress] : <CustomerAddress>[];
         final newCustomer = CustomerData(
           uid: uid,
           name: name,
           phone: phone,
-          addresses: initialAddress != null ? [initialAddress] : [],
+          addresses: addresses,
           fcmToken: fcmToken,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
@@ -60,20 +47,20 @@ class CustomerProvider extends ChangeNotifier {
         _customer = newCustomer;
       }
 
-      // Salva localmente pra fallback
       final sp = await SharedPreferences.getInstance();
       await sp.setString('customer_phone', phone);
       await sp.setString('customer_name', name);
+      await sp.setBool('onboarding_done', true);
 
       _isLoading = false;
       notifyListeners();
     } catch (e) {
+      debugPrint("Erro CustomerProvider: $e");
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // Atualiza cliente (perfil, endereço, etc)
   Future<void> updateCustomer(CustomerData updated) async {
     try {
       final docRef = _firestore.collection('clientes_app').doc(updated.uid);
@@ -85,23 +72,20 @@ class CustomerProvider extends ChangeNotifier {
     }
   }
 
-  // Adiciona ou atualiza endereço
   Future<void> saveAddress(CustomerAddress address, {bool setAsDefault = false}) async {
     if (_customer == null) return;
 
-    final updatedAddresses = _customer!.addresses.map((a) {
-      if (setAsDefault) {
-        return a.copyWith(isDefault: a.id == address.id);
-      }
-      return a.id == address.id ? address : a;
-    }).toList();
+    var updatedAddresses = List<CustomerAddress>.from(_customer!.addresses);
 
-    if (!_customer!.addresses.any((a) => a.id == address.id)) {
+    final index = updatedAddresses.indexWhere((a) => a.id == address.id);
+    if (index >= 0) {
+      updatedAddresses[index] = address;
+    } else {
       updatedAddresses.add(address);
     }
 
     if (setAsDefault) {
-      updatedAddresses.forEach((a) => a = a.copyWith(isDefault: a.id == address.id));
+      updatedAddresses = updatedAddresses.map((a) => a.copyWith(isDefault: a.id == address.id)).toList();
     }
 
     final updated = _customer!.copyWith(addresses: updatedAddresses);

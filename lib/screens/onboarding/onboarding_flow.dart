@@ -6,8 +6,9 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:ao_gosto_app/api/onboarding_service.dart';
 import 'package:ao_gosto_app/state/cart_controller.dart';
+import 'package:ao_gosto_app/state/customer_provider.dart';   
+import 'package:ao_gosto_app/models/customer_data.dart';
 
 class OnboardingFlow extends StatefulWidget {
   const OnboardingFlow({super.key});
@@ -142,36 +143,46 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
   }
 
   Future<void> _saveAndFinish() async {
-    if (_numberCtrl.text.trim().isEmpty) return;
-    setState(() => _isLoading = true);
+  if (_numberCtrl.text.trim().isEmpty) return;
+  setState(() => _isLoading = true);
 
-    try {
-      final service = OnboardingService();
-      final customer = Customer(name: _nameCtrl.text.trim(), phone: _phoneCtrl.text.replaceAll(RegExp(r'\D'), ''));
-      final address = CustomerAddress(
-        street: _street ?? '',
-        number: _numberCtrl.text.trim(),
-        complement: _complementCtrl.text.trim(),
-        neighborhood: _neighborhood ?? '',
-        city: _city ?? '',
-        state: _state ?? '',
-        cep: _cepCtrl.text.replaceAll(RegExp(r'\D'), ''),
-      );
+  try {
+    final telefoneLimpo = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
 
-      final id = await service.register(customer, address);
-      await service.persistProfile(id: id, name: customer.name, phone: customer.phone, a: address, deliveryFee: _deliveryFee);
-      await (await SharedPreferences.getInstance()).setBool('onboarding_done', true);
-      CartController.instance.setDeliveryFee(_deliveryFee!);
+    final novoEndereco = CustomerAddress(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      apelido: "Minha Casa",
+      street: _street ?? '',
+      number: _numberCtrl.text.trim(),
+      complement: _complementCtrl.text.trim().isEmpty ? null : _complementCtrl.text.trim(),
+      neighborhood: _neighborhood ?? '',
+      city: _city ?? '',
+      state: _state ?? '',
+      cep: _cepCtrl.text.replaceAll(RegExp(r'\D'), ''),
+      isDefault: true,
+    );
 
-      if (mounted) Navigator.of(context).pop();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    await CustomerProvider.instance.loadOrCreateCustomer(
+      name: _nameCtrl.text.trim(),
+      phone: telefoneLimpo,
+      initialAddress: novoEndereco,
+    );
+
+    CartController.instance.setDeliveryFee(_deliveryFee ?? 0.0);
+
+    if (mounted) {
+      Navigator.of(context).pop(); // fecha o onboarding
     }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao salvar: $e')),
+      );
+    }
+  } finally {
+    if (mounted) setState(() => _isLoading = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {

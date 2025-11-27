@@ -2,13 +2,15 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
-import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:ao_gosto_app/state/cart_controller.dart';
+import 'package:ao_gosto_app/state/customer_provider.dart';     
+import 'package:ao_gosto_app/models/customer_data.dart';       
 import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'package:ao_gosto_app/screens/checkout/checkout_controller.dart';
+import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:ao_gosto_app/screens/checkout/widgets/calendar_widget.dart';
 import 'package:ao_gosto_app/screens/checkout/widgets/time_slot_grid.dart';
-import 'package:ao_gosto_app/models/order_model.dart';
+import 'package:ao_gosto_app/screens/profile/widgets/address_form_sheet.dart'; 
 
 class StepAddress extends StatelessWidget {
   const StepAddress({super.key});
@@ -16,7 +18,17 @@ class StepAddress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.watch<CheckoutController>();
+    final customerProv = context.watch<CustomerProvider>();
+    final customer = customerProv.customer;
     final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
+
+    // Se ainda não carregou o cliente, mostra loading
+    if (customer == null) {
+      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+    }
+
+    // Pega endereços do Firestore
+    final addresses = customer.addresses;
 
     return Column(
       children: [
@@ -27,8 +39,9 @@ class StepAddress extends StatelessWidget {
         _DeliveryTypeCard(),
         const SizedBox(height: 16),
         if (c.deliveryType == DeliveryType.delivery) ...[
-          _AddressListCard(),
-          if (c.selectedAddressId != null && c.deliveryFee > 0) _DeliveryFeeRow(fee: c.deliveryFee),
+          _AddressListCard(addresses: addresses, checkoutController: c),
+          if (c.selectedAddressId != null && c.deliveryFee > 0)
+            _DeliveryFeeRow(fee: c.deliveryFee),
         ] else
           _PickupListCard(),
         const SizedBox(height: 16),
@@ -39,6 +52,124 @@ class StepAddress extends StatelessWidget {
       ],
     );
   }
+}
+
+// === LISTA DE ENDEREÇOS (AGORA DO FIRESTORE) ===
+class _AddressListCard extends StatelessWidget {
+  final List<CustomerAddress> addresses;
+  final CheckoutController checkoutController;
+
+  const _AddressListCard({required this.addresses, required this.checkoutController});
+
+  @override
+  Widget build(BuildContext context) {
+    final c = checkoutController;
+
+    return Container(
+      decoration: _cardDeco(),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Endereço de Entrega', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+              IconButton(
+                icon: const Icon(Icons.add, color: AppColors.primary),
+                onPressed: () => _showAddressSheet(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (addresses.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Text('Nenhum endereço cadastrado', style: TextStyle(color: Colors.grey)),
+            )
+          else
+            ...addresses.map((addr) {
+              final isSelected = addr.id == c.selectedAddressId;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: InkWell(
+                  onTap: () {
+                    c.selectAddress(addr.id);
+                    c.refreshFee();
+                  },
+                  borderRadius: BorderRadius.circular(20),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: isSelected ? const Color(0xFFFFF7ED) : Colors.white,
+                      border: Border.all(color: isSelected ? AppColors.primary : const Color(0xFFE5E7EB), width: 2),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(addr.apelido, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                                  if (addr.isDefault)
+                                    Container(
+                                      margin: const EdgeInsets.only(left: 8),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(6)),
+                                      child: const Text('Padrão', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text('${addr.street}, ${addr.number}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+                              Text('${addr.neighborhood}, ${addr.city} - ${addr.state}', style: const TextStyle(color: Color(0xFF71717A), fontSize: 14)),
+                            ],
+                          ),
+                        ),
+                        if (isSelected) const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 26),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+}
+
+// === BOTÃO ADICIONAR ENDEREÇO (reutiliza seu AddressFormSheet) ===
+void _showAddressSheet(BuildContext context) {
+  final provider = Provider.of<CustomerProvider>(context, listen: false);
+
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => AddressFormSheet(
+      onSave: (data) async {
+        final novoEndereco = CustomerAddress(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          apelido: data['apelido'] ?? 'Endereço',
+          street: data['street'],
+          number: data['number'],
+          complement: data['complement'],
+          neighborhood: data['neighborhood'],
+          city: data['city'],
+          state: data['state'],
+          cep: data['cep'],
+          isDefault: provider.customer?.addresses.isEmpty ?? true,
+        );
+
+        await provider.saveAddress(novoEndereco, setAsDefault: novoEndereco.isDefault);
+        Navigator.pop(context);
+      },
+    ),
+  );
 }
 
 // === RESUMO DO PEDIDO ===
@@ -371,114 +502,6 @@ class _DeliveryChip extends StatelessWidget {
   }
 }
 
-// === LISTA DE ENDEREÇOS ===
-class _AddressListCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final c = context.watch<CheckoutController>();
-    return Container(
-      decoration: _cardDeco(),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Endereço de Entrega', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-              IconButton(icon: const Icon(Icons.add, color: AppColors.primary), onPressed: () => _showAddressDialog(context)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...c.addresses.map((a) {
-            final active = a.id == c.selectedAddressId;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: InkWell(
-                onTap: () => c.selectAddress(a.id),
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: active ? const Color(0xFFFFF7ED) : Colors.white,
-                    border: Border.all(color: active ? AppColors.primary : const Color(0xFFE5E7EB), width: 2),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(a.short, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                            Text('${a.neighborhood}, ${a.city} - ${a.state}', style: const TextStyle(color: Color(0xFF71717A), fontSize: 14)),
-                          ],
-                        ),
-                      ),
-                      if (active) const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 26),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-}
-
-void _showAddressDialog(BuildContext context) {
-  final c = context.read<CheckoutController>();
-  final streetCtrl = TextEditingController();
-  final numberCtrl = TextEditingController();
-  final complementCtrl = TextEditingController();
-  final neighborhoodCtrl = TextEditingController();
-  final cityCtrl = TextEditingController();
-  final stateCtrl = TextEditingController();
-  final cepCtrl = TextEditingController();
-
-  showDialog(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Novo Endereço'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(controller: streetCtrl, decoration: const InputDecoration(labelText: 'Rua')),
-            TextField(controller: numberCtrl, decoration: const InputDecoration(labelText: 'Número')),
-            TextField(controller: complementCtrl, decoration: const InputDecoration(labelText: 'Complemento (opcional)')),
-            TextField(controller: neighborhoodCtrl, decoration: const InputDecoration(labelText: 'Bairro')),
-            TextField(controller: cityCtrl, decoration: const InputDecoration(labelText: 'Cidade')),
-            TextField(controller: stateCtrl, decoration: const InputDecoration(labelText: 'Estado')),
-            TextField(controller: cepCtrl, decoration: const InputDecoration(labelText: 'CEP')),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-        ElevatedButton(
-          onPressed: () {
-            final address = Address(
-              id: DateTime.now().millisecondsSinceEpoch.toString(),
-              street: streetCtrl.text,
-              number: numberCtrl.text,
-              complement: complementCtrl.text,
-              neighborhood: neighborhoodCtrl.text,
-              city: cityCtrl.text,
-              state: stateCtrl.text,
-              cep: cepCtrl.text,
-            );
-            Navigator.pop(context, address);
-            Navigator.pop(ctx);
-          },
-          child: const Text('Adicionar'),
-        ),
-      ],
-    ),
-  );
-}
 
 // === TAXA DE ENTREGA ===
 class _DeliveryFeeRow extends StatelessWidget {

@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class CustomerAddress {
   final String id;
-  final String apelido; // Casa, Trabalho, etc
+  final String apelido;
   final String street;
   final String number;
   final String? complement;
@@ -41,24 +41,49 @@ class CustomerAddress {
     );
   }
 
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'apelido': apelido,
-      'street': street,
-      'number': number,
-      'complement': complement,
-      'neighborhood': neighborhood,
-      'city': city,
-      'state': state,
-      'cep': cep,
-      'isDefault': isDefault,
-    };
+  Map<String, dynamic> toMap() => {
+        'id': id,
+        'apelido': apelido,
+        'street': street,
+        'number': number,
+        'complement': complement,
+        'neighborhood': neighborhood,
+        'city': city,
+        'state': state,
+        'cep': cep,
+        'isDefault': isDefault,
+      };
+
+  // ESSA É A PARTE QUE FALTAVA!!!
+  CustomerAddress copyWith({
+    String? id,
+    String? apelido,
+    String? street,
+    String? number,
+    String? complement,
+    String? neighborhood,
+    String? city,
+    String? state,
+    String? cep,
+    bool? isDefault,
+  }) {
+    return CustomerAddress(
+      id: id ?? this.id,
+      apelido: apelido ?? this.apelido,
+      street: street ?? this.street,
+      number: number ?? this.number,
+      complement: complement ?? this.complement,
+      neighborhood: neighborhood ?? this.neighborhood,
+      city: city ?? this.city,
+      state: state ?? this.state,
+      cep: cep ?? this.cep,
+      isDefault: isDefault ?? this.isDefault,
+    );
   }
 }
 
 class CustomerData {
-  final String uid; // será o telefone limpo (31999999999)
+  final String uid;
   final String name;
   final String phone;
   final List<CustomerAddress> addresses;
@@ -93,16 +118,14 @@ class CustomerData {
     );
   }
 
-  Map<String, dynamic> toMap() {
-    return {
-      'name': name,
-      'phone': phone,
-      'addresses': addresses.map((a) => a.toMap()).toList(),
-      'fcmToken': fcmToken,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    };
-  }
+  Map<String, dynamic> toMap() => {
+        'name': name,
+        'phone': phone,
+        'addresses': addresses.map((a) => a.toMap()).toList(),
+        'fcmToken': fcmToken,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
 
   CustomerData copyWith({
     String? name,

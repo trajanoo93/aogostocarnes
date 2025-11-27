@@ -2,6 +2,8 @@
 
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'package:collection/collection.dart';
+import 'package:ao_gosto_app/state/customer_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -117,7 +119,7 @@ class CheckoutController extends ChangeNotifier {
   List<CheckoutAddress> addresses = [];
   double deliveryFee = 0.0;
   StoreInfo? storeInfo;
-  OnboardingProfile? profile;
+
 
   // === TELEFONE ===
   String userPhone = '';
@@ -193,53 +195,82 @@ class CheckoutController extends ChangeNotifier {
 
 
   /// ===========================================================
-  ///             INICIALIZAÇÃO DO CHECKOUT
-  /// ===========================================================
-  Future<void> _bootstrap() async {
-    isLoading = true;
+///             INICIALIZAÇÃO DO CHECKOUT (VERSÃO FINAL)
+/// ===========================================================
+Future<void> _bootstrap() async {
+  isLoading = true;
+  notifyListeners();
 
-    try {
+  try {
+    final customerProv = CustomerProvider.instance;
+
+    // Se o cliente ainda não foi carregado, tenta carregar do SharedPreferences como fallback
+    if (customerProv.customer == null) {
       final sp = await SharedPreferences.getInstance();
-      final id = sp.getString('customer_id');
+      final phone = sp.getString('customer_phone');
+      final name = sp.getString('customer_name');
 
-      if (id != null) {
-  profile = await OnboardingService().getProfile();
-  addresses = _buildAddressesFromProfile();
-  selectedAddressId = addresses.isNotEmpty ? addresses.first.id : null;
-  userPhone = sp.getString('user_phone') ?? '';
-  await _refreshFee();
-}
-    } catch (e) {
-      if (kDebugMode) print('Bootstrap error: $e');
+      if (phone != null && name != null && phone.isNotEmpty) {
+        // Tenta carregar do Firestore usando o telefone como UID
+        await customerProv.loadOrCreateCustomer(
+          name: name,
+          phone: phone,
+        );
+      }
     }
 
-    isLoading = false;
-    WidgetsBinding.instance.addPostFrameCallback((_) => notifyListeners());
-  }
+    // Agora sim, usa o cliente do Provider
+    final customer = customerProv.customer;
+    if (customer == null) {
+      isLoading = false;
+      notifyListeners();
+      return;
+    }
 
-
-
-  /// Converte o endereço salvo no perfil em CheckoutAddress
-  List<CheckoutAddress> _buildAddressesFromProfile() {
-    if (profile?.address == null) return [];
-
-    final a = profile!.address!;
-
-    return [
-      CheckoutAddress(
-        id: '1',
-        street: a.street ?? '',
-        number: a.number ?? '',
+    // Converte endereços do Firestore → CheckoutAddress
+    addresses = customer.addresses.map((a) {
+      return CheckoutAddress(
+        id: a.id,
+        street: a.street,
+        number: a.number,
         complement: a.complement ?? '',
-        neighborhood: a.neighborhood ?? '',
-        city: a.city ?? '',
-        state: a.state ?? '',
-        cep: a.cep ?? '',
-      ),
-    ];
+        neighborhood: a.neighborhood,
+        city: a.city,
+        state: a.state,
+        cep: a.cep,
+      );
+    }).toList();
+
+    // Seleciona o endereço padrão ou o primeiro
+    final defaultAddress = customer.addresses.firstWhereOrNull((a) => a.isDefault);
+    selectedAddressId = defaultAddress?.id ?? addresses.firstOrNull?.id;
+
+    // Telefone formatado para exibir
+    userPhone = _formatPhone(customer.phone);
+
+    // Atualiza frete se tiver endereço selecionado
+    if (selectedAddressId != null) {
+      await _refreshFee();
+    }
+  } catch (e) {
+    debugPrint("Erro no bootstrap do checkout: $e");
   }
 
+  isLoading = false;
+  notifyListeners();
+}
 
+// Método auxiliar pra formatar telefone
+String _formatPhone(String phone) {
+  final digits = phone.replaceAll(RegExp(r'\D'), '');
+  if (digits.length == 11) {
+    return '(${digits.substring(0, 2)}) ${digits.substring(2, 7)}-${digits.substring(7)}';
+  } else if (digits.length == 10) {
+    return '(${digits.substring(0, 2)}) ${digits.substring(2, 6)}-${digits.substring(6)}';
+  }
+  return phone;
+}
+ 
 
   // ===========================================================
   //                        ENDEREÇOS
@@ -515,7 +546,9 @@ Tipo: ${deliveryType.name}
           addresses.firstWhere((a) => a.id == selectedAddressId);
 
 
-      final fullName = profile?.name?.trim() ?? "Cliente";
+  final customer = CustomerProvider.instance.customer;
+final fullName = customer?.name ?? "Cliente";
+final userPhoneRaw = customer?.phone ?? userPhone.replaceAll(RegExp(r'\D'), '');
 
       final nameParts = fullName.split(' ');
 
@@ -537,7 +570,7 @@ Tipo: ${deliveryType.name}
           "email": "app@aogosto.com.br",
           "first_name": firstName,
           "last_name": lastName,
-          "phone": userPhone,
+          "phone": userPhoneRaw,
           "address_1": selectedAddr.street,
           "address_2": selectedAddr.complement,
           "city": selectedAddr.city,
@@ -697,8 +730,8 @@ final String statusFinal = isAgendado ? "Agendado" : "-";
   cd: cd,
   janelaTexto: janelaTexto,
   isAgendado: isAgendado,
-  customerName: profile?.name ?? 'Cliente',
-  customerPhone: userPhone,
+  customerName: customer?.name ?? 'Cliente',
+  customerPhone: userPhoneRaw,
 );
     }
 
@@ -713,7 +746,10 @@ final String statusFinal = isAgendado ? "Agendado" : "-";
   }
 
 
-
+  Future<void> refreshFee() async {
+  await _refreshFee();
+  _safeNotify();
+}
 
   // ===========================================================
   //                     MÉTODOS AUXILIARES
