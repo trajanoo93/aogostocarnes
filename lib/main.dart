@@ -12,6 +12,8 @@ import 'package:ao_gosto_app/screens/onboarding/onboarding_gate.dart';
 import 'package:ao_gosto_app/screens/onboarding/onboarding_flow.dart';
 import 'package:ao_gosto_app/state/cart_controller.dart';
 import 'package:ao_gosto_app/state/customer_provider.dart'; // ← NOVO
+import 'package:ao_gosto_app/root_router.dart';
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -66,7 +68,7 @@ class MyApp extends StatelessWidget {
         },
 
         theme: AppTheme.lightTheme,
-        home: const OnboardingGate(),
+        home: const RootRouter(),
       ),
     );
   }

@@ -1,11 +1,13 @@
-// lib/screens/cart/cart_drawer.dart
-
+// lib/screens/cart/cart_drawer.dart - VERSÃO ULTRA MODERNA
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:lottie/lottie.dart'; // ← NECESSÁRIO PARA A ANIMAÇÃO
+import 'package:lottie/lottie.dart';
 import 'package:ao_gosto_app/state/cart_controller.dart';
 import 'package:ao_gosto_app/models/cart_item.dart';
+import 'package:ao_gosto_app/models/product.dart';
+import 'package:ao_gosto_app/api/product_service.dart';
 import 'package:ao_gosto_app/screens/checkout/checkout_screen.dart';
+import 'package:ao_gosto_app/screens/product/product_details_page.dart';
 
 Future<void> showCartDrawer(BuildContext context) async {
   await Navigator.of(context).push(
@@ -39,7 +41,7 @@ class CartFullScreen extends StatelessWidget {
             child: Container(color: Colors.black.withOpacity(0.6)),
           ),
 
-          // Painel principal – TODO BRANCO
+          // Painel principal
           AnimatedBuilder(
             animation: controller,
             builder: (context, _) {
@@ -48,58 +50,27 @@ class CartFullScreen extends StatelessWidget {
               final isEmpty = items.isEmpty;
 
               return SlideTransition(
-                position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero).animate(
-                  CurvedAnimation(parent: ModalRoute.of(context)!.animation!, curve: Curves.easeOutCubic),
+                position: Tween<Offset>(
+                  begin: const Offset(1, 0),
+                  end: Offset.zero,
+                ).animate(
+                  CurvedAnimation(
+                    parent: ModalRoute.of(context)!.animation!,
+                    curve: Curves.easeOutCubic,
+                  ),
                 ),
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: Container(
                     width: MediaQuery.of(context).size.width,
                     height: double.infinity,
-                    color: Colors.white, // Fundo branco puro
+                    color: Colors.white,
                     child: Column(
                       children: [
-                        // HEADER — só aparece quando tem itens
-                        if (!isEmpty)
-                          Container(
-                            padding: const EdgeInsets.fromLTRB(20, 50, 20, 16),
-                            color: Colors.white,
-                            child: SafeArea(
-                              bottom: false,
-                              child: Row(
-                                children: [
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text(
-                                        'Minha Caixa',
-                                        style: TextStyle(
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.w800,
-                                          color: Colors.black87,
-                                        ),
-                                      ),
-                                      Text(
-                                        '$totalItems ${totalItems == 1 ? 'item' : 'itens'}',
-                                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                                      ),
-                                    ],
-                                  ),
-                                  const Spacer(),
-                                  IconButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    icon: const Icon(Icons.close, size: 28),
-                                    style: IconButton.styleFrom(
-                                      backgroundColor: Colors.grey[100],
-                                      shape: const CircleBorder(),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                        // HEADER MODERNO
+                        if (!isEmpty) _ModernHeader(totalItems: totalItems),
 
-                        // Botão X quando está vazio (fica no canto superior direito)
+                        // Botão X quando vazio
                         if (isEmpty)
                           SafeArea(
                             child: Align(
@@ -121,54 +92,12 @@ class CartFullScreen extends StatelessWidget {
                         // CONTEÚDO
                         Expanded(
                           child: isEmpty
-                              ? const _EmptyCart() // ← com seu Lottie lindo
+                              ? const _EmptyCart()
                               : _CartWithItems(items: items, brl: brl),
                         ),
 
-                        // FOOTER — só aparece quando tem itens
-                        if (!isEmpty)
-                          Container(
-                            padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              border: Border(top: BorderSide(color: Colors.grey.shade200)),
-                              boxShadow: const [
-                                BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(0, -5)),
-                              ],
-                            ),
-                            child: Column(
-                              children: [
-                                _summaryRow('Subtotal', brl.format(controller.subtotal)),
-                                const SizedBox(height: 8),
-                                _summaryRow('Taxa de Entrega', brl.format(controller.deliveryFee)),
-                                const Divider(height: 32),
-                                ElevatedButton(
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                    Future.delayed(const Duration(milliseconds: 300), () {
-                                      if (context.mounted) {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(builder: (_) => const CheckoutScreen()),
-                                        );
-                                      }
-                                    });
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFFFA4815),
-                                    foregroundColor: Colors.white,
-                                    minimumSize: const Size(double.infinity, 56),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                                    elevation: 8,
-                                    shadowColor: const Color(0xFFFA4815).withOpacity(0.4),
-                                  ),
-                                  child: Text(
-                                    'Finalizar Pedido • ${brl.format(controller.total)}',
-                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                        // FOOTER PREMIUM
+                        if (!isEmpty) _PremiumFooter(brl: brl),
                       ],
                     ),
                   ),
@@ -180,21 +109,189 @@ class CartFullScreen extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget _summaryRow(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: TextStyle(color: Colors.grey[700], fontSize: 15)),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
-      ],
+// ═══════════════════════════════════════════════════════════
+//              HEADER MODERNO COM LARANJA
+// ═══════════════════════════════════════════════════════════
+class _ModernHeader extends StatelessWidget {
+  final int totalItems;
+  
+  const _ModernHeader({required this.totalItems});
+  
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 50, 20, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade100, width: 1),
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        child: Row(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Título com "Caixa Laranja" em destaque
+                Row(
+                  children: [
+                    const Text(
+                      'Meus ',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF18181B),
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    Text(
+                      'Cortes Premium',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.w900,
+                        color: const Color(0xFFFA4815),
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '$totalItems ${totalItems == 1 ? 'item' : 'itens'}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF71717A),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const Spacer(),
+            IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.close_rounded, size: 24),
+              style: IconButton.styleFrom(
+                backgroundColor: const Color(0xFFF4F4F5),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
-// ==================================================
-// ESTADO VAZIO – COM SEU LOTTIE ANIMADO (só roda 1x)
-// ==================================================== ==============================
+// ═══════════════════════════════════════════════════════════
+//              FOOTER PREMIUM SEM TAXA
+// ═══════════════════════════════════════════════════════════
+class _PremiumFooter extends StatelessWidget {
+  final NumberFormat brl;
+  
+  const _PremiumFooter({required this.brl});
+  
+  @override
+  Widget build(BuildContext context) {
+    final controller = CartController.instance;
+    
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border(
+          top: BorderSide(color: Colors.grey.shade100, width: 1),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          children: [
+            // Subtotal
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Subtotal',
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Color(0xFF71717A),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  brl.format(controller.subtotal),
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF18181B),
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            // Botão Clean e Elegante
+            SizedBox(
+              width: double.infinity,
+              height: 56,
+              child: ElevatedButton(
+                onPressed: () {
+                  // ✅ CORREÇÃO: Salvar contexto e navigator ANTES do async
+                  final navigator = Navigator.of(context);
+                  
+                  // Fecha o drawer
+                  navigator.pop();
+                  
+                  // Navega para o checkout SEM delay
+                  navigator.push(
+                    MaterialPageRoute(
+                      builder: (_) => const CheckoutScreen(),
+                    ),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFA4815),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shadowColor: Colors.transparent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: const Text(
+                  'Finalizar Pedido',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.3,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//              CARRINHO VAZIO
+// ═══════════════════════════════════════════════════════════
 class _EmptyCart extends StatefulWidget {
   const _EmptyCart();
 
@@ -233,22 +330,29 @@ class _EmptyCartState extends State<_EmptyCart> with TickerProviderStateMixin {
               onLoaded: (composition) {
                 _controller
                   ..duration = composition.duration
-                  ..forward(); // Toca uma única vez
+                  ..forward();
               },
               repeat: false,
             ),
           ),
           const SizedBox(height: 32),
           const Text(
-            'Sua caixa está vazia.',
-            style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.black87),
+            'Sua caixa está vazia',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF18181B),
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 12),
-          Text(
+          const Text(
             'Que tal adicionar alguns cortes suculentos?',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey[600], fontSize: 16),
+            style: TextStyle(
+              color: Color(0xFF71717A),
+              fontSize: 15,
+            ),
           ),
           const SizedBox(height: 40),
           ElevatedButton(
@@ -256,11 +360,22 @@ class _EmptyCartState extends State<_EmptyCart> with TickerProviderStateMixin {
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFFA4815),
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              elevation: 6,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 40,
+                vertical: 16,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              elevation: 0,
             ),
-            child: const Text('Ver Produtos', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+            child: const Text(
+              'Ver Produtos',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
           ),
         ],
       ),
@@ -268,9 +383,9 @@ class _EmptyCartState extends State<_EmptyCart> with TickerProviderStateMixin {
   }
 }
 
-// ==================================================
-// ESTADO COM ITENS
-// ==================================================
+// ═══════════════════════════════════════════════════════════
+//              CARRINHO COM ITENS + UP-SELLING
+// ═══════════════════════════════════════════════════════════
 class _CartWithItems extends StatelessWidget {
   final List<CartItem> items;
   final NumberFormat brl;
@@ -281,22 +396,319 @@ class _CartWithItems extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = CartController.instance;
 
-    return ListView.separated(
+    return ListView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-      itemCount: items.length,
-      separatorBuilder: (_, __) => const Divider(height: 32),
-      itemBuilder: (_, i) {
-        final item = items[i];
-        final product = item.product;
+      children: [
+        // Lista de itens
+        ...items.asMap().entries.map((entry) {
+          final i = entry.key;
+          final item = entry.value;
+          final product = item.product;
 
-        return Row(
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: i < items.length - 1 ? 20 : 0,
+            ),
+            child: _CartItemCard(
+              item: item,
+              product: product,
+              brl: brl,
+              controller: controller,
+            ),
+          );
+        }),
+        
+        // Up-selling (discreto)
+        const SizedBox(height: 32),
+        const _UpSellingSection(),
+      ],
+    );
+  }
+}
+
+// === CARD DO ITEM ===
+class _CartItemCard extends StatelessWidget {
+  final CartItem item;
+  final Product product;
+  final NumberFormat brl;
+  final CartController controller;
+  
+  const _CartItemCard({
+    required this.item,
+    required this.product,
+    required this.brl,
+    required this.controller,
+  });
+  
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFAFAFA),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Imagem
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: SizedBox(
+              width: 80,
+              height: 80,
+              child: Image.network(
+                product.imageUrl ?? '',
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: Colors.grey[200],
+                  child: const Icon(
+                    Icons.image_not_supported_outlined,
+                    color: Color(0xFF9CA3AF),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          
+          const SizedBox(width: 12),
+          
+          // Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        product.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                          color: Color(0xFF18181B),
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => controller.remove(product),
+                      icon: const Icon(
+                        Icons.delete_outline_rounded,
+                        color: Color(0xFF9CA3AF),
+                        size: 20,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+                
+                const SizedBox(height: 8),
+                
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Preço
+                    Text(
+                      brl.format(item.totalPrice),
+                      style: const TextStyle(
+                        color: Color(0xFFFA4815),
+                        fontWeight: FontWeight.w900,
+                        fontSize: 16,
+                      ),
+                    ),
+                    
+                    // Contador
+                    Container(
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(color: const Color(0xFFE5E7EB)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            onPressed: () => controller.decrement(product),
+                            icon: const Icon(Icons.remove, size: 16),
+                            padding: const EdgeInsets.all(8),
+                            constraints: const BoxConstraints(),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(
+                              '${item.quantity}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => controller.increment(product),
+                            icon: const Icon(Icons.add, size: 16),
+                            padding: const EdgeInsets.all(8),
+                            constraints: const BoxConstraints(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//            UP-SELLING DISCRETO (CATEGORIA 250)
+// ═══════════════════════════════════════════════════════════
+class _UpSellingSection extends StatefulWidget {
+  const _UpSellingSection();
+  
+  @override
+  State<_UpSellingSection> createState() => _UpSellingSectionState();
+}
+
+class _UpSellingSectionState extends State<_UpSellingSection> {
+  List<Product> _products = [];
+  bool _loading = true;
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+  
+  Future<void> _loadProducts() async {
+    try {
+      final service = ProductService();
+      final products = await service.fetchProductsByCategory(250, perPage: 10);
+      
+      // Filtrar produtos que já estão no carrinho
+      final cartController = CartController.instance;
+      final cartProductIds = cartController.items.map((e) => e.product.id).toSet();
+      final filtered = products.where((p) => !cartProductIds.contains(p.id)).toList();
+      
+      if (mounted) {
+        setState(() {
+          _products = filtered.take(4).toList();
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const SizedBox.shrink();
+    }
+    
+    if (_products.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Header discreto
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.star_rounded,
+                size: 16,
+                color: Color(0xFFFA4815),
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'Você também pode gostar',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF18181B),
+              ),
+            ),
+          ],
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // Grid horizontal
+        SizedBox(
+          height: 200,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: _products.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, i) {
+              final product = _products[i];
+              return _UpSellingCard(product: product);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// === CARD UP-SELLING ===
+class _UpSellingCard extends StatelessWidget {
+  final Product product;
+  
+  const _UpSellingCard({required this.product});
+  
+  @override
+  Widget build(BuildContext context) {
+    final brl = NumberFormat.simpleCurrency(locale: 'pt_BR');
+    final controller = CartController.instance;
+    
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ProductDetailsPage(product: product),
+          ),
+        );
+      },
+      child: Container(
+        width: 140,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Imagem
             ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
               child: SizedBox(
-                width: 96,
-                height: 96,
+                height: 100,
+                width: double.infinity,
                 child: Image.network(
                   product.imageUrl ?? '',
                   fit: BoxFit.cover,
@@ -307,71 +719,74 @@ class _CartWithItems extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 16),
-            Expanded(
+            
+            // Info
+            Padding(
+              padding: const EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          product.name,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => controller.remove(product),
-                        icon: const Icon(Icons.delete_outline, color: Colors.grey),
-                      ),
-                    ],
+                  Text(
+                    product.name,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF18181B),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        brl.format(item.totalPrice),
-                        style: const TextStyle(
-                          color: Color(0xFFFA4815),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18,
+                  
+                  const SizedBox(height: 6),
+                  
+                  Text(
+                    brl.format(product.price),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFFFA4815),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  // Botão adicionar
+                  SizedBox(
+                    width: double.infinity,
+                    height: 32,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        controller.add(product);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Produto adicionado!'),
+                            duration: const Duration(seconds: 2),
+                            backgroundColor: const Color(0xFF16A34A),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFA4815),
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.zero,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
                         ),
+                        elevation: 0,
                       ),
-                      Container(
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              onPressed: () => controller.decrement(product),
-                              icon: const Icon(Icons.remove, size: 18),
-                              padding: EdgeInsets.zero,
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 12),
-                              child: Text('${item.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            ),
-                            IconButton(
-                              onPressed: () => controller.increment(product),
-                              icon: const Icon(Icons.add, size: 18),
-                              padding: EdgeInsets.zero,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                      child: const Icon(Icons.add, size: 18),
+                    ),
                   ),
                 ],
               ),
             ),
           ],
-        );
-      },
+        ),
+      ),
     );
   }
 }

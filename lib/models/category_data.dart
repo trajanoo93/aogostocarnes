@@ -37,7 +37,7 @@ class CategoriesRepository {
       id: 34,
       name: 'Bovinos',
       description: 'O rei do churrasco. Cortes nobres e tradicionais.',
-      imageUrl: 'https://images.unsplash.com/photo-1600891964092-4316c288032e?q=80&w=1000',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/pexels-cristian-rojas-8477228.jpg?q=80&w=1000',
       tags: ['Churrasco'],
       subcategories: [
         SubcategoryData(id: 34, name: 'Todos'),
@@ -57,7 +57,7 @@ class CategoriesRepository {
       id: 71,
       name: 'Kits Prontos',
       description: 'Tudo pronto para seu evento.',
-      imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=800',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/istockphoto-1299827873-1024x1024-1.jpg?q=80&w=800',
       tags: ['Churrasco'],
       subcategories: [
         SubcategoryData(id: 71, name: 'Todos'),
@@ -85,7 +85,7 @@ class CategoriesRepository {
       id: 44,
       name: 'Porco',
       description: 'Sabor e suculência garantidos.',
-      imageUrl: 'https://images.unsplash.com/photo-1603360436449-dc6b4a25b41f?q=80&w=800',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/pexels-shliftik-7333266-1.jpg?q=80&w=800',
       tags: ['Churrasco'],
       subcategories: [
         SubcategoryData(id: 44, name: 'Todos'),
@@ -97,7 +97,7 @@ class CategoriesRepository {
       id: 32,
       name: 'Frango',
       description: 'Leveza e versatilidade.',
-      imageUrl: 'https://images.unsplash.com/photo-1587593810167-a84920ea0781?q=80&w=800',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/pexels-leeloothefirst-5769383.jpg?q=80&w=800',
       tags: ['Churrasco'],
       subcategories: [
         SubcategoryData(id: 32, name: 'Todos'),
@@ -109,7 +109,7 @@ class CategoriesRepository {
       id: 55,
       name: 'Exóticos',
       description: 'Sabores únicos e especiais.',
-      imageUrl: 'https://images.unsplash.com/photo-1606850780554-b55ea684fe84?q=80&w=800',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/pexels-chevanon-323682.jpg?q=80&w=800',
       tags: ['Churrasco', 'Premium'],
       subcategories: [
         SubcategoryData(id: 55, name: 'Todos'),
@@ -121,7 +121,7 @@ class CategoriesRepository {
       id: 63,
       name: 'Pescados',
       description: 'Frescor do mar para sua mesa.',
-      imageUrl: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?q=80&w=800',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/pexels-electra-studio-32883186-30648983.jpg?q=80&w=800',
       tags: ['Churrasco'],
       subcategories: [
         SubcategoryData(id: 63, name: 'Todos'),
@@ -133,7 +133,7 @@ class CategoriesRepository {
       id: 51,
       name: 'Linguiças',
       description: 'O toque especial do churrasco.',
-      imageUrl: 'https://images.unsplash.com/photo-1629998270465-0b5a6f344022?q=80&w=800',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/pexels-mateusz-dach-99805-1275692.jpg?q=80&w=800',
       tags: ['Churrasco'],
       subcategories: [
         SubcategoryData(id: 51, name: 'Todos'),
@@ -147,7 +147,7 @@ class CategoriesRepository {
       id: 73,
       name: 'Pão de Alho',
       description: 'O clássico acompanhamento.',
-      imageUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?q=80&w=800',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/capa-materia-gshow-2022-01-10t140336.156.avif?q=80&w=800',
       tags: ['Churrasco'],
       subcategories: [
         SubcategoryData(id: 73, name: 'Todos'),
@@ -159,7 +159,7 @@ class CategoriesRepository {
       id: 59,
       name: 'Espetinhos Gourmet',
       description: 'Praticidade na grelha.',
-      imageUrl: 'https://images.unsplash.com/photo-1529042410759-befb1204b468?q=80&w=800',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/top-view-delicious-kebab-slate-with-salad-ketchup_11zon-2048x1365-1.webp?q=80&w=800',
       tags: ['Churrasco'],
       subcategories: [
         SubcategoryData(id: 59, name: 'Todos'),
@@ -171,7 +171,7 @@ class CategoriesRepository {
       id: 252,
       name: 'Queijos',
       description: 'Perfeitos para grelhar.',
-      imageUrl: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?q=80&w=800',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/pexels-abhishek-mahajan-2249012-3928854.jpg?q=80&w=800',
       tags: ['Churrasco'],
       subcategories: [
         SubcategoryData(id: 252, name: 'Todos'),

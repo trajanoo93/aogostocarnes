@@ -1,9 +1,12 @@
 // lib/screens/main_screen.dart
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:ao_gosto_app/state/cart_controller.dart';
+import 'package:ao_gosto_app/state/navigation_controller.dart';
+
 import 'package:ao_gosto_app/screens/cart/cart_drawer.dart';
 import 'package:ao_gosto_app/screens/home/home_screen.dart';
 import 'package:ao_gosto_app/screens/orders/orders_screen.dart';
@@ -35,11 +38,20 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+
+    /// 🔥 REGISTRA A FUNÇÃO GLOBAL PARA TROCAR DE ABA
+    NavigationController.changeTab = (int index) {
+      if (index != _selectedIndex) {
+        setState(() => _selectedIndex = index);
+      }
+    };
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       OnboardingFlow.maybeStart(context);
     });
   }
 
+  /// Quando o usuário toca na aba manualmente
   void _onItemTapped(int index) {
     if (index == 4) {
       showCartDrawer(context);

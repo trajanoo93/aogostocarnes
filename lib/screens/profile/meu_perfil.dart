@@ -1,4 +1,4 @@
-// lib/screens/profile/meu_perfil.dart
+// lib/screens/profile/meu_perfil.dart - VERSÃO CORRIGIDA
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -72,6 +72,9 @@ Widget build(BuildContext context) {
         );
       }
 
+      // ✅ CORREÇÃO: Detectar se veio do bottom navigation
+      final canPop = Navigator.of(context).canPop();
+
       return Scaffold(
         backgroundColor: Colors.white,
         body: CustomScrollView(
@@ -80,10 +83,14 @@ Widget build(BuildContext context) {
               expandedHeight: 220,
               pinned: true,
               backgroundColor: AppColors.primary,
-              leading: IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-              ),
+              // ✅ Só mostra botão voltar se puder fazer pop
+              automaticallyImplyLeading: canPop,
+              leading: canPop
+                  ? IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                    )
+                  : null,
               flexibleSpace: FlexibleSpaceBar(
                 background: Container(
                   decoration: BoxDecoration(
@@ -101,7 +108,7 @@ Widget build(BuildContext context) {
                         _buildAvatar(),
                         const SizedBox(height: 16),
                         Text(
-                          customer.name, // ← agora atualiza na hora
+                          customer.name,
                           style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w900),
                         ),
                       ],
@@ -270,7 +277,6 @@ Widget build(BuildContext context) {
                 ],
               ),
             ),
-            // POPUPMENU LINDO, BRANCO E CLEAN
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert_rounded, color: Colors.grey),
               color: Colors.white,
@@ -385,7 +391,6 @@ Widget build(BuildContext context) {
     return phone;
   }
 
-  // ====================== EDIÇÃO DE NOME (agora salva no Firestore) ======================
   void _showEditBottomSheet(String field, String currentValue) async {
     final controller = TextEditingController(text: currentValue);
     final provider = Provider.of<CustomerProvider>(context, listen: false);
@@ -444,7 +449,6 @@ Widget build(BuildContext context) {
     );
   }
 
-  // ====================== EDIÇÃO DE TELEFONE (agora salva no Firestore) ======================
   void _showEditPhoneBottomSheet() async {
     final phoneMask = MaskTextInputFormatter(mask: '(##) #####-####', filter: {"#": RegExp(r'[0-9]')});
     final provider = Provider.of<CustomerProvider>(context, listen: false);
@@ -508,7 +512,6 @@ Widget build(BuildContext context) {
     );
   }
 
-  // ====================== BOTTOM SHEET DE ENDEREÇO (compatível com AddressFormSheet antigo) ======================
   void _showAddressBottomSheet({Map<String, dynamic>? addressMap}) {
     final address = addressMap != null ? CustomerAddress.fromMap(addressMap) : null;
 
@@ -517,7 +520,7 @@ Widget build(BuildContext context) {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) => AddressFormSheet(
-        address: addressMap, // AddressFormSheet ainda espera Map<String, dynamic>?
+        address: addressMap,
         onSave: (addressData) async {
           final provider = Provider.of<CustomerProvider>(context, listen: false);
 

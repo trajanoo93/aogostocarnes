@@ -1,8 +1,12 @@
 // lib/screens/categories/categories_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'package:ao_gosto_app/screens/categories/category_detail_screen.dart';
 import 'package:ao_gosto_app/models/category_data.dart';
+
+// IMPORTANTE: nova lib de cache
+import 'package:cached_network_image/cached_network_image.dart';
 
 class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
@@ -13,7 +17,7 @@ class CategoriesScreen extends StatefulWidget {
 
 class _CategoriesScreenState extends State<CategoriesScreen> {
   String _activeFilter = 'Todos 🔥';
-  
+
   final List<String> _filters = [
     'Todos 🔥',
     'Churrasco 🥩',
@@ -90,34 +94,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 bottom: false,
                 child: Column(
                   children: [
-                    // TÍTULO (SEM LUPA)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                      child: RichText(
-                        text: const TextSpan(
-                          children: [
-                            TextSpan(
-                              text: 'O que vamos ',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.textPrimary,
-                                height: 1.2,
-                              ),
-                            ),
-                            TextSpan(
-                              text: 'preparar? 🔥',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.primary,
-                                height: 1.2,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    const SizedBox(height: 52),
 
                     // FILTROS
                     Container(
@@ -131,7 +108,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                         itemBuilder: (context, index) {
                           final filter = _filters[index];
                           final isActive = _activeFilter == filter;
-                          
+
                           return Material(
                             color: Colors.transparent,
                             child: InkWell(
@@ -167,9 +144,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
-                                    color: isActive
-                                        ? Colors.white
-                                        : Colors.grey[700],
+                                    color: isActive ? Colors.white : Colors.grey[700],
                                   ),
                                 ),
                               ),
@@ -196,13 +171,13 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   Widget _buildCategoriesGrid() {
     final categories = _filteredCategories;
-    
+
     return Column(
       children: List.generate((categories.length / 2).ceil(), (rowIndex) {
         final startIndex = rowIndex * 2;
         final endIndex = (startIndex + 2).clamp(0, categories.length);
         final rowCategories = categories.sublist(startIndex, endIndex);
-        
+
         return Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: Row(
@@ -212,20 +187,18 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 child: _buildCategoryCard(
                   rowCategories[0],
                   startIndex,
-                  // Varia altura: ímpar = alto, par = normal
                   rowIndex % 2 == 0 ? 220.0 : 180.0,
                 ),
               ),
-              
+
               const SizedBox(width: 12),
-              
-              // SEGUNDO CARD (se existir)
+
+              // SEGUNDO CARD
               if (rowCategories.length > 1)
                 Expanded(
                   child: _buildCategoryCard(
                     rowCategories[1],
                     startIndex + 1,
-                    // Inverte: par = alto, ímpar = normal
                     rowIndex % 2 == 0 ? 180.0 : 220.0,
                   ),
                 ),
@@ -238,7 +211,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
   Widget _buildCategoryCard(CategoryData category, int index, double height) {
     final isLarge = height > 200;
-    
+
     return TweenAnimationBuilder(
       duration: Duration(milliseconds: 300 + (index * 50)),
       tween: Tween<double>(begin: 0, end: 1),
@@ -280,21 +253,40 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Imagem
-                  Image.network(
-                    category.imageUrl,
+                  // =============================
+                  // IMAGEM COM CACHE OTIMIZADO
+                  // =============================
+                  CachedNetworkImage(
+                    imageUrl: category.imageUrl,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
+                    fadeInDuration: const Duration(milliseconds: 350),
+                    placeholderFadeInDuration: const Duration(milliseconds: 200),
+
+                    placeholder: (_, __) => Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.grey.shade300,
+                            Colors.grey.shade200,
+                            Colors.grey.shade300,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                    ),
+
+                    errorWidget: (_, __, ___) => Container(
                       color: Colors.grey[200],
                       child: Icon(
-                        Icons.image_not_supported,
+                        Icons.broken_image_rounded,
                         color: Colors.grey[400],
                         size: 40,
                       ),
                     ),
                   ),
-                  
-                  // Gradiente
+
+                  // GRADIENTE
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
@@ -308,15 +300,14 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                       ),
                     ),
                   ),
-                  
-                  // Conteúdo
+
+                  // TEXTO
                   Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        // Nome
                         Text(
                           category.name,
                           style: TextStyle(
@@ -334,9 +325,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
+
                         const SizedBox(height: 6),
-                        
-                        // Descrição
+
                         Text(
                           category.description,
                           style: TextStyle(
@@ -347,10 +338,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                           maxLines: isLarge ? 2 : 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        
+
                         const SizedBox(height: 10),
-                        
-                        // Seta
+
                         Container(
                           padding: const EdgeInsets.all(6),
                           decoration: BoxDecoration(

@@ -36,17 +36,18 @@ class SearchFilter extends StatelessWidget {
       onTap: () => _openSearchModal(context),
       child: Container(
         height: 56,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF3F4F6),
-          borderRadius: BorderRadius.circular(999),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
+       decoration: BoxDecoration(
+  color: Colors.white, // ← aqui fica 100% branco
+  borderRadius: BorderRadius.circular(999),
+  boxShadow: [
+    BoxShadow(
+      color: Colors.black.withOpacity(0.04),
+      blurRadius: 8,
+      offset: const Offset(0, 2),
+    ),
+  ],
+),
+
         child: AbsorbPointer(
           child: TextField(
             enabled: false,

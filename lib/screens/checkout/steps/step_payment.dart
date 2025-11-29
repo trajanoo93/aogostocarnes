@@ -1,4 +1,4 @@
-// lib/screens/checkout/steps/step_payment.dart
+// lib/screens/checkout/steps/step_payment.dart - VERSÃO ULTRA MODERNA
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -13,54 +13,134 @@ class StepPayment extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.watch<CheckoutController>();
-    final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
 
     return Column(
       children: [
-        _QuickSummaryCard(),
-        const SizedBox(height: 16),
-        _PaymentOptionsCard(),
-        const SizedBox(height: 16),
+        // 1. Resumo Rápido (compacto e elegante)
+        _UltraQuickSummary(),
+        
+        const SizedBox(height: 12),
+        
+        // 2. Métodos de Pagamento (visual premium)
+        _PremiumPaymentMethods(),
+        
+        const SizedBox(height: 12),
+        
+        // 3. Informações específicas do método
         if (c.paymentMethod == 'pix' && c.pixCode != null)
-          _PixDigitavelCard(code: c.pixCode!, expiresAt: c.pixExpiresAt!),
-        if (c.paymentMethod == 'money') _ChangeInfoCard(),
-        if (c.paymentMethod == 'card-on-delivery') _CardOnDeliveryInfo(),
+          _ModernPixCard(code: c.pixCode!, expiresAt: c.pixExpiresAt!),
+        
+        if (c.paymentMethod == 'money')
+          _ModernChangeCard(),
+        
+        if (c.paymentMethod == 'card-on-delivery')
+          _ModernCardInfo(),
+        
+        if (c.paymentMethod == 'voucher')
+          _ModernVoucherInfo(),
+        
+        const SizedBox(height: 20),
       ],
     );
   }
 }
 
-// === RESUMO RÁPIDO ===
-class _QuickSummaryCard extends StatelessWidget {
+// ═══════════════════════════════════════════════════════════
+//              1. RESUMO RÁPIDO ULTRA CLEAN
+// ═══════════════════════════════════════════════════════════
+class _UltraQuickSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.watch<CheckoutController>();
-    final address = c.addresses.firstWhere((a) => a.id == c.selectedAddressId, orElse: () => c.addresses.first);
-    final pickup = c.pickupLocations[c.selectedPickup];
-
+    
+    String locationText = '';
+    String detailsText = '';
+    
+    if (c.deliveryType == DeliveryType.delivery) {
+      final address = c.addresses.firstWhere(
+        (a) => a.id == c.selectedAddressId,
+        orElse: () => c.addresses.first,
+      );
+      locationText = 'Entregar em';
+      detailsText = '${address.street}, ${address.number}';
+    } else {
+      final pickup = c.pickupLocations[c.selectedPickup];
+      locationText = 'Retirar em';
+      detailsText = pickup?['name'] ?? '';
+    }
+    
     return Container(
-      decoration: _cardDeco(),
-      padding: const EdgeInsets.all(20),
-      child: Column(
+      padding: const EdgeInsets.all(16),
+      decoration: _boxDeco(),
+      child: Row(
         children: [
-          Row(
-            children: [
-              const Icon(Icons.location_on_outlined, color: Color(0xFF71717A), size: 20),
-              const SizedBox(width: 8),
-              Text(
-                c.deliveryType == DeliveryType.delivery ? 'Entregar em' : 'Retirar em',
-                style: const TextStyle(color: Color(0xFF71717A), fontWeight: FontWeight.w600, fontSize: 14),
+          // Ícone com gradiente
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.primary.withOpacity(0.2),
+                  AppColors.primary.withOpacity(0.1),
+                ],
               ),
-              const Spacer(),
-              TextButton(onPressed: c.prevStep, child: const Text('Alterar', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900))),
-            ],
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              c.deliveryType == DeliveryType.delivery
+                  ? Icons.local_shipping_rounded
+                  : Icons.store_rounded,
+              color: AppColors.primary,
+              size: 20,
+            ),
           ),
-          const SizedBox(height: 8),
-          Text(
-            c.deliveryType == DeliveryType.delivery
-                ? '${address.street}, ${address.number}'
-                : pickup?['name'] ?? '',
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+          
+          const SizedBox(width: 12),
+          
+          // Info
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  locationText,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF71717A),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  detailsText,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF18181B),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          
+          // Botão editar
+          TextButton(
+            onPressed: c.prevStep,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            ),
+            child: const Text(
+              'Editar',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),
@@ -68,84 +148,129 @@ class _QuickSummaryCard extends StatelessWidget {
   }
 }
 
-// === OPÇÕES DE PAGAMENTO (2 GRUPOS ABERTOS) ===
-class _PaymentOptionsCard extends StatelessWidget {
+// ═══════════════════════════════════════════════════════════
+//          2. MÉTODOS DE PAGAMENTO PREMIUM
+// ═══════════════════════════════════════════════════════════
+class _PremiumPaymentMethods extends StatefulWidget {
+  @override
+  State<_PremiumPaymentMethods> createState() => _PremiumPaymentMethodsState();
+}
+
+class _PremiumPaymentMethodsState extends State<_PremiumPaymentMethods> {
   @override
   Widget build(BuildContext context) {
     final c = context.watch<CheckoutController>();
-
-    // PIX SEMPRE DISPONÍVEL (proxy externo)
-    const isOnline = true;
-
+    
     return Container(
-      decoration: _cardDeco(),
       padding: const EdgeInsets.all(20),
+      decoration: _boxDeco(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Como Pagar?', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 24)),
-          const SizedBox(height: 16),
-
+          const Text(
+            'Como você quer pagar?',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF18181B),
+            ),
+          ),
+          
+          const SizedBox(height: 20),
+          
           // === PAGAMENTOS ONLINE ===
-          const Text('Pagamentos Online', style: TextStyle(color: Color(0xFF71717A), fontWeight: FontWeight.w600, fontSize: 14)),
+          _SectionHeader(
+            icon: Icons.smartphone_rounded,
+            title: 'Pagamento Online',
+          ),
+          
           const SizedBox(height: 12),
-          _PaymentTile(
-            icon: Icons.qr_code_2,
+          
+          _ModernPaymentOption(
+            icon: Icons.pix_rounded,
             title: 'PIX',
-            subtitle: 'Pagamento rápido e seguro',
+            subtitle: 'Aprovação instantânea',
+            gradient: const LinearGradient(
+              colors: [Color(0xFF00C9A7), Color(0xFF00B896)],
+            ),
             active: c.paymentMethod == 'pix',
             onTap: () {
               c.paymentMethod = 'pix';
-              c.notifyListeners();
+              setState(() {});
             },
           ),
-          const SizedBox(height: 12),
-          _PaymentTile(
-            icon: Icons.credit_card,
-            title: 'Cartão de Crédito (Stripe)',
-            subtitle: 'Em breve!',
-            active: false,
-            onTap: () {},
-            disabled: true,
-            badge: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(color: const Color(0xFFFFF7ED), borderRadius: BorderRadius.circular(8)),
-              child: const Text('Em breve!', style: TextStyle(color: AppColors.primary, fontSize: 12, fontWeight: FontWeight.w700)),
+          
+          const SizedBox(height: 10),
+          
+          _ModernPaymentOption(
+            icon: Icons.credit_card_rounded,
+            title: 'Cartão de Crédito',
+            subtitle: 'Em breve',
+            gradient: LinearGradient(
+              colors: [
+                Colors.grey[400]!,
+                Colors.grey[300]!,
+              ],
             ),
+            active: false,
+            disabled: true,
+            badge: _ComingSoonBadge(),
+            onTap: () {},
           ),
-
+          
           const SizedBox(height: 24),
-
-          // === PAGAR NA ENTREGA (ABERTO) ===
-          const Text('Pagar na Entrega', style: TextStyle(color: Color(0xFF71717A), fontWeight: FontWeight.w600, fontSize: 14)),
+          
+          // === PAGAR NA ENTREGA ===
+          _SectionHeader(
+            icon: Icons.handshake_rounded,
+            title: 'Pagar na Entrega',
+          ),
+          
           const SizedBox(height: 12),
-          _PaymentTile(
-            icon: Icons.payments,
+          
+          _ModernPaymentOption(
+            icon: Icons.payments_rounded,
             title: 'Dinheiro',
+            subtitle: 'Pagamento em espécie',
+            gradient: const LinearGradient(
+              colors: [Color(0xFF16A34A), Color(0xFF059669)],
+            ),
             active: c.paymentMethod == 'money',
             onTap: () {
               c.paymentMethod = 'money';
-              c.notifyListeners();
+              setState(() {});
             },
           ),
-          const SizedBox(height: 12),
-          _PaymentTile(
-            icon: Icons.credit_card,
-            title: 'Cartão na Entrega',
+          
+          const SizedBox(height: 10),
+          
+          _ModernPaymentOption(
+            icon: Icons.credit_card_rounded,
+            title: 'Cartão',
+            subtitle: 'Débito ou crédito',
+            gradient: const LinearGradient(
+              colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+            ),
             active: c.paymentMethod == 'card-on-delivery',
             onTap: () {
               c.paymentMethod = 'card-on-delivery';
-              c.notifyListeners();
+              setState(() {});
             },
           ),
-          const SizedBox(height: 12),
-          _PaymentTile(
-            icon: Icons.receipt_long,
+          
+          const SizedBox(height: 10),
+          
+          _ModernPaymentOption(
+            icon: Icons.restaurant_rounded,
             title: 'Vale Alimentação',
+            subtitle: 'VR, Alelo, Sodexo',
+            gradient: const LinearGradient(
+              colors: [Color(0xFFEA580C), Color(0xFFDC2626)],
+            ),
             active: c.paymentMethod == 'voucher',
             onTap: () {
               c.paymentMethod = 'voucher';
-              c.notifyListeners();
+              setState(() {});
             },
           ),
         ],
@@ -154,43 +279,129 @@ class _PaymentOptionsCard extends StatelessWidget {
   }
 }
 
-// === TILE DE PAGAMENTO ===
-class _PaymentTile extends StatelessWidget {
+// === HEADER DE SEÇÃO ===
+class _SectionHeader extends StatelessWidget {
   final IconData icon;
   final String title;
-  final String? subtitle;
-  final bool active;
-  final VoidCallback onTap;
-  final bool disabled;
-  final Widget? badge;
-
-  const _PaymentTile({
+  
+  const _SectionHeader({
     required this.icon,
     required this.title,
-    this.subtitle,
+  });
+  
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: const Color(0xFF71717A),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: Color(0xFF71717A),
+            letterSpacing: 0.5,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// === OPÇÃO DE PAGAMENTO MODERNA ===
+class _ModernPaymentOption extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Gradient gradient;
+  final bool active;
+  final bool disabled;
+  final Widget? badge;
+  final VoidCallback onTap;
+  
+  const _ModernPaymentOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.gradient,
     required this.active,
-    required this.onTap,
     this.disabled = false,
     this.badge,
+    required this.onTap,
   });
-
+  
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: disabled ? null : onTap,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(16),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
+        duration: const Duration(milliseconds: 300),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFFFFF7ED) : Colors.white,
-          border: Border.all(color: active ? AppColors.primary : const Color(0xFFE5E7EB), width: 2),
-          borderRadius: BorderRadius.circular(20),
+          color: active
+              ? AppColors.primary.withOpacity(0.05)
+              : const Color(0xFFFAFAFA),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: active
+                ? AppColors.primary
+                : const Color(0xFFE5E7EB),
+            width: active ? 2 : 1,
+          ),
         ),
         child: Row(
           children: [
-            Icon(icon, color: disabled ? const Color(0xFF9CA3AF) : const Color(0xFFFA4815), size: 28),
+            // Ícone com gradiente
+            TweenAnimationBuilder<double>(
+              duration: const Duration(milliseconds: 300),
+              tween: Tween(begin: 0.0, end: active ? 1.0 : 0.0),
+              builder: (context, value, child) {
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: disabled
+                        ? null
+                        : active
+                            ? gradient
+                            : null,
+                    color: disabled
+                        ? Colors.grey[200]
+                        : active
+                            ? null
+                            : const Color(0xFFE5E7EB),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: active
+                        ? [
+                            BoxShadow(
+                              color: AppColors.primary.withOpacity(0.3 * value),
+                              blurRadius: 12 * value,
+                              offset: Offset(0, 4 * value),
+                            ),
+                          ]
+                        : null,
+                  ),
+                  child: Icon(
+                    icon,
+                    color: disabled
+                        ? Colors.grey[400]
+                        : active
+                            ? Colors.white
+                            : const Color(0xFF71717A),
+                    size: 24,
+                  ),
+                );
+              },
+            ),
+            
             const SizedBox(width: 16),
+            
+            // Texto
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,9 +411,11 @@ class _PaymentTile extends StatelessWidget {
                       Text(
                         title,
                         style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 18,
-                          color: disabled ? const Color(0xFF9CA3AF) : const Color(0xFF111827),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800,
+                          color: disabled
+                              ? const Color(0xFF9CA3AF)
+                              : const Color(0xFF18181B),
                         ),
                       ),
                       if (badge != null) ...[
@@ -211,20 +424,44 @@ class _PaymentTile extends StatelessWidget {
                       ],
                     ],
                   ),
-                  if (subtitle != null)
-                    Text(subtitle!, style: const TextStyle(color: Color(0xFF71717A), fontSize: 14)),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: disabled
+                          ? const Color(0xFF9CA3AF)
+                          : const Color(0xFF71717A),
+                    ),
+                  ),
                 ],
               ),
             ),
-            Container(
+            
+            // Radio button
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
               width: 24,
               height: 24,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                border: Border.all(color: active ? AppColors.primary : const Color(0xFFD4D4D8), width: 2),
-                color: active ? AppColors.primary : Colors.white,
+                color: active ? AppColors.primary : Colors.transparent,
+                border: Border.all(
+                  color: active
+                      ? AppColors.primary
+                      : const Color(0xFFD4D4D8),
+                  width: 2,
+                ),
               ),
-              child: active ? const Icon(Icons.circle, size: 12, color: Colors.white) : null,
+              child: active
+                  ? const Center(
+                      child: Icon(
+                        Icons.check,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                    )
+                  : null,
             ),
           ],
         ),
@@ -233,118 +470,196 @@ class _PaymentTile extends StatelessWidget {
   }
 }
 
-// === TROCO ===
-class _ChangeInfoCard extends StatefulWidget {
-  @override
-  State<_ChangeInfoCard> createState() => _ChangeInfoCardState();
-}
-
-class _ChangeInfoCardState extends State<_ChangeInfoCard> {
-  final ctrl = TextEditingController();
-
+// === BADGE EM BREVE ===
+class _ComingSoonBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final c = context.watch<CheckoutController>();
     return Container(
-      decoration: _cardDeco(),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Checkbox(
-                value: c.needsChange,
-                onChanged: (v) {
-                  c.needsChange = v ?? false;
-                  c.notifyListeners();
-                },
-                activeColor: AppColors.primary,
-              ),
-              const SizedBox(width: 12),
-              const Text('Precisa de troco?', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-            ],
-          ),
-          if (c.needsChange)
-            Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: TextField(
-                controller: ctrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  hintText: 'Troco para quanto?',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(14))),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                ),
-                onChanged: (v) => c.changeForAmount = v,
-              ),
-            ),
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+          color: AppColors.primary.withOpacity(0.3),
+        ),
+      ),
+      child: const Text(
+        'Em breve',
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w800,
+          color: AppColors.primary,
+        ),
       ),
     );
   }
 }
 
-// === CARTÃO NA ENTREGA ===
-class _CardOnDeliveryInfo extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final c = context.watch<CheckoutController>();
-    final total = c.total;
-    final msg = total > 300
-        ? 'Sua compra pode ser parcelada em até 3x.'
-        : total > 200
-            ? 'Sua compra pode ser parcelada em até 2x.'
-            : 'Pagamento à vista na entrega.';
-    return Container(
-      decoration: _cardDeco(),
-      padding: const EdgeInsets.all(20),
-      child: Text(msg, style: const TextStyle(fontSize: 16)),
-    );
-  }
-}
-
-// === PIX DIGITÁVEL ===
-class _PixDigitavelCard extends StatelessWidget {
+// ═══════════════════════════════════════════════════════════
+//                   3. PIX MODERNO
+// ═══════════════════════════════════════════════════════════
+class _ModernPixCard extends StatelessWidget {
   final String code;
   final DateTime expiresAt;
-  const _PixDigitavelCard({required this.code, required this.expiresAt});
-
+  
+  const _ModernPixCard({required this.code, required this.expiresAt});
+  
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: _cardDeco(),
       padding: const EdgeInsets.all(20),
+      decoration: _boxDeco(),
       child: Column(
         children: [
-          const Text('Pague com PIX', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-          const SizedBox(height: 16),
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF00C9A7), Color(0xFF00B896)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF00C9A7).withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.pix_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pagar com PIX',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        color: Color(0xFF18181B),
+                      ),
+                    ),
+                    Text(
+                      'Copie o código e cole no app do seu banco',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFF71717A),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // QR Code placeholder (você pode adicionar um real depois)
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFFF4F4F5),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: const Column(
+              children: [
+                Icon(
+                  Icons.qr_code_2_rounded,
+                  size: 120,
+                  color: Color(0xFF18181B),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Escaneie com o app do seu banco',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF71717A),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Código PIX
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9FAFB),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
             ),
             child: Row(
               children: [
                 Expanded(
                   child: SelectableText(
                     code,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 12,
+                      color: Color(0xFF18181B),
+                    ),
                   ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.copy, color: AppColors.primary),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: code));
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Código PIX copiado!')),
+                      SnackBar(
+                        content: const Row(
+                          children: [
+                            Icon(Icons.check_circle, color: Colors.white),
+                            SizedBox(width: 8),
+                            Text('Código PIX copiado!'),
+                          ],
+                        ),
+                        backgroundColor: const Color(0xFF16A34A),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
                     );
                   },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  icon: const Icon(Icons.copy_rounded, size: 18),
+                  label: const Text(
+                    'Copiar',
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          
+          const SizedBox(height: 20),
+          
+          // Timer
           ProgressTimer(expiresAt: expiresAt),
         ],
       ),
@@ -352,10 +667,422 @@ class _PixDigitavelCard extends StatelessWidget {
   }
 }
 
+// ═══════════════════════════════════════════════════════════
+//                   4. DINHEIRO (TROCO)
+// ═══════════════════════════════════════════════════════════
+class _ModernChangeCard extends StatefulWidget {
+  @override
+  State<_ModernChangeCard> createState() => _ModernChangeCardState();
+}
+
+class _ModernChangeCardState extends State<_ModernChangeCard> {
+  final _controller = TextEditingController();
+  
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    final c = context.watch<CheckoutController>();
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: _boxDeco(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Precisa de troco?',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF18181B),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () {
+                    c.needsChange = false;
+                    c.changeForAmount = '';
+                    setState(() {});
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: !c.needsChange
+                          ? AppColors.primary.withOpacity(0.1)
+                          : const Color(0xFFFAFAFA),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: !c.needsChange
+                            ? AppColors.primary
+                            : const Color(0xFFE5E7EB),
+                        width: !c.needsChange ? 2 : 1,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Não preciso',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: !c.needsChange
+                              ? AppColors.primary
+                              : const Color(0xFF71717A),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              
+              const SizedBox(width: 12),
+              
+              Expanded(
+                child: InkWell(
+                  onTap: () {
+                    c.needsChange = true;
+                    setState(() {});
+                  },
+                  borderRadius: BorderRadius.circular(12),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: c.needsChange
+                          ? AppColors.primary.withOpacity(0.1)
+                          : const Color(0xFFFAFAFA),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: c.needsChange
+                            ? AppColors.primary
+                            : const Color(0xFFE5E7EB),
+                        width: c.needsChange ? 2 : 1,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Sim, preciso',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: c.needsChange
+                              ? AppColors.primary
+                              : const Color(0xFF71717A),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
+          if (c.needsChange) ...[
+            const SizedBox(height: 16),
+            TextField(
+              controller: _controller,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(
+                hintText: 'Troco para quanto? Ex: R\$ 50,00',
+                hintStyle: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF9CA3AF),
+                ),
+                prefixIcon: const Icon(
+                  Icons.payments_rounded,
+                  color: Color(0xFF71717A),
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: AppColors.primary),
+                ),
+                contentPadding: const EdgeInsets.all(16),
+              ),
+              onChanged: (v) {
+                c.changeForAmount = v;
+                setState(() {});
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//                   5. CARTÃO NA ENTREGA
+// ═══════════════════════════════════════════════════════════
+class _ModernCardInfo extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final c = context.watch<CheckoutController>();
+    final total = c.total;
+    
+    String message;
+    int parcelas;
+    
+    if (total > 300) {
+      message = 'Sua compra pode ser parcelada em até 3x sem juros.';
+      parcelas = 3;
+    } else if (total > 200) {
+      message = 'Sua compra pode ser parcelada em até 2x sem juros.';
+      parcelas = 2;
+    } else {
+      message = 'Pagamento à vista no cartão.';
+      parcelas = 1;
+    }
+    
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: _boxDeco(),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.credit_card_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Cartão na Entrega',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF18181B),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0F9FF),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFBAE6FD)),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.info_outline_rounded,
+                  color: Color(0xFF0284C7),
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF075985),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          if (parcelas > 1) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    '${parcelas}x sem juros',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF18181B),
+                    ),
+                  ),
+                  Text(
+                    NumberFormat.simpleCurrency(locale: 'pt_BR')
+                        .format(total / parcelas),
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF18181B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//                   6. VALE ALIMENTAÇÃO
+// ═══════════════════════════════════════════════════════════
+class _ModernVoucherInfo extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: _boxDeco(),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFEA580C), Color(0xFFDC2626)],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.restaurant_rounded,
+                  color: Colors.white,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Vale Alimentação',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF18181B),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF7ED),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFFED7AA)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.check_circle_rounded,
+                      color: Color(0xFFEA580C),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Text(
+                        'Aceitamos os principais vales',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF9A3412),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _VoucherBrand('VR'),
+                    _VoucherBrand('Alelo'),
+                    _VoucherBrand('Sodexo'),
+                    _VoucherBrand('Ticket'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _VoucherBrand extends StatelessWidget {
+  final String name;
+  const _VoucherBrand(this.name);
+  
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Text(
+        name,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF18181B),
+        ),
+      ),
+    );
+  }
+}
+
 // === ESTILO COMUM ===
-BoxDecoration _cardDeco() => BoxDecoration(
+BoxDecoration _boxDeco() => BoxDecoration(
       color: Colors.white,
-      border: Border.all(color: const Color(0xFFE5E7EB)),
-      borderRadius: BorderRadius.circular(20),
-      boxShadow: const [BoxShadow(color: Color(0x10000000), blurRadius: 10, offset: Offset(0, 2))],
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x08000000),
+          blurRadius: 8,
+          offset: Offset(0, 2),
+        ),
+      ],
     );

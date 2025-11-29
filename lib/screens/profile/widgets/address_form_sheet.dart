@@ -2,7 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
-import 'package:ao_gosto_app/api/onboarding_service.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
 
 class AddressFormSheet extends StatefulWidget {
   final Map<String, dynamic>? address;
@@ -20,7 +22,28 @@ class AddressFormSheet extends StatefulWidget {
 
 class _AddressFormSheetState extends State<AddressFormSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _onboardingService = OnboardingService();
+  Future<Map<String, dynamic>?> _lookupCep(String cep) async {
+  final clean = cep.replaceAll(RegExp(r'\D'), '');
+  if (clean.length != 8) return null;
+
+  try {
+    final resp = await http.get(Uri.parse('https://viacep.com.br/ws/$clean/json/'));
+    if (resp.statusCode == 200) {
+      final data = json.decode(resp.body);
+      if (data['erro'] != true) {
+        return {
+          'street': data['logradouro'] ?? '',
+          'neighborhood': data['bairro'] ?? '',
+          'city': data['localidade'] ?? '',
+          'state': data['uf'] ?? '',
+        };
+      }
+    }
+  } catch (e) {
+    // silencioso
+  }
+  return null;
+}
   
   late TextEditingController _nicknameCtrl;
   late TextEditingController _cepCtrl;
@@ -62,31 +85,24 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
   }
 
   Future<void> _searchCep() async {
-    final cep = _cepCtrl.text.replaceAll(RegExp(r'\D'), '');
-    if (cep.length != 8) return;
+  final cep = _cepCtrl.text.replaceAll(RegExp(r'\D'), '');
+  if (cep.length != 8) return;
 
-    setState(() => _isLoadingCep = true);
+  setState(() => _isLoadingCep = true);
 
-    try {
-      final result = await _onboardingService.lookupCep(cep);
-      if (result != null) {
-        setState(() {
-          _streetCtrl.text = result.street;
-          _neighborhoodCtrl.text = result.neighborhood;
-          _cityCtrl.text = result.city;
-          _stateCtrl.text = result.state;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('CEP não encontrado')),
-        );
-      }
-    } finally {
-      setState(() => _isLoadingCep = false);
-    }
+  final result = await _lookupCep(cep);
+  if (result != null && mounted) {
+    setState(() {
+      _streetCtrl.text = result['street'] ?? '';
+      _neighborhoodCtrl.text = result['neighborhood'] ?? '';
+      _cityCtrl.text = result['city'] ?? '';
+      _stateCtrl.text = result['state'] ?? '';
+    });
   }
+
+  if (mounted) setState(() => _isLoadingCep = false);
+}
+
 
   @override
   Widget build(BuildContext context) {

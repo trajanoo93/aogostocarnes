@@ -1,8 +1,10 @@
-// lib/widgets/header_menu_modal.dart
+// lib/widgets/header_menu_modal.dart - VERSÃO CORRIGIDA
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'package:ao_gosto_app/screens/profile/meu_perfil.dart';
+import 'package:ao_gosto_app/screens/unidades/unidades_screen.dart';
+import 'package:ao_gosto_app/state/navigation_controller.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class HeaderMenuModal extends StatefulWidget {
@@ -75,7 +77,7 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: double.infinity, // 100% da tela
+      width: double.infinity,
       height: double.infinity,
       decoration: const BoxDecoration(
         color: Colors.white,
@@ -99,13 +101,11 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
                         icon: Icons.person_outline_rounded,
                         title: 'Meu Perfil',
                         onTap: () {
-                          Navigator.pop(context);
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const MeuPerfilPage(),
-                            ),
-                          );
+                          // ✅ CORRIGIDO: Usar NavigationController ao invés de Navigator.push
+                          Navigator.pop(context); // Fecha o drawer
+                          
+                          // Muda para a aba de perfil (índice 3)
+                          NavigationController.changeTab?.call(3);
                         },
                       ),
                       _buildMenuItem(
@@ -137,12 +137,20 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
                         isComingSoon: true,
                         onTap: () {},
                       ),
+                      
+                      // ✨ NOSSAS UNIDADES - ATIVADO!
                       _buildMenuItem(
                         icon: Icons.store_outlined,
                         title: 'Nossas Unidades',
-                        subtitle: 'Em breve!',
-                        isComingSoon: true,
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const UnidadesScreen(),
+                            ),
+                          );
+                        },
                       ),
                       
                       const Padding(
@@ -263,7 +271,7 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Olá,',
+                      'Olá,👋',
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 13,
@@ -468,7 +476,7 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
       child: Center(
         child: Image.asset(
           'assets/icon/app_icon.png',
-          height: 80,
+          height: 30,
           fit: BoxFit.contain,
         ),
       ),

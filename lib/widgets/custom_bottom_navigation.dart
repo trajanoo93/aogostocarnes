@@ -111,7 +111,7 @@ class CustomBottomNavigation extends StatelessWidget {
                         children: [
                           const Center(
                             child: Icon(
-                              Icons.shopping_bag_outlined,
+                              Icons.archive_outlined,
                               color: Colors.white,
                               size: 34,
                             ),

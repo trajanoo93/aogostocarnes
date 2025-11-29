@@ -9,6 +9,10 @@ import 'package:ao_gosto_app/screens/home/widgets/category_bubble.dart';
 import 'package:ao_gosto_app/screens/product/product_details_page.dart';
 import 'package:ao_gosto_app/state/cart_controller.dart';
 import 'package:ao_gosto_app/screens/cart/cart_drawer.dart';
+import 'package:ao_gosto_app/screens/categories/categories_screen.dart';
+import 'package:ao_gosto_app/state/navigation_controller.dart';
+
+
 
 class AllCutsSection extends StatefulWidget {
   const AllCutsSection({super.key});
@@ -22,13 +26,13 @@ class _AllCutsSectionState extends State<AllCutsSection> {
 
   // IDs e imagens (na ordem)
   final _categories = const [
-    (name: 'Picanha', id: 33, img: 'https://images.unsplash.com/photo-1552528340-b41335f4f5f8?q=80&w=300&auto=format&fit=crop'),
-    (name: 'Boi',     id: 34, img: 'https://images.unsplash.com/photo-1603360492579-3a3a0e404a36?q=80&w=300&auto=format&fit=crop'),
-    (name: 'Frango',  id: 32, img: 'https://images.unsplash.com/photo-1626081598926-d18fa7a0b3f2?q=80&w=300&auto=format&fit=crop'),
-    (name: 'Porco',   id: 44, img: 'https://images.unsplash.com/photo-1606043903698-7515b6d9e487?q=80&w=300&auto=format&fit=crop'),
-    (name: 'Linguiça',id: 51, img: 'https://images.unsplash.com/photo-1594212699903-a41e1fcf7529?q=80&w=300&auto=format&fit=crop'),
-    (name: 'Exótico', id: 55, img: 'https://images.unsplash.com/photo-1625862243769-d4e21a37a13c?q=80&w=300&auto-format&fit=crop'),
-  ];
+  (name: 'Picanha',  id: 33, img: 'assets/icons_category/picanha.webp'),
+  (name: 'Boi',      id: 34, img: 'assets/icons_category/boi.webp'),
+  (name: 'Frango',   id: 32, img: 'assets/icons_category/frango.webp'),
+  (name: 'Porco',    id: 44, img: 'assets/icons_category/porco.webp'),
+  (name: 'Linguiça', id: 51, img: 'assets/icons_category/linguica.webp'),
+  (name: 'Exótico',  id: 55, img: 'assets/icons_category/jacare.webp'), 
+];
 
   late Future<List<Product>> _allCutsFuture;
   late int _activeCategoryId;
@@ -69,9 +73,12 @@ class _AllCutsSectionState extends State<AllCutsSection> {
               children: [
                 const Text('Todos os Cortes', style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
                 TextButton(
-                  onPressed: () {}, // se quiser, navega p/ uma listagem geral
-                  child: const Text('Ver todos'),
-                ),
+  onPressed: () {
+  NavigationController.changeTab?.call(1); // Aba categorias
+},
+  child: const Text('Ver todos'),
+),
+
               ],
             ),
           ),
@@ -88,14 +95,14 @@ class _AllCutsSectionState extends State<AllCutsSection> {
               itemBuilder: (_, i) {
                 final c = _categories[i];
                 return CategoryBubble(
-                  name: c.name,
-                  imageUrl: c.img,
-                  active: _activeCategoryId == c.id,
-                  onTap: () => setState(() {
-                    _activeCategoryId = c.id;
-                    _visibleCount = 10;
-                  }),
-                );
+  name: c.name,
+  imageUrl: c.img,
+  active: _activeCategoryId == c.id,
+  onTap: () => setState(() {
+    _activeCategoryId = c.id;
+    _visibleCount = 10;
+  }),
+);
               },
             ),
           ),

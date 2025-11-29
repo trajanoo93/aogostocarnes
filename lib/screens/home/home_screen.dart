@@ -1,6 +1,5 @@
 // lib/screens/home/home_screen.dart
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'package:ao_gosto_app/api/product_service.dart';
@@ -10,7 +9,6 @@ import 'package:ao_gosto_app/screens/home/widgets/section_hero.dart' as hero;
 import 'package:ao_gosto_app/screens/home/widgets/search_filter.dart';
 import 'package:ao_gosto_app/screens/home/widgets/product_carousel.dart';
 import 'package:ao_gosto_app/screens/home/widgets/featured_banner.dart';
-import 'package:ao_gosto_app/widgets/product_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -40,7 +38,6 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadProducts();
-    _scrollCtrl.addListener(() => setState(() {}));
   }
 
   @override
@@ -60,110 +57,76 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scrollOffset =
-        _scrollCtrl.hasClients ? _scrollCtrl.offset : 0.0;
-    final isScrolled = scrollOffset > 20;
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: CustomScrollView(
         controller: _scrollCtrl,
         slivers: [
-          // HEADER
+          // ------------------------------------------------
+          // HEADER (LOGO + MENU) FIXO
+          // ------------------------------------------------
           SliverAppBar(
             pinned: true,
-            backgroundColor: Colors.transparent,
+            backgroundColor: Colors.white,
             elevation: 0,
             automaticallyImplyLeading: false,
-            expandedHeight: 150,
-
-            flexibleSpace: LayoutBuilder(
-              builder: (context, constraints) {
-                final isCollapsed =
-                    constraints.maxHeight <= kToolbarHeight + 20;
-
-                return Container(
-                  decoration: BoxDecoration(
-                    color: isCollapsed
-                        ? Colors.white.withOpacity(0.92)
-                        : Colors.white,
-                    boxShadow: isCollapsed
-                        ? [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.08),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ]
-                        : null,
-                  ),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(
-                      sigmaX: isCollapsed ? 16 : 0,
-                      sigmaY: isCollapsed ? 16 : 0,
-                    ),
-                    child: SafeArea(
-                      bottom: false,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 20, vertical: 8),
-                        child: Column(
-                          children: [
-                            // LOGO + MENU
-                            SizedBox(
-                              height: isCollapsed ? 48 : 60,
-                              child: Stack(
-                                children: [
-                                  Center(
-                                    child: AnimatedScale(
-                                      scale:
-                                          isCollapsed ? 0.88 : 1.0,
-                                      duration: const Duration(
-                                          milliseconds: 300),
-                                      child: Image.network(
-                                        'https://aogosto.com.br/delivery/wp-content/uploads/2023/12/Go-Express-fundo-400-x-200-px2-1.png',
-                                        height: isCollapsed ? 46 : 58,
-                                        fit: BoxFit.contain,
-                                      ),
-                                    ),
-                                  ),
-
-                                  // BOTÃO MENU
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: Builder(
-                                      builder: (context) {
-                                        return IconButton(
-                                          onPressed: () {
-  final rootScaffold = context.findRootAncestorStateOfType<ScaffoldState>();
-  rootScaffold?.openEndDrawer();
-},
-                                          icon: Icon(
-                                            Icons.menu_rounded,
-                                            size: 28,
-                                            color: Colors.grey[800],
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ],
+            toolbarHeight: 68, // um pouco mais compacto
+            flexibleSpace: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                child: SizedBox(
+                  height: 56,
+                  child: Stack(
+                    children: [
+                      // LOGO CENTRAL (um pouco maior)
+                      Center(
+  child: Image.asset(
+    'assets/icon/app_icon.png',
+    height: 36,          // ajuste se quiser maior ou menor
+    fit: BoxFit.contain,
+  ),
+),
+                      // BOTÃO MENU À DIREITA
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Builder(
+                          builder: (context) {
+                            return IconButton(
+                              onPressed: () {
+                                final rootScaffold = context
+                                    .findRootAncestorStateOfType<
+                                        ScaffoldState>();
+                                rootScaffold?.openEndDrawer();
+                              },
+                              icon: Icon(
+                                Icons.menu_rounded,
+                                size: 28,
+                                color: Colors.grey[800],
                               ),
-                            ),
-
-                            const SizedBox(height: 4),
-                            const SearchFilter(),
-                          ],
+                            );
+                          },
                         ),
                       ),
-                    ),
+                    ],
                   ),
-                );
-              },
+                ),
+              ),
             ),
           ),
 
+          // ------------------------------------------------
+          // SEARCH BAR FIXA (SEGUNDA LINHA DO HEADER)
+          // ------------------------------------------------
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _SearchBarHeaderDelegate(),
+          ),
+
+          // ------------------------------------------------
           // HERO BANNER
+          // ------------------------------------------------
           const SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
@@ -173,7 +136,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
-          // OFERTAS
+          // ------------------------------------------------
+          // OFERTAS DA SEMANA
+          // ------------------------------------------------
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
@@ -181,12 +146,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
+                      children: const [
+                        Text(
                           '🔥 Ofertas da Semana',
                           style: TextStyle(
                             fontSize: 20,
@@ -194,13 +158,13 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: AppColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        SizedBox(height: 4),
                         Text(
                           'Aproveite enquanto dura!',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
-                            color: Colors.grey[600],
+                            color: Colors.grey,
                           ),
                         ),
                       ],
@@ -217,24 +181,29 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
+          // ------------------------------------------------
           // BANNER DESTAQUE
+          // ------------------------------------------------
           const SliverToBoxAdapter(
             child: Padding(
-              padding:
-                  EdgeInsets.fromLTRB(16, 24, 16, 12),
+              padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
               child: FeaturedBanner(
                 title: 'Churrasco Perfeito',
-                subtitle:
-                    'Os melhores cortes para seu final de semana',
+                subtitle: 'Os melhores cortes para seu final de semana',
                 imageUrl:
                     'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600',
               ),
             ),
           ),
 
-          // SESSÕES
+          // ------------------------------------------------
+          // SESSÃO "TODOS OS CORTES"
+          // ------------------------------------------------
           const SliverToBoxAdapter(child: AllCutsSection()),
 
+          // ------------------------------------------------
+          // OUTRAS SESSÕES
+          // ------------------------------------------------
           _section(
             title: '🍞 O Clássico Acompanhamento',
             future: _paoDeAlho,
@@ -258,14 +227,15 @@ class _HomeScreenState extends State<HomeScreen> {
             future: _outros,
           ),
 
-          const SliverToBoxAdapter(
-              child: SizedBox(height: 100)),
+          const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
     );
   }
 
+  // ------------------------------------------------
   // COMPONENTE DE SESSÃO
+  // ------------------------------------------------
   SliverToBoxAdapter _section({
     required String title,
     required Future<List<Product>> future,
@@ -278,8 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -295,10 +264,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: Colors.grey[600],
+                        color: Colors.grey,
                       ),
                     ),
                   ]
@@ -316,4 +285,53 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+}
+
+// ------------------------------------------------------
+// HEADER FIXO DA SEARCH BAR (COMPACTA AO ROLAR)
+// ------------------------------------------------------
+class _SearchBarHeaderDelegate extends SliverPersistentHeaderDelegate {
+  // Alturas mínima e máxima do header da busca
+  static const double _minHeight = 64;
+  static const double _maxHeight = 84;
+
+  @override
+  double get minExtent => _minHeight;
+
+  @override
+  double get maxExtent => _maxHeight;
+
+  double _lerp(double min, double max, double t) =>
+      min + (max - min) * t.clamp(0.0, 1.0);
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    final double delta = _maxHeight - _minHeight;
+    final double t = delta == 0 ? 0 : (shrinkOffset / delta).clamp(0.0, 1.0);
+
+    // Padding vai de 10 → 4 conforme rola
+    final double topPadding = _lerp(10, 4, t);
+    final double bottomPadding = _lerp(10, 4, t);
+
+    // Search bar escala levemente (1.0 → 0.94) pra ficar mais compacta
+    final double scale = _lerp(1.0, 0.94, t);
+
+    return Container(
+      color: Colors.white,
+      padding: EdgeInsets.fromLTRB(16, topPadding, 16, bottomPadding),
+      alignment: Alignment.center,
+      child: Transform.scale(
+        scale: scale,
+        alignment: Alignment.center,
+        child: const SearchFilter(),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _SearchBarHeaderDelegate oldDelegate) => false;
 }

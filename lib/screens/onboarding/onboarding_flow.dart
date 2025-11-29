@@ -45,6 +45,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
   final _numberCtrl = TextEditingController();
   final _complementCtrl = TextEditingController();
 
+  final _nameFocus = FocusNode();
+  final _phoneFocus = FocusNode();
+  final _cepFocus = FocusNode();
   final _numberFocus = FocusNode();
   final _complementFocus = FocusNode();
 
@@ -70,6 +73,12 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
     _cepCtrl.addListener(() => setState(() {}));
     _numberCtrl.addListener(() => setState(() {}));
     _complementCtrl.addListener(() => setState(() {}));
+
+    _nameFocus.addListener(() => setState(() {}));
+    _phoneFocus.addListener(() => setState(() {}));
+    _cepFocus.addListener(() => setState(() {}));
+    _numberFocus.addListener(() => setState(() {}));
+    _complementFocus.addListener(() => setState(() {}));
   }
 
   @override
@@ -80,6 +89,9 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
     _cepCtrl.dispose();
     _numberCtrl.dispose();
     _complementCtrl.dispose();
+    _nameFocus.dispose();
+    _phoneFocus.dispose();
+    _cepFocus.dispose();
     _numberFocus.dispose();
     _complementFocus.dispose();
     super.dispose();
@@ -143,46 +155,49 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
   }
 
   Future<void> _saveAndFinish() async {
-  if (_numberCtrl.text.trim().isEmpty) return;
-  setState(() => _isLoading = true);
+    if (_numberCtrl.text.trim().isEmpty) return;
+    setState(() => _isLoading = true);
 
-  try {
-    final telefoneLimpo = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+    try {
+      final telefoneLimpo = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
 
-    final novoEndereco = CustomerAddress(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      apelido: "Minha Casa",
-      street: _street ?? '',
-      number: _numberCtrl.text.trim(),
-      complement: _complementCtrl.text.trim().isEmpty ? null : _complementCtrl.text.trim(),
-      neighborhood: _neighborhood ?? '',
-      city: _city ?? '',
-      state: _state ?? '',
-      cep: _cepCtrl.text.replaceAll(RegExp(r'\D'), ''),
-      isDefault: true,
-    );
-
-    await CustomerProvider.instance.loadOrCreateCustomer(
-      name: _nameCtrl.text.trim(),
-      phone: telefoneLimpo,
-      initialAddress: novoEndereco,
-    );
-
-    CartController.instance.setDeliveryFee(_deliveryFee ?? 0.0);
-
-    if (mounted) {
-      Navigator.of(context).pop(); // fecha o onboarding
-    }
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao salvar: $e')),
+      final novoEndereco = CustomerAddress(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        apelido: "Minha Casa",
+        street: _street ?? '',
+        number: _numberCtrl.text.trim(),
+        complement: _complementCtrl.text.trim().isEmpty ? null : _complementCtrl.text.trim(),
+        neighborhood: _neighborhood ?? '',
+        city: _city ?? '',
+        state: _state ?? '',
+        cep: _cepCtrl.text.replaceAll(RegExp(r'\D'), ''),
+        isDefault: true,
       );
+
+      await CustomerProvider.instance.loadOrCreateCustomer(
+        name: _nameCtrl.text.trim(),
+        phone: telefoneLimpo,
+        initialAddress: novoEndereco,
+      );
+
+      CartController.instance.setDeliveryFee(_deliveryFee ?? 0.0);
+
+      final sp = await SharedPreferences.getInstance();
+      await sp.setBool('onboarding_done', true);
+
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erro ao salvar: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
-  } finally {
-    if (mounted) setState(() => _isLoading = false);
   }
-}
 
   @override
   Widget build(BuildContext context) {
@@ -192,7 +207,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
         textTheme: GoogleFonts.poppinsTextTheme(),
       ),
       child: Scaffold(
-        backgroundColor: const Color(0xFFFAFAFA),
+        backgroundColor: Colors.white,
         body: SafeArea(
           child: Center(
             child: ConstrainedBox(
@@ -221,23 +236,37 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
     }
   }
 
-  // === INPUT SIMPLES SEM CONFLITOS ===
+  // === INPUT MODERNO IDÊNTICO AO HTML ===
   Widget _customInput({
     required String placeholder,
     required IconData icon,
     required TextEditingController controller,
+    required FocusNode focusNode,
     bool autofocus = false,
     TextInputType keyboardType = TextInputType.text,
     List<TextInputFormatter>? inputFormatters,
   }) {
+    final isFocused = focusNode.hasFocus;
+    final hasContent = controller.text.isNotEmpty;
+    
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: controller.text.isNotEmpty ? const Color(0xFFFA4815) : const Color(0xFFE5E5E5),
-          width: controller.text.isNotEmpty ? 3 : 2,
+          color: isFocused ? const Color(0xFFFA4815) : const Color(0xFFE4E4E7),
+          width: 2,
         ),
+        boxShadow: isFocused
+            ? [
+                BoxShadow(
+                  color: const Color(0xFFFA4815).withOpacity(0.25),
+                  blurRadius: 16,
+                  offset: const Offset(0, 0),
+                  spreadRadius: 0,
+                ),
+              ]
+            : [],
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Row(
@@ -245,12 +274,15 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
           Icon(
             icon,
             size: 24,
-            color: controller.text.isNotEmpty ? const Color(0xFFFA4815) : const Color(0xFFA1A1AA),
+            color: isFocused || hasContent 
+                ? const Color(0xFFFA4815) 
+                : const Color(0xFF9CA3AF),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: TextField(
               controller: controller,
+              focusNode: focusNode,
               autofocus: autofocus,
               keyboardType: keyboardType,
               inputFormatters: inputFormatters,
@@ -262,7 +294,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
               decoration: InputDecoration(
                 hintText: placeholder,
                 hintStyle: GoogleFonts.poppins(
-                  color: const Color(0xFFA1A1AA),
+                  color: const Color(0xFF71717A),
                   fontSize: 18,
                 ),
                 border: InputBorder.none,
@@ -279,7 +311,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
     );
   }
 
-  // === BOTÃO ===
+  // === BOTÃO IDÊNTICO AO HTML ===
   Widget _primaryButton(String text, VoidCallback? onPressed, {bool loading = false}) {
     return SizedBox(
       width: double.infinity,
@@ -287,12 +319,12 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
       child: ElevatedButton(
         onPressed: loading ? null : onPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: onPressed == null ? const Color(0xFFD1D5DB) : const Color(0xFFFA4815),
+          backgroundColor: onPressed == null ? const Color(0xFF9CA3AF) : const Color(0xFFFA4815),
           foregroundColor: Colors.white,
           elevation: 0,
           shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          disabledBackgroundColor: const Color(0xFFD1D5DB),
+          disabledBackgroundColor: const Color(0xFF9CA3AF),
         ),
         child: loading
             ? const SizedBox(
@@ -337,6 +369,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
             placeholder: 'Seu nome',
             icon: Icons.person_outline,
             controller: _nameCtrl,
+            focusNode: _nameFocus,
             autofocus: true,
           ),
           const SizedBox(height: 24),
@@ -367,6 +400,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
             placeholder: '(00) 00000-0000',
             icon: Icons.phone_outlined,
             controller: _phoneCtrl,
+            focusNode: _phoneFocus,
             keyboardType: TextInputType.phone,
             inputFormatters: [_phoneMask],
             autofocus: true,
@@ -399,6 +433,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
             placeholder: '00000-000',
             icon: Icons.location_on_outlined,
             controller: _cepCtrl,
+            focusNode: _cepFocus,
             keyboardType: TextInputType.number,
             inputFormatters: [_cepMask],
             autofocus: true,
@@ -417,11 +452,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
       );
 
   Widget _stepAddress() {
-  return SingleChildScrollView(
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,   
-      children: [
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           Text(
             'Legal! Entregamos na sua região 🎉',
             style: GoogleFonts.poppins(
@@ -483,8 +518,8 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
           Row(
             children: [
               SizedBox(
-                width: 24,
-                height: 24,
+                width: 20,
+                height: 20,
                 child: Checkbox(
                   value: _saveAddress,
                   onChanged: (v) => setState(() => _saveAddress = v ?? true),
@@ -497,7 +532,11 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
               Expanded(
                 child: Text(
                   'Salvar este endereço para próximos pedidos',
-                  style: GoogleFonts.poppins(fontWeight: FontWeight.w600, fontSize: 15),
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                    color: const Color(0xFF3F3F46),
+                  ),
                 ),
               ),
             ],
@@ -513,77 +552,88 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
     );
   }
 
-  // === CAMPO DE ENDEREÇO UNIFICADO (EDITÁVEL OU READ-ONLY) ===
+  // === CAMPO DE ENDEREÇO IDÊNTICO AO HTML (FLOATING LABEL) ===
   Widget _addressField({
-  required String label,
-  String? value,
-  TextEditingController? controller,
-  FocusNode? focusNode,
-  bool isReadOnly = false,
-}) {
-  final isActive = isReadOnly ||
-      (controller != null && controller.text.isNotEmpty) ||
-      (focusNode != null && focusNode.hasFocus);
+    required String label,
+    String? value,
+    TextEditingController? controller,
+    FocusNode? focusNode,
+    bool isReadOnly = false,
+  }) {
+    final isFocused = focusNode?.hasFocus ?? false;
+    final hasContent = isReadOnly || (controller != null && controller.text.isNotEmpty);
+    final shouldFloat = isFocused || hasContent;
 
-  return Container(
-    width: double.infinity,                             // <- ocupa toda a largura
-    constraints: const BoxConstraints(minHeight: 68),   // <- mantém altura mínima
-    decoration: BoxDecoration(
-      color: isReadOnly ? const Color(0xFFF9FAFB) : Colors.white,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(
-        color: isActive
-            ? (isReadOnly ? const Color(0xFFE5E7EB) : const Color(0xFFFA4815))
-            : const Color(0xFFE5E7EB),
-        width: isActive && !isReadOnly ? 2 : 1.5,
-      ),
-    ),
-    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.poppins(
-            fontSize: 12,
-            color: isActive && !isReadOnly ? const Color(0xFFFA4815) : const Color(0xFF9CA3AF),
-            fontWeight: FontWeight.w600,
-            height: 1.0,
-          ),
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 68),
+      decoration: BoxDecoration(
+        color: isReadOnly ? const Color(0xFFF4F4F5) : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isReadOnly 
+              ? const Color(0xFFD4D4D8)
+              : (isFocused ? const Color(0xFFFA4815) : const Color(0xFFD4D4D8)),
+          width: isFocused && !isReadOnly ? 2 : 1.5,
         ),
-        const SizedBox(height: 6),
-        if (isReadOnly)
-          Text(
-            value ?? '-',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              color: const Color(0xFF52525B),
-              fontWeight: FontWeight.w500,
-              height: 1.3,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Stack(
+        children: [
+          // Label flutuante
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            top: shouldFloat ? 4 : 16,
+            left: 0,
+            child: AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              style: GoogleFonts.poppins(
+                fontSize: shouldFloat ? 12 : 16,
+                color: isFocused && !isReadOnly
+                    ? const Color(0xFFFA4815)
+                    : const Color(0xFF71717A),
+                fontWeight: FontWeight.w500,
+                height: 1.0,
+              ),
+              child: Text(label),
             ),
-          )
-        else
-          TextField(
-            controller: controller,
-            focusNode: focusNode,
-            style: GoogleFonts.poppins(
-              fontSize: 16,
-              color: const Color(0xFF18181B),
-              fontWeight: FontWeight.w600,
-              height: 1.3,
-            ),
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              contentPadding: EdgeInsets.zero,
-              isDense: true,
-            ),
-            cursorColor: const Color(0xFFFA4815),
           ),
-      ],
-    ),
-  );
-}
+          // Campo de texto
+          Padding(
+            padding: const EdgeInsets.only(top: 20),
+            child: isReadOnly
+                ? Text(
+                    value ?? '-',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      color: const Color(0xFF3F3F46),
+                      fontWeight: FontWeight.w500,
+                      height: 1.5,
+                    ),
+                  )
+                : TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      color: const Color(0xFF18181B),
+                      fontWeight: FontWeight.w500,
+                      height: 1.5,
+                    ),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      contentPadding: EdgeInsets.zero,
+                      isDense: true,
+                    ),
+                    cursorColor: const Color(0xFFFA4815),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
 }

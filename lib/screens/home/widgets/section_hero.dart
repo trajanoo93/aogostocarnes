@@ -2,6 +2,7 @@
 
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class SectionHero extends StatefulWidget {
   final List<String> banners;
@@ -14,9 +15,9 @@ class SectionHero extends StatefulWidget {
   const SectionHero({
     super.key,
     this.banners = const [
-      'https://images.unsplash.com/photo-1553163147-622ab57be1c7?q=80&w=1600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1544025162-d76694265947?q=80&w=1600&auto=format&fit=crop',
-      'https://images.unsplash.com/photo-1558030006-450675393462?q=80&w=1600&auto=format&fit=crop',
+      'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/bannerApp1.jpg?q=80&w=1600&auto=format&fit=crop',
+      'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/REDIMENSIONADO-2.png?q=80&w=1600&auto=format&fit=crop',
+      'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/REDIMENSIONADO-3.png?q=80&w=1600&auto=format&fit=crop',
     ],
     this.height = 200,
     this.title,
@@ -51,7 +52,15 @@ class _SectionHeroState extends State<SectionHero> {
                     return Stack(
                       fit: StackFit.expand,
                       children: [
-                        Image.network(url, fit: BoxFit.cover),
+                        CachedNetworkImage(
+                          imageUrl: url,
+                          fit: BoxFit.cover,
+                          placeholder: (context, _) => Container(
+                            color: Colors.black12,
+                          ),
+                          errorWidget: (_, __, ___) =>
+                              const Icon(Icons.error, color: Colors.white),
+                        ),
                         Container(
                           decoration: const BoxDecoration(
                             gradient: LinearGradient(
@@ -61,7 +70,9 @@ class _SectionHeroState extends State<SectionHero> {
                             ),
                           ),
                         ),
-                        if (widget.title != null || widget.subtitle != null || widget.ctaText != null)
+                        if (widget.title != null ||
+                            widget.subtitle != null ||
+                            widget.ctaText != null)
                           Positioned(
                             left: 16,
                             right: 16,
@@ -72,7 +83,10 @@ class _SectionHeroState extends State<SectionHero> {
                                 if (widget.title != null)
                                   Text(
                                     widget.title!,
-                                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineSmall
+                                        ?.copyWith(
                                           color: Colors.white,
                                           fontWeight: FontWeight.w800,
                                         ),
@@ -81,7 +95,10 @@ class _SectionHeroState extends State<SectionHero> {
                                   const SizedBox(height: 4),
                                   Text(
                                     widget.subtitle!,
-                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
                                           color: Colors.white70,
                                         ),
                                   ),
@@ -91,7 +108,9 @@ class _SectionHeroState extends State<SectionHero> {
                                   FilledButton(
                                     onPressed: widget.onCTAPressed,
                                     style: FilledButton.styleFrom(
-                                      backgroundColor: Theme.of(context).colorScheme.primary,
+                                      backgroundColor: Theme.of(context)
+                                          .colorScheme
+                                          .primary,
                                       foregroundColor: Colors.white,
                                     ),
                                     child: Text(widget.ctaText!),
@@ -108,7 +127,8 @@ class _SectionHeroState extends State<SectionHero> {
                     viewportFraction: 1.0,
                     autoPlay: true,
                     enableInfiniteScroll: true,
-                    onPageChanged: (index, _) => setState(() => _current = index),
+                    onPageChanged: (index, _) =>
+                        setState(() => _current = index),
                   ),
                 ),
               ),

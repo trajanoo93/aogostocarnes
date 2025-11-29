@@ -3,6 +3,10 @@
     <!-- Permissão de internet (já tinha) -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
+    <!-- ✨ PERMISSÕES DE LOCALIZAÇÃO (NOVAS) -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <!-- ==== PERMISSÕES PARA IMAGE_PICKER (CÂMERA E GALERIA) ==== -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />

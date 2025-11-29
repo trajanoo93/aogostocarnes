@@ -1,16 +1,15 @@
-// lib/screens/checkout/steps/step_address.dart
+// lib/screens/checkout/steps/step_address.dart 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
 import 'package:ao_gosto_app/state/cart_controller.dart';
-import 'package:ao_gosto_app/state/customer_provider.dart';     
-import 'package:ao_gosto_app/models/customer_data.dart';       
+import 'package:ao_gosto_app/state/customer_provider.dart';
+import 'package:ao_gosto_app/models/customer_data.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'package:ao_gosto_app/screens/checkout/checkout_controller.dart';
-import 'package:mask_text_input_formatter/mask_text_input_formatter.dart';
 import 'package:ao_gosto_app/screens/checkout/widgets/calendar_widget.dart';
 import 'package:ao_gosto_app/screens/checkout/widgets/time_slot_grid.dart';
-import 'package:ao_gosto_app/screens/profile/widgets/address_form_sheet.dart'; 
+import 'package:ao_gosto_app/screens/checkout/widgets/summary_checkout.dart';
+import 'package:ao_gosto_app/screens/profile/widgets/address_form_sheet.dart';
 
 class StepAddress extends StatelessWidget {
   const StepAddress({super.key});
@@ -20,129 +19,688 @@ class StepAddress extends StatelessWidget {
     final c = context.watch<CheckoutController>();
     final customerProv = context.watch<CustomerProvider>();
     final customer = customerProv.customer;
-    final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
 
-    // Se ainda não carregou o cliente, mostra loading
     if (customer == null) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
     }
 
-    // Pega endereços do Firestore
     final addresses = customer.addresses;
 
     return Column(
       children: [
-        _OrderSummaryCard(),
-        const SizedBox(height: 16),
-        _ContactCard(),
-        const SizedBox(height: 16),
-        _DeliveryTypeCard(),
-        const SizedBox(height: 16),
-        if (c.deliveryType == DeliveryType.delivery) ...[
-          _AddressListCard(addresses: addresses, checkoutController: c),
-          if (c.selectedAddressId != null && c.deliveryFee > 0)
-            _DeliveryFeeRow(fee: c.deliveryFee),
-        ] else
-          _PickupListCard(),
-        const SizedBox(height: 16),
-        _ScheduleCard(),
-        const SizedBox(height: 16),
-        _NotesCard(),
-        const SizedBox(height: 100),
+        // 1. CONTATO
+        _ContactSection(),
+        const SizedBox(height: 12),
+        
+        // 2. TIPO DE ENTREGA (com setState)
+        _UltraModernDeliveryType(),
+        const SizedBox(height: 12),
+        
+        // 3. ENDEREÇO OU RETIRADA
+        if (c.deliveryType == DeliveryType.delivery)
+          _AddressSection(addresses: addresses, controller: c)
+        else
+          _PickupSection(),
+        const SizedBox(height: 12),
+        
+        // 4. AGENDAMENTO (com "Receber hoje" + slots alinhados)
+        _ScheduleSection(),
+        const SizedBox(height: 12),
+        
+        // 5. OBSERVAÇÕES
+        _NotesSection(),
+        const SizedBox(height: 12),
+        
+        // 6. RESUMO DO PEDIDO (NO FIM!)
+        const SummaryCheckout(),
+        const SizedBox(height: 20),
       ],
     );
   }
 }
 
-// === LISTA DE ENDEREÇOS (AGORA DO FIRESTORE) ===
-class _AddressListCard extends StatelessWidget {
-  final List<CustomerAddress> addresses;
-  final CheckoutController checkoutController;
+// ═══════════════════════════════════════════════════════════
+//              CONTATO COM ÍCONE WHATSAPP (CORRIGIDO)
+// ═══════════════════════════════════════════════════════════
+class _ContactSection extends StatefulWidget {
+  @override
+  State<_ContactSection> createState() => _ContactSectionState();
+}
 
-  const _AddressListCard({required this.addresses, required this.checkoutController});
-
+class _ContactSectionState extends State<_ContactSection> {
+  late TextEditingController _controller;
+  
+  @override
+  void initState() {
+    super.initState();
+    final c = context.read<CheckoutController>();
+    _controller = TextEditingController(text: c.userPhone);
+  }
+  
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+  
   @override
   Widget build(BuildContext context) {
-    final c = checkoutController;
-
+    final c = context.watch<CheckoutController>();
+    
     return Container(
-      decoration: _cardDeco(),
+      padding: const EdgeInsets.all(16),
+      decoration: _boxDeco(),
+      child: c.isEditingPhone
+          ? Column(
+              children: [
+                TextField(
+                  controller: _controller,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    hintText: '(00) 00000-0000',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                    ),
+                    contentPadding: EdgeInsets.all(12),
+                  ),
+                  onChanged: (_) {
+                    // Força rebuild
+                    setState(() {});
+                  },
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          _controller.text = c.userPhone;
+                          c.cancelEditPhone();
+                          setState(() {});
+                        },
+                        child: const Text('Cancelar'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          await c.savePhone(_controller.text);
+                          setState(() {});
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                        ),
+                        child: const Text(
+                          'Salvar',
+                          style: TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            )
+          : Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFF25D366), Color(0xFF128C7E)],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF25D366).withOpacity(0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Icon(
+                    Icons.chat_bubble_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                
+                const SizedBox(width: 12),
+                
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        c.formatPhone(c.userPhone.isEmpty ? '—' : c.userPhone),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF18181B),
+                        ),
+                      ),
+                      const Text(
+                        'WhatsApp para notificações',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF71717A),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                IconButton(
+                  onPressed: () {
+                    c.startEditPhone();
+                    setState(() {});
+                  },
+                  icon: const Icon(
+                    Icons.edit_outlined,
+                    size: 18,
+                    color: Color(0xFF71717A),
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//    TIPO DE ENTREGA - ULTRA MODERNO (COM ATUALIZAÇÃO INSTANTÂNEA)
+// ═══════════════════════════════════════════════════════════
+class _UltraModernDeliveryType extends StatefulWidget {
+  @override
+  State<_UltraModernDeliveryType> createState() => _UltraModernDeliveryTypeState();
+}
+
+class _UltraModernDeliveryTypeState extends State<_UltraModernDeliveryType> {
+  @override
+  Widget build(BuildContext context) {
+    final c = context.watch<CheckoutController>();
+    
+    return Container(
       padding: const EdgeInsets.all(20),
+      decoration: _boxDeco(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text(
+            'Como você prefere receber?',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF18181B),
+            ),
+          ),
+          
+          const SizedBox(height: 16),
+          
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Endereço de Entrega', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-              IconButton(
-                icon: const Icon(Icons.add, color: AppColors.primary),
-                onPressed: () => _showAddressSheet(context),
+              Expanded(
+                child: _DeliveryOptionCard(
+                  title: 'Receber',
+                  subtitle: 'em casa',
+                  icon: Icons.electric_bike_rounded,
+                  primaryColor: AppColors.primary,
+                  secondaryColor: const Color(0xFFFF8C00),
+                  lightColor: const Color(0xFFFFF7ED),
+                  active: c.deliveryType == DeliveryType.delivery,
+                  onTap: () {
+                    c.setDeliveryType(DeliveryType.delivery);
+                    setState(() {}); // ← FORÇA ATUALIZAÇÃO INSTANTÂNEA
+                  },
+                ),
+              ),
+              
+              const SizedBox(width: 12),
+              
+              Expanded(
+                child: _DeliveryOptionCard(
+                  title: 'Retirar',
+                  subtitle: 'na loja',
+                  icon: Icons.storefront_rounded,
+                  primaryColor: const Color(0xFF16A34A),
+                  secondaryColor: const Color(0xFF059669),
+                  lightColor: const Color(0xFFECFDF5),
+                  active: c.deliveryType == DeliveryType.pickup,
+                  onTap: () {
+                    c.setDeliveryType(DeliveryType.pickup);
+                    setState(() {}); // ← FORÇA ATUALIZAÇÃO INSTANTÂNEA
+                  },
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          if (addresses.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
-              child: Text('Nenhum endereço cadastrado', style: TextStyle(color: Colors.grey)),
-            )
-          else
-            ...addresses.map((addr) {
-              final isSelected = addr.id == c.selectedAddressId;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: InkWell(
-                  onTap: () {
-                    c.selectAddress(addr.id);
-                    c.refreshFee();
-                  },
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: isSelected ? const Color(0xFFFFF7ED) : Colors.white,
-                      border: Border.all(color: isSelected ? AppColors.primary : const Color(0xFFE5E7EB), width: 2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(addr.apelido, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
-                                  if (addr.isDefault)
-                                    Container(
-                                      margin: const EdgeInsets.only(left: 8),
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(color: AppColors.primary, borderRadius: BorderRadius.circular(6)),
-                                      child: const Text('Padrão', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Text('${addr.street}, ${addr.number}', style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-                              Text('${addr.neighborhood}, ${addr.city} - ${addr.state}', style: const TextStyle(color: Color(0xFF71717A), fontSize: 14)),
-                            ],
-                          ),
-                        ),
-                        if (isSelected) const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 26),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }),
         ],
       ),
     );
   }
 }
 
-// === BOTÃO ADICIONAR ENDEREÇO (reutiliza seu AddressFormSheet) ===
+class _DeliveryOptionCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color primaryColor;
+  final Color secondaryColor;
+  final Color lightColor;
+  final bool active;
+  final VoidCallback onTap;
+
+  const _DeliveryOptionCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.primaryColor,
+    required this.secondaryColor,
+    required this.lightColor,
+    required this.active,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: TweenAnimationBuilder<double>(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOutCubic,
+        tween: Tween(begin: 0.0, end: active ? 1.0 : 0.0),
+        builder: (context, value, child) {
+          return AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            height: 130,
+            decoration: BoxDecoration(
+              gradient: active
+                  ? LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        primaryColor.withOpacity(0.15 + (value * 0.05)),
+                        lightColor,
+                      ],
+                    )
+                  : null,
+              color: active ? null : const Color(0xFFFAFAFA),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: active ? primaryColor : const Color(0xFFE5E7EB),
+                width: active ? 2 : 1.5,
+              ),
+              boxShadow: active
+                  ? [
+                      BoxShadow(
+                        color: primaryColor.withOpacity(0.15 * value),
+                        blurRadius: 20 * value,
+                        offset: Offset(0, 8 * value),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Stack(
+              children: [
+                // Padrão decorativo no fundo
+                if (active)
+                  Positioned(
+                    top: -20,
+                    right: -20,
+                    child: Opacity(
+                      opacity: 0.1 * value,
+                      child: Icon(
+                        icon,
+                        size: 100,
+                        color: primaryColor,
+                      ),
+                    ),
+                  ),
+                
+                // Conteúdo
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Ícone
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          gradient: active
+                              ? LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [primaryColor, secondaryColor],
+                                )
+                              : null,
+                          color: active ? null : const Color(0xFFE5E7EB),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: active
+                              ? [
+                                  BoxShadow(
+                                    color: primaryColor.withOpacity(0.3 * value),
+                                    blurRadius: 12 * value,
+                                    offset: Offset(0, 4 * value),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Icon(
+                          icon,
+                          color: active ? Colors.white : const Color(0xFF71717A),
+                          size: 28,
+                        ),
+                      ),
+                      
+                      const Spacer(),
+                      
+                      // Texto
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                          color: active
+                              ? const Color(0xFF18181B)
+                              : const Color(0xFF71717A),
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      
+                      Text(
+                        subtitle,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: active
+                              ? const Color(0xFF52525B)
+                              : const Color(0xFF9CA3AF),
+                        ),
+                      ),
+                      
+                      // Indicador ativo
+                      if (active)
+                        Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          height: 3,
+                          width: 40 * value,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [primaryColor, secondaryColor],
+                            ),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                
+                // Check badge
+                if (active)
+                  Positioned(
+                    top: 12,
+                    right: 12,
+                    child: Transform.scale(
+                      scale: value,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [primaryColor, secondaryColor],
+                          ),
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: primaryColor.withOpacity(0.4),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(
+                          Icons.check_rounded,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//                    ENDEREÇO
+// ═══════════════════════════════════════════════════════════
+class _AddressSection extends StatelessWidget {
+  final List<CustomerAddress> addresses;
+  final CheckoutController controller;
+  
+  const _AddressSection({
+    required this.addresses,
+    required this.controller,
+  });
+  
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: _boxDeco(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Endereço de Entrega',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF18181B),
+                ),
+              ),
+              
+              TextButton.icon(
+                onPressed: () => _showAddressSheet(context),
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text('Novo'),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppColors.primary,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  textStyle: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
+          if (addresses.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Text(
+                  'Nenhum endereço cadastrado',
+                  style: TextStyle(color: Color(0xFF71717A)),
+                ),
+              ),
+            )
+          else
+            const SizedBox(height: 12),
+          
+          ...addresses.map((addr) {
+            final isSelected = addr.id == controller.selectedAddressId;
+            
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: InkWell(
+                onTap: () {
+                  controller.selectAddress(addr.id);
+                  controller.refreshFee();
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppColors.primary.withOpacity(0.05)
+                        : const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isSelected
+                          ? AppColors.primary
+                          : const Color(0xFFE5E7EB),
+                      width: isSelected ? 2 : 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? AppColors.primary
+                              : Colors.transparent,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected
+                                ? AppColors.primary
+                                : const Color(0xFFD4D4D8),
+                            width: 2,
+                          ),
+                        ),
+                        child: isSelected
+                            ? const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 10,
+                              )
+                            : null,
+                      ),
+                      
+                      const SizedBox(width: 12),
+                      
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  addr.apelido,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF18181B),
+                                  ),
+                                ),
+                                
+                                if (addr.isDefault)
+                                  Container(
+                                    margin: const EdgeInsets.only(left: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.primary,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'Padrão',
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              '${addr.street}, ${addr.number}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF71717A),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }),
+          
+          if (controller.selectedAddressId != null &&
+              controller.deliveryFee > 0)
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.local_shipping_outlined,
+                    size: 16,
+                    color: Colors.grey[600],
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Taxa de Entrega',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF71717A),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'R\$ ${controller.deliveryFee.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF18181B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 void _showAddressSheet(BuildContext context) {
   final provider = Provider.of<CustomerProvider>(context, listen: false);
 
@@ -172,402 +730,110 @@ void _showAddressSheet(BuildContext context) {
   );
 }
 
-// === RESUMO DO PEDIDO ===
-class _OrderSummaryCard extends StatefulWidget {
-  @override
-  State<_OrderSummaryCard> createState() => _OrderSummaryCardState();
-}
-
-class _OrderSummaryCardState extends State<_OrderSummaryCard> {
-  bool expanded = false;
-  final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
-
+// ═══════════════════════════════════════════════════════════
+//                    RETIRADA
+// ═══════════════════════════════════════════════════════════
+class _PickupSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.watch<CheckoutController>();
-    final items = CartController.instance.items;
-
+    
     return Container(
-      decoration: _cardDeco(),
-      child: Column(
-        children: [
-          InkWell(
-            onTap: () => setState(() => expanded = !expanded),
-            borderRadius: BorderRadius.circular(20),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Resumo do Pedido', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-                        const SizedBox(height: 4),
-                        Text('${items.length} itens', style: const TextStyle(color: Color(0xFF71717A), fontSize: 14)),
-                      ],
-                    ),
-                  ),
-                  Text(currency.format(c.total), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-                  const SizedBox(width: 12),
-                  AnimatedRotation(
-                    turns: expanded ? 0.5 : 0,
-                    duration: const Duration(milliseconds: 200),
-                    child: const Icon(Icons.expand_more_rounded, size: 28, color: Color(0xFF71717A)),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          AnimatedCrossFade(
-            duration: const Duration(milliseconds: 300),
-            crossFadeState: expanded ? CrossFadeState.showFirst : CrossFadeState.showSecond,
-            firstChild: Container(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-              decoration: const BoxDecoration(border: Border(top: BorderSide(color: Color(0xFFE5E7EB)))),
-              child: Column(
-                children: [
-                  const SizedBox(height: 16),
-                  ...items.map((it) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8),
-                        child: Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.network(it.product.imageUrl, width: 60, height: 60, fit: BoxFit.cover),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(it.product.name, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                                  Text('Qtd: ${it.quantity}', style: const TextStyle(color: Color(0xFF71717A), fontSize: 14)),
-                                ],
-                              ),
-                            ),
-                            Text(currency.format(it.product.price * it.quantity), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                          ],
-                        ),
-                      )),
-                  const SizedBox(height: 16),
-                  const Divider(height: 1),
-                  const SizedBox(height: 16),
-                  _CouponArea(),
-                  const SizedBox(height: 16),
-                  _TotalsArea(),
-                ],
-              ),
-            ),
-            secondChild: const SizedBox.shrink(),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// === CUPOM ===
-class _CouponArea extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final c = context.watch<CheckoutController>();
-    if (c.appliedCoupon != null) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(color: const Color(0xFFEFFAF1), borderRadius: BorderRadius.circular(14)),
-        child: Row(
-          children: [
-            Expanded(child: Text('Cupom aplicado: ${c.appliedCoupon!.code}', style: const TextStyle(color: Color(0xFF166534), fontWeight: FontWeight.w700, fontSize: 16))),
-            Text('- ${NumberFormat.simpleCurrency(locale: 'pt_BR').format(c.appliedCoupon!.discount)}', style: const TextStyle(color: Color(0xFF166534), fontWeight: FontWeight.w900, fontSize: 16)),
-            const SizedBox(width: 8),
-            TextButton(onPressed: c.removeCoupon, child: const Text('Remover', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w800, fontSize: 16))),
-          ],
-        ),
-      );
-    }
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: TextButton(
-        onPressed: () => _showCouponDialog(context),
-        child: const Text('Adicionar cupom de desconto', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900, fontSize: 16)),
-      ),
-    );
-  }
-}
-
-void _showCouponDialog(BuildContext context) {
-  final c = context.read<CheckoutController>();
-  final ctrl = TextEditingController();
-  showDialog(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Cupom de Desconto'),
-      content: TextField(controller: ctrl, decoration: const InputDecoration(hintText: 'EX: BEMVINDO10')),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-        ElevatedButton(onPressed: () { c.applyCoupon(ctrl.text.trim()); Navigator.pop(ctx); }, child: const Text('Aplicar')),
-      ],
-    ),
-  );
-}
-
-// === TOTAIS ===
-class _TotalsArea extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final c = context.watch<CheckoutController>();
-    final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
-    return Column(
-      children: [
-        _KVRow('Subtotal', currency.format(c.subtotal)),
-        _KVRow('Taxa de Entrega', currency.format(c.deliveryType == DeliveryType.delivery ? c.deliveryFee : 0.0)),
-        const Divider(height: 26),
-        _KVRow('Total', currency.format(c.total), bold: true, big: true),
-      ],
-    );
-  }
-}
-
-class _KVRow extends StatelessWidget {
-  final String label, value;
-  final bool bold, big;
-  const _KVRow(this.label, this.value, {this.bold = false, this.big = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: Row(
-        children: [
-          Text(label, style: const TextStyle(color: Color(0xFF71717A), fontSize: 16)),
-          const Spacer(),
-          Text(value, style: TextStyle(fontWeight: bold ? FontWeight.w900 : FontWeight.w600, fontSize: big ? 20 : 16)),
-        ],
-      ),
-    );
-  }
-}
-
-// === CONTATO (TELEFONE) — INSTANTÂNEO ===
-class _ContactCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final c = context.watch<CheckoutController>();
-    return Container(
-      decoration: _cardDeco(),
       padding: const EdgeInsets.all(20),
-      child: c.isEditingPhone
-          ? _PhoneEditForm()
-          : Row(
-              children: [
-                const Icon(Icons.phone_rounded, color: Color(0xFF71717A), size: 28),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(c.formatPhone(c.userPhone.isEmpty ? '—' : c.userPhone), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                      const Text('Usado para notificações.', style: const TextStyle(color: Color(0xFF71717A), fontSize: 14)),
-                    ],
-                  ),
-                ),
-                // BOTÃO INSTANTÂNEO
-                GestureDetector(
-                  onTap: c.startEditPhone,
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF4F4F5),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(Icons.edit_rounded, color: Color(0xFF71717A), size: 20),
-                  ),
-                ),
-              ],
-            ),
-    );
-  }
-}
-
-class _PhoneEditForm extends StatefulWidget {
-  @override
-  State<_PhoneEditForm> createState() => _PhoneEditFormState();
-}
-
-class _PhoneEditFormState extends State<_PhoneEditForm> {
-  late final TextEditingController ctrl;
-  final formatter = MaskTextInputFormatter(mask: '(##) #####-####', filter: {"#": RegExp(r'[0-9]')});
-
-  @override
-  void initState() {
-    super.initState();
-    final c = context.read<CheckoutController>();
-    ctrl = TextEditingController(text: c.formatPhone(c.userPhone));
-    ctrl.addListener(() => setState(() {}));
-  }
-
-  @override
-  void dispose() {
-    ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.read<CheckoutController>();
-    final raw = formatter.getUnmaskedText();
-    final isValid = raw.length >= 10;
-
-    return Column(
-      children: [
-        TextField(
-          controller: ctrl,
-          inputFormatters: [formatter],
-          keyboardType: TextInputType.phone,
-          decoration: const InputDecoration(hintText: '(00) 00000-0000', border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(14)))),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton(
-                onPressed: isValid
-                    ? () async {
-                        await c.savePhone(raw);
-                        if (mounted) setState(() {});
-                      }
-                    : null,
-                child: const Text('Salvar'),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(child: OutlinedButton(onPressed: c.cancelEditPhone, child: const Text('Cancelar'))),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-// === TIPO DE ENTREGA ===
-class _DeliveryTypeCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final c = context.watch<CheckoutController>();
-    return Container(
-      decoration: _cardDeco(),
-      padding: const EdgeInsets.all(20),
+      decoration: _boxDeco(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Como você quer receber?', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(child: _DeliveryChip(label: 'Receber em Casa', emoji: '🛵', active: c.deliveryType == DeliveryType.delivery, onTap: () => c.setDeliveryType(DeliveryType.delivery))),
-              const SizedBox(width: 16),
-              Expanded(child: _DeliveryChip(label: 'Retirar na Loja', emoji: '🏠', active: c.deliveryType == DeliveryType.pickup, onTap: () => c.setDeliveryType(DeliveryType.pickup))),
-            ],
+          const Text(
+            'Local de Retirada',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF18181B),
+            ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DeliveryChip extends StatelessWidget {
-  final String label, emoji;
-  final bool active;
-  final VoidCallback onTap;
-  const _DeliveryChip({required this.label, required this.emoji, required this.active, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        decoration: BoxDecoration(
-          color: active ? const Color(0xFFFFEDD5) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: active ? AppColors.primary : const Color(0xFFD4D4D8), width: 2),
-          boxShadow: active ? [const BoxShadow(color: Color(0x14FA4815), blurRadius: 10, offset: Offset(0, 4))] : [],
-        ),
-        child: Center(child: Text('$emoji $label', style: TextStyle(fontWeight: FontWeight.w900, color: active ? const Color(0xFF111827) : const Color(0xFF3F3F46), fontSize: 16))),
-      ),
-    );
-  }
-}
-
-
-// === TAXA DE ENTREGA ===
-class _DeliveryFeeRow extends StatelessWidget {
-  final double fee;
-  const _DeliveryFeeRow({required this.fee});
-
-  @override
-  Widget build(BuildContext context) {
-    final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
-    return Container(
-      decoration: _cardDeco(),
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          const Icon(Icons.local_shipping_outlined, color: Color(0xFF71717A), size: 28),
-          const SizedBox(width: 16),
-          const Text('Taxa de Entrega', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-          const Spacer(),
-          Text(currency.format(fee), style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-        ],
-      ),
-    );
-  }
-}
-
-// === RETIRADA EM LOJA ===
-class _PickupListCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final c = context.watch<CheckoutController>();
-    return Container(
-      decoration: _cardDeco(),
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Local de Retirada', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+          
           const SizedBox(height: 12),
+          
           ...c.pickupLocations.entries.map((e) {
             final key = e.key;
             final loc = e.value;
             final active = key == c.selectedPickup;
+            
             return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.only(bottom: 8),
               child: InkWell(
                 onTap: () => c.selectPickup(key),
-                borderRadius: BorderRadius.circular(20),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
+                borderRadius: BorderRadius.circular(12),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: active ? const Color(0xFFFFF7ED) : Colors.white,
-                    border: Border.all(color: active ? AppColors.primary : const Color(0xFFE5E7EB), width: 2),
-                    borderRadius: BorderRadius.circular(20),
+                    color: active
+                        ? AppColors.primary.withOpacity(0.05)
+                        : const Color(0xFFF9FAFB),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: active
+                          ? AppColors.primary
+                          : const Color(0xFFE5E7EB),
+                      width: active ? 2 : 1,
+                    ),
                   ),
                   child: Row(
                     children: [
+                      AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        width: 18,
+                        height: 18,
+                        decoration: BoxDecoration(
+                          color: active
+                              ? AppColors.primary
+                              : Colors.transparent,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: active
+                                ? AppColors.primary
+                                : const Color(0xFFD4D4D8),
+                            width: 2,
+                          ),
+                        ),
+                        child: active
+                            ? const Icon(
+                                Icons.check,
+                                color: Colors.white,
+                                size: 10,
+                              )
+                            : null,
+                      ),
+                      
+                      const SizedBox(width: 12),
+                      
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(loc['name']!, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)),
-                            Text(loc['address']!, style: const TextStyle(color: Color(0xFF71717A), fontSize: 14)),
+                            Text(
+                              loc['name']!,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF18181B),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              loc['address']!,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF71717A),
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ],
                         ),
                       ),
-                      if (active) const Icon(Icons.check_circle_rounded, color: AppColors.primary, size: 26),
                     ],
                   ),
                 ),
@@ -580,96 +846,149 @@ class _PickupListCard extends StatelessWidget {
   }
 }
 
-// === AGENDAMENTO — MODAL + 2 SLOTS POR LINHA ===
-class _ScheduleCard extends StatelessWidget {
+// ═══════════════════════════════════════════════════════════
+//         AGENDAMENTO (RECEBER HOJE + SLOTS ALINHADOS)
+// ═══════════════════════════════════════════════════════════
+class _ScheduleSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.watch<CheckoutController>();
-    final dateStr = c.selectedTimeSlot == null
-        ? 'Selecione uma data'
-        : '${c.selectedDate.day.toString().padLeft(2, '0')}/${c.selectedDate.month.toString().padLeft(2, '0')}';
-
+    final hasSchedule = c.selectedTimeSlot != null;
+    final isToday = c.selectedDate.year == DateTime.now().year &&
+        c.selectedDate.month == DateTime.now().month &&
+        c.selectedDate.day == DateTime.now().day;
+    
     return Container(
-      decoration: _cardDeco(),
       padding: const EdgeInsets.all(20),
+      decoration: _boxDeco(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Agende sua Entrega', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+          const Text(
+            'Quando você quer receber?',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF18181B),
+            ),
+          ),
+          
           const SizedBox(height: 16),
-
-          // === DATA (INPUT ESTILO) ===
+          
+          // Input de data full width
           InkWell(
             onTap: () => _showCalendarModal(context, c),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             child: Container(
-              padding: const EdgeInsets.all(16),
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: const Color(0xFFF9FAFB),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: const Color(0xFFE5E7EB)),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.calendar_today_rounded, color: Color(0xFF71717A), size: 20),
+                  Icon(
+                    Icons.calendar_today_rounded,
+                    size: 18,
+                    color: hasSchedule
+                        ? AppColors.primary
+                        : const Color(0xFF71717A),
+                  ),
                   const SizedBox(width: 12),
-                  Text(
-                    dateStr,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 16,
-                      color: c.selectedTimeSlot == null ? const Color(0xFF9CA3AF) : const Color(0xFF18181B),
+                  Expanded(
+                    child: Text(
+                      isToday && !hasSchedule
+                          ? 'Receber hoje'
+                          : hasSchedule
+                              ? '${c.selectedDate.day.toString().padLeft(2, '0')}/${c.selectedDate.month.toString().padLeft(2, '0')}/${c.selectedDate.year}'
+                              : 'Receber hoje',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: hasSchedule || isToday
+                            ? const Color(0xFF18181B)
+                            : const Color(0xFF71717A),
+                      ),
                     ),
                   ),
-                  const Spacer(),
-                  const Icon(Icons.chevron_right_rounded, color: Color(0xFF71717A)),
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 14,
+                    color: Colors.grey[400],
+                  ),
                 ],
               ),
             ),
           ),
-
-          const SizedBox(height: 16),
-
-          // === SLOTS (2 POR LINHA) ===
-        // === SLOTS (2 POR LINHA) ===
-if (c.getTimeSlots().isNotEmpty)
-  TimeSlotGrid(
-    slots: c.getTimeSlots(),
-    selectedSlot: c.selectedTimeSlot,
-    onSlotSelected: (slot) {
-      c.selectedTimeSlot = slot;
-      c.notifyListeners();
-    },
-  )
-else
-  Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: const Color(0xFFFFF0F0),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: const Text(
-      'Loja fechada neste dia',
-      style: TextStyle(color: Colors.red, fontWeight: FontWeight.w700),
-    ),
-  ),
-          // === RESUMO ===
-          if (c.selectedTimeSlot != null)
+          
+          // Slots FULL WIDTH (alinhados com o input)
+          if (c.getTimeSlots().isNotEmpty) ...[
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: TimeSlotGrid(
+                slots: c.getTimeSlots(),
+                selectedSlot: c.selectedTimeSlot,
+                onSlotSelected: (slot) {
+                  c.selectedTimeSlot = slot;
+                  c.notifyListeners();
+                },
+              ),
+            ),
+          ] else if (hasSchedule)
             Container(
-              margin: const EdgeInsets.only(top: 16),
+              margin: const EdgeInsets.only(top: 12),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFEFFAF1),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF16A34A)),
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.check_circle, color: Color(0xFF16A34A), size: 20),
+                  Icon(Icons.info_outline, size: 16, color: Colors.red[700]),
                   const SizedBox(width: 8),
                   Text(
-                    'Agendado: $dateStr • ${c.selectedTimeSlot}',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    'Nenhum horário disponível',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.red[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          
+          // Resumo
+          if (hasSchedule)
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green[50],
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.check_circle_rounded,
+                    size: 16,
+                    color: Colors.green[700],
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isToday
+                          ? 'Hoje • ${c.selectedTimeSlot}'
+                          : 'Agendado: ${c.selectedDate.day.toString().padLeft(2, '0')}/${c.selectedDate.month.toString().padLeft(2, '0')} • ${c.selectedTimeSlot}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.green[700],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -687,14 +1006,41 @@ void _showCalendarModal(BuildContext context, CheckoutController c) {
     backgroundColor: Colors.transparent,
     builder: (ctx) => Container(
       height: MediaQuery.of(ctx).size.height * 0.7,
-      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       child: Column(
         children: [
-          Container(margin: const EdgeInsets.only(top: 12), width: 40, height: 4, decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(2))),
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE5E7EB),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
           const SizedBox(height: 16),
-          const Text('Selecione a Data', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900)),
+          const Text(
+            'Selecione a Data',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
           const SizedBox(height: 16),
-          Expanded(child: CalendarWidget(selectedDate: c.selectedDate, onDateSelected: (date) { c.selectedDate = date; c.selectedTimeSlot = null; c.notifyListeners(); Navigator.pop(ctx); })),
+          Expanded(
+            child: CalendarWidget(
+              selectedDate: c.selectedDate,
+              onDateSelected: (date) {
+                c.selectedDate = date;
+                c.selectedTimeSlot = null;
+                c.notifyListeners();
+                Navigator.pop(ctx);
+              },
+            ),
+          ),
           const SizedBox(height: 16),
         ],
       ),
@@ -702,63 +1048,192 @@ void _showCalendarModal(BuildContext context, CheckoutController c) {
   );
 }
 
-// === OBSERVAÇÕES ===
-class _NotesCard extends StatelessWidget {
+// ═══════════════════════════════════════════════════════════
+//                    OBSERVAÇÕES
+// ═══════════════════════════════════════════════════════════
+class _NotesSection extends StatefulWidget {
+  @override
+  State<_NotesSection> createState() => _NotesSectionState();
+}
+
+class _NotesSectionState extends State<_NotesSection> {
+  bool _editing = false;
+  late TextEditingController _controller;
+  
+  @override
+  void initState() {
+    super.initState();
+    final c = context.read<CheckoutController>();
+    _controller = TextEditingController(text: c.orderNotes);
+  }
+  
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+  
   @override
   Widget build(BuildContext context) {
     final c = context.watch<CheckoutController>();
+    final hasNotes = c.orderNotes.isNotEmpty;
+    
     return Container(
-      decoration: _cardDeco(),
-      padding: const EdgeInsets.all(20),
-      child: c.orderNotes.isEmpty
-          ? Center(
-              child: TextButton.icon(
-                onPressed: () => _showNotesDialog(context),
-                icon: const Icon(Icons.add_circle_outline_rounded, color: AppColors.primary, size: 24),
-                label: const Text('Adicionar observação (opcional)', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w900, fontSize: 16)),
+      padding: const EdgeInsets.all(16),
+      decoration: _boxDeco(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Observações',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF18181B),
+                ),
               ),
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              
+              if (!_editing && !hasNotes)
+                TextButton.icon(
+                  onPressed: () => setState(() => _editing = true),
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('Adicionar'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    textStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          
+          if (_editing || hasNotes) const SizedBox(height: 12),
+          
+          if (_editing)
+            Column(
               children: [
+                TextField(
+                  controller: _controller,
+                  maxLines: 3,
+                  decoration: const InputDecoration(
+                    hintText: 'Ex: Favor buzinar ao chegar',
+                    hintStyle: TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF9CA3AF),
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                      borderSide: BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                      borderSide: BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.all(Radius.circular(12)),
+                      borderSide: BorderSide(color: AppColors.primary),
+                    ),
+                    contentPadding: EdgeInsets.all(12),
+                  ),
+                  style: const TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 8),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    const Text('Observações do Pedido', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
-                    IconButton(
-                      onPressed: () => _showNotesDialog(context),
-                      icon: const Icon(Icons.edit_rounded, color: Color(0xFF71717A), size: 20),
+                    TextButton(
+                      onPressed: () {
+                        _controller.text = c.orderNotes;
+                        setState(() => _editing = false);
+                      },
+                      child: const Text(
+                        'Cancelar',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () {
+                        c.orderNotes = _controller.text;
+                        setState(() => _editing = false);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: const Text(
+                        'Salvar',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Text(c.orderNotes, style: const TextStyle(fontSize: 16)),
+              ],
+            )
+          else if (hasNotes)
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    c.orderNotes,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF52525B),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: () {
+                    _controller.text = c.orderNotes;
+                    setState(() => _editing = true);
+                  },
+                  icon: const Icon(
+                    Icons.edit_outlined,
+                    size: 16,
+                    color: Color(0xFF71717A),
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
               ],
             ),
+        ],
+      ),
     );
   }
 }
 
-void _showNotesDialog(BuildContext context) {
-  final c = context.read<CheckoutController>();
-  final ctrl = TextEditingController(text: c.orderNotes);
-  showDialog(
-    context: context,
-    builder: (ctx) => AlertDialog(
-      title: const Text('Observações'),
-      content: TextField(controller: ctrl, maxLines: 4, decoration: const InputDecoration(hintText: 'Ex: Favor buzinar ao chegar')),
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-        ElevatedButton(onPressed: () { c.orderNotes = ctrl.text; Navigator.pop(ctx); }, child: const Text('Salvar')),
-      ],
-    ),
-  );
-}
-
-// === ESTILO COMUM ===
-BoxDecoration _cardDeco() => BoxDecoration(
+BoxDecoration _boxDeco() => BoxDecoration(
       color: Colors.white,
-      border: Border.all(color: const Color(0xFFE5E7EB)),
-      borderRadius: BorderRadius.circular(20),
-      boxShadow: const [BoxShadow(color: Color(0x10000000), blurRadius: 10, offset: Offset(0, 2))],
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFFE5E7EB), width: 1),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x08000000),
+          blurRadius: 8,
+          offset: Offset(0, 2),
+        ),
+      ],
     );

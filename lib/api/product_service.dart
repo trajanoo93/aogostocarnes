@@ -1,4 +1,5 @@
 // lib/api/product_service.dart
+
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -13,11 +14,13 @@ class ProductService {
       'https://aogosto.com.br/delivery/wp-content/uploads/2023/12/Go-Express-fundo-400-x-200-px2-1.png';
 
   String get _authHeader {
-    final credentials = base64Encode(utf8.encode('$_consumerKey:$_consumerSecret'));
+    final credentials = base64Encode(
+      utf8.encode('$_consumerKey:$_consumerSecret'),
+    );
     return 'Basic $credentials';
   }
 
-  // Campos retornados do WooCommerce (inclui categorias e meta_data p/ badges)
+  // Campos retornados do WooCommerce
   static const String _FIELDS =
       'id,name,regular_price,sale_price,price,images,short_description,categories,meta_data';
 
@@ -44,7 +47,8 @@ class ProductService {
   Product _mapProduct(Map<String, dynamic> p) {
     final meta = (p['meta_data'] as List?)?.cast<Map<String, dynamic>>();
     final catIds = ((p['categories'] as List?) ?? [])
-        .map((c) => (c is Map && c['id'] is int) ? c['id'] as int? : null)
+        .map((c) =>
+            (c is Map && c['id'] is int) ? c['id'] as int? : null)
         .whereType<int>()
         .toList();
 
@@ -54,7 +58,9 @@ class ProductService {
       price: _toDouble(p['price']) ?? 0.0,
       regularPrice: _toDouble(p['regular_price']),
       imageUrl: (p['images'] as List?)?.isNotEmpty == true
-          ? ((((p['images'] as List).first) as Map)['src'] as String? ?? _placeholder)
+          ? ((((p['images'] as List).first) as Map)['src']
+                  as String? ??
+              _placeholder)
           : _placeholder,
       categoryIds: catIds,
       shortDescription: (p['short_description'] as String?)?.trim(),
@@ -67,41 +73,51 @@ class ProductService {
     );
   }
 
-  // -------- Endpoints --------
+  // ------------------- ENDPOINTS -------------------
 
-  /// Ofertas da semana (categoria 72)
+  /// Ofertas da semana
   Future<List<Product>> fetchOnSaleProducts({int perPage = 20}) async {
     final url =
         '$_baseUrl/products?status=publish&per_page=$perPage&stock_status=instock&category=72&_fields=$_FIELDS';
     try {
-      final resp =
-          await http.get(Uri.parse(url), headers: {'Authorization': _authHeader});
-      if (resp.statusCode == 200) {
-        final List data = json.decode(resp.body) as List;
-        return data.map((e) => _mapProduct(e as Map<String, dynamic>)).toList();
-      } else {
-        throw Exception('HTTP ${resp.statusCode}');
-      }
-    } catch (_) {
-      return [];
-    }
-  }
+      final resp = await http.get(
+        Uri.parse(url),
+        headers: {'Authorization': _authHeader},
+      );
 
-    Future<List<Product>> fetchProductsBySearch(String query) async {
-    final url = '$_baseUrl/products?search=${Uri.encodeComponent(query)}&per_page=30&status=publish&stock_status=instock&_fields=$_FIELDS';
-    try {
-      final resp = await http.get(Uri.parse(url), headers: {'Authorization': _authHeader});
       if (resp.statusCode == 200) {
         final List data = json.decode(resp.body);
-        return data.map((e) => _mapProduct(e as Map<String, dynamic>)).toList();
+        return data
+            .map((e) => _mapProduct(e as Map<String, dynamic>))
+            .toList();
       }
-    } catch (e) {
-      return [];
-    }
+    } catch (_) {}
     return [];
   }
 
-  /// Uma categoria (com paginação).
+  /// Busca geral
+  Future<List<Product>> fetchProductsBySearch(String query) async {
+    final url =
+        '$_baseUrl/products?search=${Uri.encodeComponent(query)}&per_page=30&status=publish&stock_status=instock&_fields=$_FIELDS';
+
+    try {
+      final resp = await http.get(
+        Uri.parse(url),
+        headers: {'Authorization': _authHeader},
+      );
+
+      if (resp.statusCode == 200) {
+        final List data = json.decode(resp.body);
+        return data
+            .map((e) => _mapProduct(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (_) {}
+
+    return [];
+  }
+
+  /// Uma categoria específica
   Future<List<Product>> fetchProductsByCategory(
     int categoryId, {
     int perPage = 20,
@@ -109,48 +125,58 @@ class ProductService {
   }) async {
     final url =
         '$_baseUrl/products?status=publish&per_page=$perPage&page=$page&stock_status=instock&category=$categoryId&_fields=$_FIELDS';
+
     try {
-      final resp =
-          await http.get(Uri.parse(url), headers: {'Authorization': _authHeader});
+      final resp = await http.get(
+        Uri.parse(url),
+        headers: {'Authorization': _authHeader},
+      );
+
       if (resp.statusCode == 200) {
-        final List data = json.decode(resp.body) as List;
-        return data.map((e) => _mapProduct(e as Map<String, dynamic>)).toList();
-      } else {
-        throw Exception('HTTP ${resp.statusCode}');
+        final List data = json.decode(resp.body);
+        return data
+            .map((e) => _mapProduct(e as Map<String, dynamic>))
+            .toList();
       }
-    } catch (_) {
-      return [];
-    }
+    } catch (_) {}
+
+    return [];
   }
 
-  /// Várias categorias (união). Paginação opcional.
+  /// Várias categorias — CORRETO (faz requisições paralelas)
   Future<List<Product>> fetchProductsByCategories(
     List<int> categoryIds, {
     int perCategory = 50,
     int page = 1,
   }) async {
     if (categoryIds.isEmpty) return [];
-    final cats = categoryIds.join(',');
-    final url =
-        '$_baseUrl/products?status=publish&per_page=$perCategory&page=$page&stock_status=instock&category=$cats&_fields=$_FIELDS';
 
     try {
-      final resp =
-          await http.get(Uri.parse(url), headers: {'Authorization': _authHeader});
-      if (resp.statusCode == 200) {
-        final List data = json.decode(resp.body) as List;
-        final items =
-            data.map((e) => _mapProduct(e as Map<String, dynamic>)).toList();
+      // Cada categoria gera uma requisição
+      final futures = categoryIds.map((id) {
+        final url =
+            '$_baseUrl/products?status=publish&per_page=$perCategory&page=$page&stock_status=instock&category=$id&_fields=$_FIELDS';
+        return http.get(Uri.parse(url),
+            headers: {'Authorization': _authHeader});
+      }).toList();
 
-        // Dedup por ID (caso o mesmo produto esteja em mais de uma categoria)
-        final map = <int, Product>{};
-        for (final p in items) {
-          map[p.id] = p;
+      // Executa todas em paralelo
+      final responses = await Future.wait(futures);
+
+      final Map<int, Product> unique = {};
+
+      // Mapeia e evita produtos duplicados
+      for (final resp in responses) {
+        if (resp.statusCode == 200) {
+          final List data = json.decode(resp.body);
+          for (final item in data) {
+            final p = _mapProduct(item);
+            unique[p.id] = p;
+          }
         }
-        return map.values.toList();
-      } else {
-        throw Exception('HTTP ${resp.statusCode}');
       }
+
+      return unique.values.toList();
     } catch (_) {
       return [];
     }

@@ -30,9 +30,9 @@ class FirestoreService {
         'is_ativo': true,
 
         'cliente': {
-          'id': cleanCustomerId,
           'nome': customerName.trim(),
           'telefone': customerPhone.replaceAll(RegExp(r'[^\d]'), ''),
+          'customerPhone': customerPhone.replaceAll(RegExp(r'[^\d]'), ''), 
         },
 
         'endereco': {
@@ -90,39 +90,40 @@ class FirestoreService {
     return 'Pix';
   }
 
-  Stream<List<AppOrder>> getCustomerOrders(String appCustomerId) async* {
-    final cleanCustomerId = appCustomerId.replaceAll('"', '').trim();
-    
+  /// ✅ CORRIGIDO: Query sem duplicação
+  Stream<List<AppOrder>> getCustomerOrders(String customerPhone) async* {
+    final cleanPhone = customerPhone.replaceAll(RegExp(r'[^\d]'), '');
+
+    debugPrint('🔍 Buscando pedidos para: $cleanPhone');
+
     await for (final snapshot in _db
         .collection(_collection)
-        .where('cliente.id', isEqualTo: cleanCustomerId)
+        .where('cliente.customerPhone', isEqualTo: cleanPhone)
         .where('loja_origem', isEqualTo: 'App')
         .orderBy('created_at', descending: true)
         .snapshots()) {
-      
+
+      debugPrint('📦 ${snapshot.docs.length} pedidos encontrados');
+
       final orders = <AppOrder>[];
-      
+
       for (final doc in snapshot.docs) {
         final data = doc.data();
-        
-        // Extrair método de pagamento
+
         String paymentType = 'Não informado';
         if (data['pagamento'] != null) {
           final pagamento = data['pagamento'] as Map<String, dynamic>;
           paymentType = pagamento['metodo_principal'] ?? 'Não informado';
         }
-        
-        // Buscar imagens dos produtos
+
         final items = <OrderItem>[];
         if (data['itens'] != null) {
           final itensList = data['itens'] as List;
-          
+
           for (final i in itensList) {
             final productName = i['nome'] ?? 'Item sem nome';
-            
-            // Buscar imagem do produto
             final imageUrl = await _imageService.getProductImage(productName);
-            
+
             items.add(OrderItem(
               name: productName,
               imageUrl: imageUrl,
@@ -131,7 +132,7 @@ class FirestoreService {
             ));
           }
         }
-        
+
         orders.add(AppOrder(
           id: doc.id,
           date: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
@@ -155,7 +156,7 @@ class FirestoreService {
           payment: PaymentMethod(type: paymentType),
         ));
       }
-      
+
       yield orders;
     }
   }

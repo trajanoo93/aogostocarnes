@@ -31,7 +31,9 @@ class _CheckoutView extends StatelessWidget {
 
         if (c.isLoading) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+            body: Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
           );
         }
 
@@ -40,21 +42,21 @@ class _CheckoutView extends StatelessWidget {
         }
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF9FAFB),
+          backgroundColor: const Color(0xFFFAFAFA),
           body: Column(
             children: [
-              // === HEADER ===
-              _buildHeader(context, c),
+              // === HEADER ULTRA COMPACTO ===
+              _buildUltraCompactHeader(context, c),
 
               // === BODY ===
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 140),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
                   child: _buildStepContent(c),
                 ),
               ),
 
-              // === FOOTER FIXO ===
+              // === FOOTER ===
               _buildFooter(c, currency),
             ],
           ),
@@ -63,31 +65,57 @@ class _CheckoutView extends StatelessWidget {
     );
   }
 
-  // === HEADER (COM CONTEXT) ===
-  Widget _buildHeader(BuildContext context, CheckoutController c) {
+  // === HEADER ULTRA COMPACTO - TUDO EM UMA LINHA ===
+  Widget _buildUltraCompactHeader(BuildContext context, CheckoutController c) {
     return Container(
-      color: const Color(0xFFF9FAFB),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.primary,
+            AppColors.primary.withOpacity(0.9),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withOpacity(0.3),
+            blurRadius: 20,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: SafeArea(
         bottom: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: Column(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
             children: [
-              Row(
-                children: [
-                  IconButton(
-                    onPressed: () => Navigator.of(context).pop(), // FUNCIONA
-                    icon: const Icon(Icons.arrow_back_rounded),
+              // Botão Voltar
+              IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Finalizar Compra',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
+                  child: const Icon(
+                    Icons.arrow_back_rounded,
+                    size: 20,
+                    color: Colors.white,
                   ),
-                ],
+                ),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
               ),
-              const SizedBox(height: 8),
-              _Stepper(current: c.currentStep),
+              
+              const SizedBox(width: 16),
+              
+              // Stepper inline
+              Expanded(
+                child: _InlineStepper(current: c.currentStep),
+              ),
             ],
           ),
         ),
@@ -95,166 +123,270 @@ class _CheckoutView extends StatelessWidget {
     );
   }
 
-  // === CONTEÚDO ===
   Widget _buildStepContent(CheckoutController c) {
     return Column(
       children: [
+        const SizedBox(height: 16),
         if (c.currentStep == 1) const StepAddress(),
         if (c.currentStep == 2) const StepPayment(),
       ],
     );
   }
 
-  // === FOOTER FIXO ===
   Widget _buildFooter(CheckoutController c, NumberFormat currency) {
     return Container(
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        border: Border(top: BorderSide(color: Color(0xFFE5E7EB))),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       child: SafeArea(
         top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                const Text(
-                  'Total',
-                  style: TextStyle(color: Color(0xFF52525B), fontWeight: FontWeight.w600, fontSize: 18),
-                ),
-                const Spacer(),
-                Text(
-                  currency.format(c.total),
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // ---------- BOTÃO ----------
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: c.canProceedToPayment && !c.isProcessing ? c.nextStep : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                ),
-                child: c.isProcessing
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(color: Colors.white),
-                      )
-                    : Text(
-                        c.currentStep == 1
-                            ? 'Continuar para Pagamento'
-                            : c.paymentMethod == 'pix'
-                                ? 'Gerar QR Code Pix de ${currency.format(c.total)}'
-                                : 'Confirmar Pedido',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Total',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF71717A),
+                    ),
+                  ),
+                  Text(
+                    currency.format(c.total),
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF18181B),
+                      letterSpacing: -1,
+                    ),
+                  ),
+                ],
+              ),
+              
+              const SizedBox(height: 16),
+              
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: c.canProceedToPayment && !c.isProcessing
+                      ? c.nextStep
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    disabledBackgroundColor: const Color(0xFFE5E7EB),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: c.isProcessing
+                      ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : Text(
+                          c.currentStep == 1
+                              ? 'Continuar'
+                              : c.paymentMethod == 'pix'
+                                  ? 'Gerar PIX'
+                                  : 'Confirmar Pedido',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                            letterSpacing: 0.3,
+                          ),
                         ),
-                      ),
-              ),
-            ),
-
-            if (c.currentStep == 2)
-              const Padding(
-                padding: EdgeInsets.only(top: 8),
-                child: Text(
-                  'Ambiente 100% seguro.',
-                  style: TextStyle(color: Color(0xFF71717A), fontSize: 12),
                 ),
               ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// === STEPPER ===
-class _Stepper extends StatelessWidget {
+// ═══════════════════════════════════════════════════════════
+//           STEPPER INLINE (UMA LINHA HORIZONTAL)
+// ═══════════════════════════════════════════════════════════
+class _InlineStepper extends StatelessWidget {
   final int current;
-  const _Stepper({required this.current});
+  const _InlineStepper({required this.current});
 
   @override
   Widget build(BuildContext context) {
-    final steps = ['Onde e Quando?', 'Como Pagar?'];
+    final steps = [
+      {'number': '1', 'label': 'Entrega', 'icon': Icons.local_shipping_rounded},
+      {'number': '2', 'label': 'Pagamento', 'icon': Icons.credit_card_rounded},
+    ];
+
     return Row(
-      children: steps.asMap().entries.map((e) {
-        final i = e.key + 1;
-        final label = e.value;
-        final isActive = current == i;
-        final isDone = current > i;
+      children: List.generate(steps.length, (i) {
+        final step = i + 1;
+        final data = steps[i];
+        final isActive = current == step;
+        final isDone = current > step;
+
         return Expanded(
           child: Row(
             children: [
-              _StepDot(number: i, isActive: isActive, isDone: isDone),
-              const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-                    color: isActive ? const Color(0xFF18181B) : const Color(0xFF71717A),
-                    fontSize: 14,
-                  ),
+                child: _InlineStepItem(
+                  number: data['number'] as String,
+                  label: data['label'] as String,
+                  icon: data['icon'] as IconData,
+                  isActive: isActive,
+                  isDone: isDone,
                 ),
               ),
-              if (i < steps.length) Expanded(child: _StepLine(isDone: isDone)),
+              
+              // Linha conectora
+              if (i < steps.length - 1)
+                Expanded(
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 500),
+                    height: 2,
+                    margin: const EdgeInsets.only(bottom: 4),
+                    decoration: BoxDecoration(
+                      color: isDone
+                          ? Colors.white
+                          : Colors.white.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                  ),
+                ),
             ],
           ),
         );
-      }).toList(),
+      }),
     );
   }
 }
 
-class _StepDot extends StatelessWidget {
-  final int number;
+class _InlineStepItem extends StatelessWidget {
+  final String number;
+  final String label;
+  final IconData icon;
   final bool isActive;
   final bool isDone;
-  const _StepDot({required this.number, required this.isActive, required this.isDone});
+
+  const _InlineStepItem({
+    required this.number,
+    required this.label,
+    required this.icon,
+    required this.isActive,
+    required this.isDone,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: isDone ? AppColors.primary : (isActive ? Colors.white : const Color(0xFFE5E7EB)),
-        shape: BoxShape.circle,
-        border: Border.all(color: isActive ? AppColors.primary : Colors.transparent, width: 2),
-      ),
-      child: Center(
-        child: isDone
-            ? const Icon(Icons.check, color: Colors.white, size: 18)
-            : Text(
-                '$number',
-                style: TextStyle(
-                  fontWeight: FontWeight.w900,
-                  color: isActive ? AppColors.primary : const Color(0xFF6B7280),
-                  fontSize: 14,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Círculo compacto
+        TweenAnimationBuilder<double>(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutBack,
+          tween: Tween(begin: 0.0, end: 1.0),
+          builder: (context, value, child) {
+            return Transform.scale(
+              scale: isActive ? (0.95 + (value * 0.05)) : 1.0,
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: isDone || isActive
+                      ? Colors.white
+                      : Colors.white.withOpacity(0.3),
+                  shape: BoxShape.circle,
+                  boxShadow: isActive
+                      ? [
+                          BoxShadow(
+                            color: Colors.white.withOpacity(0.5),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: Stack(
+                  children: [
+                    Center(
+                      child: Icon(
+                        isDone ? Icons.check_rounded : icon,
+                        color: isDone || isActive
+                            ? AppColors.primary
+                            : Colors.white.withOpacity(0.6),
+                        size: 16,
+                      ),
+                    ),
+                    if (!isDone)
+                      Positioned(
+                        top: 1,
+                        right: 1,
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: isActive
+                                ? AppColors.primary
+                                : Colors.white.withOpacity(0.3),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1),
+                          ),
+                          child: Center(
+                            child: Text(
+                              number,
+                              style: TextStyle(
+                                fontSize: 8,
+                                fontWeight: FontWeight.w900,
+                                color: isActive
+                                    ? Colors.white
+                                    : Colors.white.withOpacity(0.8),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-      ),
+            );
+          },
+        ),
+        
+        const SizedBox(width: 8),
+        
+        // Label
+        AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 300),
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
+            color: Colors.white.withOpacity(isActive ? 1.0 : 0.7),
+            letterSpacing: 0.2,
+          ),
+          child: Text(label),
+        ),
+      ],
     );
-  }
-}
-
-class _StepLine extends StatelessWidget {
-  final bool isDone;
-  const _StepLine({required this.isDone});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(height: 2, color: isDone ? AppColors.primary : const Color(0xFFD4D4D8));
   }
 }

@@ -9,10 +9,9 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ao_gosto_app/state/cart_controller.dart';
-import 'package:ao_gosto_app/models/order_model.dart'; // contém AppOrder, OrderItem, OrderAddress, PaymentMethod
+import 'package:ao_gosto_app/models/order_model.dart'; 
 import 'package:ao_gosto_app/api/shipping_service.dart';
 import 'package:ao_gosto_app/api/firestore_service.dart';
-import 'package:ao_gosto_app/api/onboarding_service.dart';
 import 'package:ao_gosto_app/api/order_service.dart';
 
 
@@ -726,7 +725,7 @@ final String statusFinal = isAgendado ? "Agendado" : "-";
 );
   await firestore.saveOrder(
   mockOrder,
-  customerId.toString(),
+  userPhoneRaw, 
   cd: cd,
   janelaTexto: janelaTexto,
   isAgendado: isAgendado,

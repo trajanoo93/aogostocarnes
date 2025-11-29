@@ -141,28 +141,16 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          onPressed: () => Navigator.pop(context),
-          icon: Icon(Icons.arrow_back_rounded, color: Colors.grey[800]),
-        ),
-        title: const Text(
-          'Nossas Unidades',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary,
-          ),
-        ),
-        centerTitle: true,
-      ),
       body: Column(
         children: [
           // HEADER COM BOTÃO DE LOCALIZAÇÃO
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: EdgeInsets.fromLTRB(
+              20,
+              MediaQuery.of(context).padding.top + 12,
+              20,
+              20,
+            ),
             decoration: BoxDecoration(
               color: Colors.white,
               border: Border(
@@ -172,7 +160,29 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Título
+                // Botão Voltar + Título
+                Row(
+                  children: [
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: Icon(
+                        Icons.arrow_back_rounded,
+                        color: Colors.grey[800],
+                        size: 28,
+                      ),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                    const SizedBox(width: 16),
+                    
+                      
+                    
+                  ],
+                ),
+                
+                const SizedBox(height: 20),
+                
+                // Subtítulo
                 Text(
                   'Encontre a loja mais próxima',
                   style: TextStyle(

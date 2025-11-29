@@ -16,12 +16,84 @@ Um app moderno, rápido e totalmente integrado ao WooCommerce, Firestore e servi
 O aplicativo foi desenvolvido em Flutter (multiplataforma) e integra:
 
 - **WooCommerce REST API** → Catálogo, preços, estoque e criação de pedidos reais
-- **Firebase Firestore** → Histórico de pedidos em tempo real + tracker
-- **Backend PHP + MySQL** → Cadastro local via onboarding + Gestão de endereços
+- **Firebase Firestore** → **Perfil completo, múltiplos endereços e histórico de pedidos em tempo real**
 - **ViaCEP + API Custom** → Cálculo de frete e definição da loja efetiva
-- **Animações Lottie** → UI fluida e moderna
-- **Persistência local** → Carrinho, perfil e informações do cliente (SharedPreferences)
+- **Provider** → State management global (Customer + Cart)
 
+
+✨ Fluxo de Inicialização (Onboarding + SplashScreen)
+
+O aplicativo utiliza um fluxo moderno de inicialização baseado em gate + onboarding + splash, garantindo:
+
+carregamento suave da interface
+
+experiências consistentes
+
+primeiras interações guiadas
+
+tempo suficiente para pré-carregar dados iniciais (produtos, banners, categorias etc.)
+
+🧭 Fluxo Completo
+▶ Primeira vez abrindo o app
+
+OnboardingGate detecta que onboarding_done = false
+
+O app abre automaticamente o OnboardingFlow
+
+Usuário preenche nome, telefone, CEP e endereço
+
+Ao finalizar:
+
+onboarding_done = true é salvo no SharedPreferences
+
+O app exibe a SplashScreen animada (Lottie)
+
+Após a animação → vai para o MainScreen
+
+▶ A partir do segundo acesso
+
+OnboardingGate detecta onboarding_done = true
+
+Abre diretamente a SplashScreen
+
+Após a animação → navega para o MainScreen
+
+🔥 Estrutura Implementada
+📌 onboarding_gate.dart
+
+Controla o fluxo inicial do app:
+
+if (needsOnboarding) {
+  OnboardingFlow.maybeStart(context, force: true);
+}
+
+return const SplashScreen();
+
+
+Sempre retorna a SplashScreen, garantindo uma transição visual suave independentemente de onboarding.
+
+📌 onboarding_flow.dart
+
+Ao concluir o onboarding, salva o status:
+
+final sp = await SharedPreferences.getInstance();
+await sp.setBool('onboarding_done', true);
+
+📌 splash_screen.dart
+
+Tela minimalista com animação Lottie:
+
+fundo branco
+
+logo animada
+
+tempo de exibição: ~2,2s
+
+redireciona automaticamente para o MainScreen:
+
+Navigator.of(context).pushReplacement(
+  MaterialPageRoute(builder: (_) => const MainScreen()),
+);
 ---
 
 ## 🚀 Funcionalidades Implementadas
@@ -135,7 +207,13 @@ lib/
     ├── custom_bottom_navigation.dart  ← ✨ ATUALIZADO: Sem vão transparente
     └── header_menu_modal.dart         ← ✨ ATUALIZADO: Menu drawer premium
 ```
+🧱 Estrutura de Pastas (atualização)
 
+Adicione este novo item:
+
+├── screens/
+│   ├── splash/
+│   │   └── splash_screen.dart       ← ✨ Nova Splash animada (Lottie)
 ---
 
 ## 🎯 NOVIDADES - Sistema de Categorias
@@ -320,28 +398,6 @@ Cada pedido é salvo no Firestore imediatamente após ser criado no WooCommerce.
 
 ---
 
-## 🗄️ Backend (PHP + MySQL)
-
-**Banco:** `u991329655_app`
-
-### Tabelas:
-
-#### customers
-| Campo | Tipo         |
-| ----- | ------------ |
-| id    | INT          |
-| name  | VARCHAR(100) |
-| phone | VARCHAR(20)  |
-
-#### customer_addresses
-| Campo               | Tipo    |
-| ------------------- | ------- |
-| id                  | INT     |
-| customer_id         | INT     |
-| street, number, cep | VARCHAR |
-
----
-
 ## 🎨 Padrões Visuais
 
 - **Tema primário:** `#FA4815` (AppColors.primary)
@@ -472,5 +528,6 @@ Distribuição ou uso externo não autorizado é **proibido**.
 
 **🥩 Ao Gosto Carnes - A melhor experiência em carnes premium!**
 
-**Versão:** 1.0.0 (Produção)
+**Versão:** 1.1.0 (Produção)
+**Arquitetura:** Flutter + WooCommerce + Firebase Firestore (fonte única do cliente)
 **Última atualização:** Novembro 2025
