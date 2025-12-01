@@ -136,7 +136,7 @@ class _ModernHeader extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Título com "Caixa Laranja" em destaque
+                // Título: "Meus Cortes" (Cortes em laranja)
                 Row(
                   children: [
                     const Text(
@@ -149,7 +149,7 @@ class _ModernHeader extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'Cortes Premium',
+                      'Cortes',
                       style: TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.w900,
@@ -322,29 +322,29 @@ class _EmptyCartState extends State<_EmptyCart> with TickerProviderStateMixin {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           SizedBox(
-            width: 240,
-            height: 240,
-            child: Lottie.asset(
-              'assets/lottie/empty_box.json',
-              controller: _controller,
-              onLoaded: (composition) {
-                _controller
-                  ..duration = composition.duration
-                  ..forward();
-              },
-              repeat: false,
-            ),
-          ),
-          const SizedBox(height: 32),
-          const Text(
-            'Sua caixa está vazia',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF18181B),
-            ),
-            textAlign: TextAlign.center,
-          ),
+  width: 180,
+  height: 180,
+  child: const _AnimatedEmptyBox(),
+),
+const SizedBox(height: 32),
+Text.rich(
+  TextSpan(
+    style: const TextStyle(
+      fontSize: 24,
+      fontWeight: FontWeight.w900,
+      color: Color(0xFF18181B),
+    ),
+    children: const [
+      TextSpan(text: 'Sua '),
+      TextSpan(
+        text: 'caixa',
+        style: TextStyle(color: Color(0xFFFA4815)), // 🔥 Cor laranja do botão
+      ),
+      TextSpan(text: ' está vazia 😅'),
+    ],
+  ),
+  textAlign: TextAlign.center,
+),
           const SizedBox(height: 12),
           const Text(
             'Que tal adicionar alguns cortes suculentos?',
@@ -581,6 +581,7 @@ class _UpSellingSection extends StatefulWidget {
 class _UpSellingSectionState extends State<_UpSellingSection> {
   List<Product> _products = [];
   bool _loading = true;
+  bool _hidden = false; // ✅ Estado para ocultar
   
   @override
   void initState() {
@@ -600,7 +601,7 @@ class _UpSellingSectionState extends State<_UpSellingSection> {
       
       if (mounted) {
         setState(() {
-          _products = filtered.take(4).toList();
+          _products = filtered.take(10).toList();
           _loading = false;
         });
       }
@@ -613,7 +614,7 @@ class _UpSellingSectionState extends State<_UpSellingSection> {
   
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
+    if (_loading || _hidden) {
       return const SizedBox.shrink();
     }
     
@@ -624,7 +625,9 @@ class _UpSellingSectionState extends State<_UpSellingSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Header discreto
+        const SizedBox(height: 32), // ✅ Espaço maior antes
+        
+        // Header com botão fechar
         Row(
           children: [
             Container(
@@ -634,48 +637,63 @@ class _UpSellingSectionState extends State<_UpSellingSection> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
-                Icons.star_rounded,
+                Icons.add_shopping_cart_rounded,
                 size: 16,
                 color: Color(0xFFFA4815),
               ),
             ),
             const SizedBox(width: 8),
-            const Text(
-              'Você também pode gostar',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-                color: Color(0xFF18181B),
+            const Expanded(
+              child: Text(
+                'Não deixe de experimentar',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF18181B),
+                ),
               ),
+            ),
+            // ✅ Botão fechar
+            IconButton(
+              onPressed: () => setState(() => _hidden = true),
+              icon: const Icon(
+                Icons.close_rounded,
+                size: 18,
+                color: Color(0xFF71717A),
+              ),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
             ),
           ],
         ),
         
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         
-        // Grid horizontal
+        // Grid horizontal compacto
         SizedBox(
-          height: 200,
+          height: 140, // ✅ Altura reduzida
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: _products.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
             itemBuilder: (context, i) {
               final product = _products[i];
-              return _UpSellingCard(product: product);
+              return _CompactUpSellingCard(product: product);
             },
           ),
         ),
+        
+        const SizedBox(height: 24), // ✅ Espaço antes do footer
       ],
     );
   }
 }
 
-// === CARD UP-SELLING ===
-class _UpSellingCard extends StatelessWidget {
+// === CARD UP-SELLING COMPACTO ===
+class _CompactUpSellingCard extends StatelessWidget {
   final Product product;
   
-  const _UpSellingCard({required this.product});
+  const _CompactUpSellingCard({required this.product});
   
   @override
   Widget build(BuildContext context) {
@@ -692,7 +710,7 @@ class _UpSellingCard extends StatelessWidget {
         );
       },
       child: Container(
-        width: 140,
+        width: 110, // ✅ Mais compacto
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -701,91 +719,219 @@ class _UpSellingCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Imagem
+            // Imagem compacta
             ClipRRect(
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(12),
               ),
               child: SizedBox(
-                height: 100,
+                height: 70, // ✅ Altura fixa menor
                 width: double.infinity,
                 child: Image.network(
                   product.imageUrl ?? '',
                   fit: BoxFit.cover,
                   errorBuilder: (_, __, ___) => Container(
                     color: Colors.grey[200],
-                    child: const Icon(Icons.image_not_supported_outlined),
+                    child: const Icon(
+                      Icons.image_not_supported_outlined,
+                      size: 24,
+                      color: Color(0xFF9CA3AF),
+                    ),
                   ),
                 ),
               ),
             ),
             
-            // Info
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product.name,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF18181B),
+            // Info compacta
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Nome
+                    Text(
+                      product.name,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xFF18181B),
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  
-                  const SizedBox(height: 6),
-                  
-                  Text(
-                    brl.format(product.price),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFFFA4815),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 8),
-                  
-                  // Botão adicionar
-                  SizedBox(
-                    width: double.infinity,
-                    height: 32,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        controller.add(product);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text('Produto adicionado!'),
-                            duration: const Duration(seconds: 2),
-                            backgroundColor: const Color(0xFF16A34A),
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                    
+                    // Preço + Botão
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            brl.format(product.price),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              color: Color(0xFFFA4815),
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        // Botão adicionar compacto
+                        GestureDetector(
+                          onTap: () {
+                            controller.add(product);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text('Adicionado!'),
+                                duration: const Duration(seconds: 2),
+                                backgroundColor: const Color(0xFF16A34A),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFA4815),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: const Icon(
+                              Icons.add,
+                              size: 14,
+                              color: Colors.white,
                             ),
                           ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFA4815),
-                        foregroundColor: Colors.white,
-                        padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
                         ),
-                        elevation: 0,
-                      ),
-                      child: const Icon(Icons.add, size: 18),
+                      ],
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AnimatedEmptyBox extends StatefulWidget {
+  const _AnimatedEmptyBox();
+
+  @override
+  State<_AnimatedEmptyBox> createState() => _AnimatedEmptyBoxState();
+}
+
+class _AnimatedEmptyBoxState extends State<_AnimatedEmptyBox>
+    with TickerProviderStateMixin {
+
+  late AnimationController _introController;
+  late AnimationController _loopController;
+
+  late Animation<double> _introScale;
+  late Animation<double> _introOpacity;
+  late Animation<double> _introOffset;
+
+  late Animation<double> _loopScale;
+  late Animation<double> _loopOffset;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 🎬 Entry Animation (vibrante)
+    _introController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 850),
+    );
+
+    _introScale = Tween<double>(begin: 0.75, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _introController,
+        curve: Curves.elasticOut,
+      ),
+    );
+
+    _introOpacity = Tween<double>(begin: 0, end: 1).animate(
+      CurvedAnimation(
+        parent: _introController,
+        curve: Curves.easeOut,
+      ),
+    );
+
+    _introOffset = Tween<double>(begin: 16, end: 0).animate(
+      CurvedAnimation(
+        parent: _introController,
+        curve: Curves.easeOutCubic,
+      ),
+    );
+
+    // ♾️ Loop Animation (super leve)
+    _loopController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    )..repeat(reverse: true);
+
+    _loopScale = Tween<double>(begin: 1.0, end: 1.02).animate(
+      CurvedAnimation(
+        parent: _loopController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    _loopOffset = Tween<double>(begin: 0, end: -6).animate(
+      CurvedAnimation(
+        parent: _loopController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    // ⏳ Start intro, depois deixa flutuando
+    _introController.forward();
+  }
+
+  @override
+  void dispose() {
+    _introController.dispose();
+    _loopController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_introController, _loopController]),
+      builder: (_, child) {
+        final scale = _introController.isCompleted
+            ? _loopScale.value
+            : _introScale.value;
+
+        final offsetY = _introController.isCompleted
+            ? _loopOffset.value
+            : _introOffset.value;
+
+        final opacity = _introOpacity.value;
+
+        return Opacity(
+          opacity: opacity,
+          child: Transform.translate(
+            offset: Offset(0, offsetY),
+            child: Transform.scale(
+              scale: scale,
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: Image.asset(
+        'assets/images/caixinhaLaranja.png',
+        width: 180, // 🔥 menor e mais elegante
+        height: 180,
       ),
     );
   }

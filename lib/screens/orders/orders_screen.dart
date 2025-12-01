@@ -1,4 +1,5 @@
 // lib/screens/orders/orders_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lottie/lottie.dart';
@@ -16,9 +17,9 @@ class OrdersScreen extends StatefulWidget {
 
 class _OrdersScreenState extends State<OrdersScreen>
     with AutomaticKeepAliveClientMixin, TickerProviderStateMixin {
-  
   String? _customerId;
   bool _isLoading = true;
+
   late AnimationController _fadeController;
   late AnimationController _arrowController;
   late Animation<double> _arrowAnimation;
@@ -29,9 +30,9 @@ class _OrdersScreenState extends State<OrdersScreen>
   @override
   void initState() {
     super.initState();
-    
+
     _fadeController = AnimationController(
-      vsync: this, 
+      vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
 
@@ -86,9 +87,10 @@ class _OrdersScreenState extends State<OrdersScreen>
           _customerId = cleanPhone;
           _isLoading = false;
         });
+
         _fadeController.forward();
-        
-        // ✨ Inicia animação da seta após delay
+
+        // ✨ Inicia animação da seta após um pequeno delay
         Future.delayed(const Duration(milliseconds: 800), () {
           if (mounted) {
             _arrowController.repeat();
@@ -106,9 +108,22 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 
   String _formatDate(DateTime date) {
-    final months = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 
-                    'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-    return '${date.day} ${months[date.month - 1]} ${date.year} • ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+    final months = [
+      'Jan',
+      'Fev',
+      'Mar',
+      'Abr',
+      'Mai',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Set',
+      'Out',
+      'Nov',
+      'Dez'
+    ];
+    return '${date.day} ${months[date.month - 1]} ${date.year} • '
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 
   @override
@@ -163,7 +178,7 @@ class _OrdersScreenState extends State<OrdersScreen>
           );
         }
 
-        // Com pedidos
+        // ✅ Há pedidos
         final orders = snapshot.data!;
 
         return Scaffold(
@@ -188,6 +203,9 @@ class _OrdersScreenState extends State<OrdersScreen>
     );
   }
 
+  // ╔════════════════════════════════════════════════╗
+  // ║                  APP BAR                        ║
+  // ╚════════════════════════════════════════════════╝
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
       backgroundColor: Colors.white,
@@ -222,8 +240,21 @@ class _OrdersScreenState extends State<OrdersScreen>
     );
   }
 
-  /// ✨✨✨ EMPTY STATE ULTRA PROFISSIONAL COM SETA ANIMADA
+  // ╔════════════════════════════════════════════════╗
+  // ║        EMPTY STATE ULTRA PROFISSIONAL          ║
+  // ╚════════════════════════════════════════════════╝
   Widget _buildEmptyStateProfessional(BuildContext context) {
+    final size = MediaQuery.of(context).size;
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+
+    // Aproximação da posição do ícone "Categorias" no bottom nav
+    // (ajustado para ficar levemente à esquerda do centro)
+    final categoriasIconCenterX = size.width * 0.15;
+
+    // Distância da seta até a parte inferior, considerando a safe area
+    const baseBottom = 72.0; // altura média do bottom bar
+    final arrowBottom = baseBottom + bottomPadding;
+
     return SafeArea(
       child: Stack(
         children: [
@@ -234,7 +265,7 @@ class _OrdersScreenState extends State<OrdersScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // ✨ Lottie Animation - Clean e profissional
+                  // Caixinha / Lottie
                   TweenAnimationBuilder<double>(
                     tween: Tween(begin: 0.85, end: 1.0),
                     duration: const Duration(milliseconds: 600),
@@ -253,10 +284,10 @@ class _OrdersScreenState extends State<OrdersScreen>
                       repeat: false,
                     ),
                   ),
-                  
+
                   const SizedBox(height: 40),
-                  
-                  // ✨ Título Principal
+
+                  // Título principal
                   FadeTransition(
                     opacity: _fadeController,
                     child: Text(
@@ -272,10 +303,10 @@ class _OrdersScreenState extends State<OrdersScreen>
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 12),
-                  
-                  // ✨ Subtítulo com "Caixinha Laranja" em NEGRITO
+
+                  // Subtítulo com "Caixinha Laranja" em destaque
                   FadeTransition(
                     opacity: _fadeController,
                     child: RichText(
@@ -295,7 +326,7 @@ class _OrdersScreenState extends State<OrdersScreen>
                             text: 'Caixinha Laranja',
                             style: TextStyle(
                               color: Color(0xFFFA4815),
-                              fontWeight: FontWeight.w700, // ← NEGRITO
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                           TextSpan(text: '?'),
@@ -303,18 +334,17 @@ class _OrdersScreenState extends State<OrdersScreen>
                       ),
                     ),
                   ),
-                  
-                  const SizedBox(height: 60), // ← Espaço para a seta não ficar colada
+
+                  const SizedBox(height: 80), // espaço para respirar antes da seta
                 ],
               ),
             ),
           ),
-          
-          // ✨✨✨ SETA ANIMADA PROFISSIONAL APONTANDO PARA CATEGORIAS
+
+          // ✨ Seta animada & call-to-action apontando para "Categorias"
           Positioned(
-            bottom: 140, // ← Acima do bottom nav (ajuste conforme necessário)
-            left: 0,
-            right: 0,
+            bottom: arrowBottom,
+            left: categoriasIconCenterX - 24, // centraliza o círculo de 48
             child: FadeTransition(
               opacity: _fadeController,
               child: AnimatedBuilder(
@@ -326,35 +356,27 @@ class _OrdersScreenState extends State<OrdersScreen>
                   );
                 },
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Ícone da seta elegante
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.arrow_downward_rounded,
-                        size: 24,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 8),
-                    
-                    // Texto discreto
+                    // Texto em cima da seta
                     Text(
                       'Explore as categorias',
                       style: TextStyle(
                         fontFamily: 'Poppins',
                         fontSize: 13,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.primary.withOpacity(0.8),
+                        color: AppColors.primary.withOpacity(0.9),
                         letterSpacing: 0.3,
                       ),
                     ),
+                    const SizedBox(height: 6),
+                    // Círculo com a seta
+                    Icon(
+  Icons.arrow_downward_rounded,
+  size: 28,
+  color: AppColors.primary,
+)
+
                   ],
                 ),
               ),
@@ -365,6 +387,9 @@ class _OrdersScreenState extends State<OrdersScreen>
     );
   }
 
+  // ╔════════════════════════════════════════════════╗
+  // ║                ESTADO DE ERRO                  ║
+  // ╚════════════════════════════════════════════════╝
   Widget _buildErrorState() {
     return SafeArea(
       child: Center(
@@ -421,11 +446,16 @@ class _OrdersScreenState extends State<OrdersScreen>
     );
   }
 
+  // ╔════════════════════════════════════════════════╗
+  // ║                 CARD DE PEDIDO                  ║
+  // ╚════════════════════════════════════════════════╝
   Widget _buildOrderCard(AppOrder order, int index) {
     final style = _getStatusStyle(order.status);
+
     final itemPreview = order.items.isEmpty
         ? 'Sem itens'
-        : '${order.items[0].name}${order.items.length > 1 ? ' + ${order.items.length - 1} item${order.items.length > 2 ? 's' : ''}' : ''}';
+        : '${order.items[0].name}'
+            '${order.items.length > 1 ? ' + ${order.items.length - 1} item${order.items.length > 2 ? 's' : ''}' : ''}';
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
@@ -502,34 +532,37 @@ class _OrdersScreenState extends State<OrdersScreen>
                   const SizedBox(height: 20),
                   Row(
                     children: [
-                      ...order.items.take(4).map((item) => Container(
-                            width: 52,
-                            height: 52,
-                            margin: const EdgeInsets.only(right: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: Colors.grey[200]!),
-                            ),
-                            child: item.imageUrl.isNotEmpty
-                                ? ClipRRect(
-                                    borderRadius: BorderRadius.circular(11),
-                                    child: Image.network(
-                                      item.imageUrl,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Icon(
-                                        Icons.restaurant,
-                                        color: Colors.grey[400],
-                                        size: 24,
+                      ...order.items.take(4).map(
+                            (item) => Container(
+                              width: 52,
+                              height: 52,
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(12),
+                                border:
+                                    Border.all(color: Colors.grey[200]!),
+                              ),
+                              child: item.imageUrl.isNotEmpty
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(11),
+                                      child: Image.network(
+                                        item.imageUrl,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Icon(
+                                          Icons.restaurant,
+                                          color: Colors.grey[400],
+                                          size: 24,
+                                        ),
                                       ),
+                                    )
+                                  : Icon(
+                                      Icons.restaurant,
+                                      color: Colors.grey[400],
+                                      size: 24,
                                     ),
-                                  )
-                                : Icon(
-                                    Icons.restaurant,
-                                    color: Colors.grey[400],
-                                    size: 24,
-                                  ),
-                          )),
+                            ),
+                          ),
                       if (order.items.length > 4)
                         Container(
                           width: 52,
@@ -622,7 +655,9 @@ class _OrdersScreenState extends State<OrdersScreen>
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          order.status == 'Registrado' ? 'Montado' : order.status,
+                          order.status == 'Registrado'
+                              ? 'Montado'
+                              : order.status,
                           style: TextStyle(
                             fontFamily: 'Poppins',
                             fontSize: 11,
@@ -648,8 +683,12 @@ class _OrdersScreenState extends State<OrdersScreen>
     );
   }
 
+  // ╔════════════════════════════════════════════════╗
+  // ║        ESTILOS DE STATUS DO PEDIDO             ║
+  // ╚════════════════════════════════════════════════╝
   (Color, Color) _getStatusStyle(String status) {
     if (status == 'Registrado') status = 'Montado';
+
     final styles = {
       'Concluído': (const Color(0xFFDCFCE7), const Color(0xFF166534)),
       'Saiu pra Entrega': (const Color(0xFFDBEAFE), const Color(0xFF1E40AF)),
@@ -660,6 +699,7 @@ class _OrdersScreenState extends State<OrdersScreen>
       'A Caminho': (const Color(0xFFDBEAFE), const Color(0xFF1E40AF)),
       'Em Preparo': (const Color(0xFFFEF3C7), const Color(0xFF92400E)),
     };
+
     return styles[status] ?? (Colors.grey[100]!, Colors.grey[700]!);
   }
 }

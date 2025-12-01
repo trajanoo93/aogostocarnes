@@ -1,172 +1,251 @@
-// lib/api/firestore_service.dart
+// lib/api/firestore_service.dart 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
 import 'package:ao_gosto_app/models/order_model.dart';
 import 'package:flutter/foundation.dart';
-import 'package:ao_gosto_app/api/product_image_service.dart';
 
 class FirestoreService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final String _collection = 'pedidos';
-  final ProductImageService _imageService = ProductImageService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  /// Salva pedido no Firestore com estrutura IDÊNTICA ao backend Python
   Future<void> saveOrder(
     AppOrder order,
-    String appCustomerId, {
+    String customerPhone, {
     required String cd,
     required String janelaTexto,
     required bool isAgendado,
     required String customerName,
-    required String customerPhone,
   }) async {
     try {
-      final cleanCustomerId = appCustomerId.replaceAll('"', '').trim();
-      
-      await _db.collection(_collection).doc(order.id).set({
-        '_schema': 1,
-        'id': order.id,
-        'created_at': Timestamp.now(),
-        'updated_at': Timestamp.now(),
-        'is_ativo': true,
+      // ✅ ESTRUTURA PADRONIZADA COM BACKEND PYTHON (CORRIGIDA)
+      final dados = {
+        // === SCHEMA E CONTROLE ===
+        "_schema": 1,
+        "id": order.id,
+        "created_at": FieldValue.serverTimestamp(),
+        "updated_at": FieldValue.serverTimestamp(),
+        "status": order.status,
+        "tipo_entrega": order.address.id.contains('pickup') ? 'pickup' : 'delivery',
+        "cd": cd,
+        "is_ativo": true,
 
-        'cliente': {
-          'nome': customerName.trim(),
-          'telefone': customerPhone.replaceAll(RegExp(r'[^\d]'), ''),
-          'customerPhone': customerPhone.replaceAll(RegExp(r'[^\d]'), ''), 
+        // === CLIENTE (NA RAIZ, não dentro de agendamento) ===
+        "cliente": {
+          "nome": customerName,
+          "telefone": customerPhone,
         },
 
-        'endereco': {
-          'rua': order.address.street,
-          'numero': order.address.number,
-          'complemento': order.address.complement,
-          'bairro': order.address.neighborhood,
-          'cidade': order.address.city,
-          'estado': order.address.state,
-          'cep': order.address.cep,
+        // === ENDEREÇO (Objeto completo) ===
+        "endereco": {
+          "rua": order.address.street,
+          "numero": order.address.number,
+          "complemento": order.address.complement ?? '',
+          "bairro": order.address.neighborhood,
+          "cidade": order.address.city,
+          "cep": order.address.cep,
+          "latitude": null,  // App não tem coordenadas
+          "longitude": null,
         },
 
-        'agendamento': {
-          'data': Timestamp.fromDate(order.date),
-          'is_agendado': isAgendado,
-          'janela_texto': janelaTexto,
+        // === AGENDAMENTO (Objeto aninhado) ===
+        "agendamento": {
+          "is_agendado": isAgendado,
+          "janela_tempo": janelaTexto,  // ← CORRIGIDO: janela_tempo (não janela_texto)
+          "data": order.date,
         },
 
-        'data_pedido': DateFormat('dd-MM').format(DateTime.now()),
-        'horario_pedido': DateFormat('HH:mm').format(DateTime.now()),
-        'tipo_entrega': order.payment.type.contains('Entrega') ? 'delivery' : 'pickup',
-        'loja_origem': 'App',
-        'cd': cd,
-        'status': isAgendado ? 'Agendado' : '-',
-
-        'pagamento': {
-          'metodo_principal': _mapMetodoPrincipal(order.payment.type),
-          'taxa_entrega': order.deliveryFee,
-          'valor_liquido': order.total,
-          'valor_total': order.total,
+        // === PAGAMENTO (Objeto aninhado) ===
+        "pagamento": {
+          "metodo_principal": _mapMetodoPagamento(order.payment.type),
+          "taxa_entrega": order.deliveryFee,
+          "valor_total": order.total,
+          "valor_liquido": order.total,  // Sem desconto por ora
         },
 
-        'itens': order.items.map((item) => {
-          'nome': item.name,
-          'quantidade': item.quantity,
-          'preco_unitario': item.price,
-          'total': item.price * item.quantity,
-          'lista_produtos_texto': '${item.name} x${item.quantity}',
+        // === ITENS (Array estruturado) ===
+        "itens": order.items.map((item) {
+          return {
+            "nome": item.name,
+            "quantidade": item.quantity,
+            "variacoes": [],  // App não tem variações ainda
+          };
         }).toList(),
 
-        'entregador': '',
-      });
-      
-      debugPrint('✅ Pedido ${order.id} salvo com sucesso');
+        // === LISTA DE PRODUTOS (Texto formatado) ===
+        "lista_produtos_texto": order.items
+            .map((i) => "${i.name} (Qtd: ${i.quantity}) *")
+            .join("\n"),
+
+        // === CAMPOS EXTRAS ===
+        "observacao": "",  // App não tem observação ainda
+        "entregador": "-",
+        "loja_origem": "App",
+        "data_pedido": _formatData(order.date),       // Ex: "11-11"
+        "horario_pedido": _formatHorario(order.date), // Ex: "19:39"
+      };
+
+      // ✅ SALVAR NO FIRESTORE
+      await _firestore
+          .collection('orders')
+          .doc(customerPhone)
+          .collection('pedidos')
+          .doc(order.id)
+          .set(dados, SetOptions(merge: true));
+
+      debugPrint('✅ Pedido ${order.id} salvo no Firestore com estrutura padronizada');
     } catch (e) {
-      debugPrint('❌ Erro ao salvar pedido: $e');
+      debugPrint('❌ Erro ao salvar pedido ${order.id} no Firestore: $e');
       rethrow;
     }
   }
 
-  String _mapMetodoPrincipal(String type) {
-    if (type.contains('pix')) return 'Pix';
-    if (type.contains('money')) return 'Dinheiro';
-    if (type.contains('card')) return 'Cartão';
-    return 'Pix';
-  }
-
-  /// ✅ CORRIGIDO: Query sem duplicação
-  Stream<List<AppOrder>> getCustomerOrders(String customerPhone) async* {
-    final cleanPhone = customerPhone.replaceAll(RegExp(r'[^\d]'), '');
-
-    debugPrint('🔍 Buscando pedidos para: $cleanPhone');
-
-    await for (final snapshot in _db
-        .collection(_collection)
-        .where('cliente.customerPhone', isEqualTo: cleanPhone)
-        .where('loja_origem', isEqualTo: 'App')
-        .orderBy('created_at', descending: true)
-        .snapshots()) {
-
-      debugPrint('📦 ${snapshot.docs.length} pedidos encontrados');
-
-      final orders = <AppOrder>[];
-
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-
-        String paymentType = 'Não informado';
-        if (data['pagamento'] != null) {
-          final pagamento = data['pagamento'] as Map<String, dynamic>;
-          paymentType = pagamento['metodo_principal'] ?? 'Não informado';
-        }
-
-        final items = <OrderItem>[];
-        if (data['itens'] != null) {
-          final itensList = data['itens'] as List;
-
-          for (final i in itensList) {
-            final productName = i['nome'] ?? 'Item sem nome';
-            final imageUrl = await _imageService.getProductImage(productName);
-
-            items.add(OrderItem(
-              name: productName,
-              imageUrl: imageUrl,
-              price: (i['preco_unitario'] ?? 0.0).toDouble(),
-              quantity: (i['quantidade'] ?? 0).toInt(),
-            ));
-          }
-        }
-
-        orders.add(AppOrder(
-          id: doc.id,
-          date: (data['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
-          status: data['status'] ?? '-',
-          rating: data['rating'],
-          items: items,
-          subtotal: _calculateTotal(data['itens']),
-          deliveryFee: (data['pagamento']?['taxa_entrega'] ?? 0.0).toDouble(),
-          discount: 0,
-          total: (data['pagamento']?['valor_total'] ?? _calculateTotal(data['itens'])).toDouble(),
-          address: Address(
-            id: doc.id,
-            street: data['endereco']?['rua'] ?? '',
-            number: data['endereco']?['numero'] ?? '',
-            complement: data['endereco']?['complemento'] ?? '',
-            neighborhood: data['endereco']?['bairro'] ?? '',
-            city: data['endereco']?['cidade'] ?? '',
-            state: data['endereco']?['estado'] ?? '',
-            cep: data['endereco']?['cep'] ?? '',
-          ),
-          payment: PaymentMethod(type: paymentType),
-        ));
-      }
-
-      yield orders;
+  /// Mapeia método de pagamento para formato do backend
+  String _mapMetodoPagamento(String type) {
+    switch (type) {
+      case 'pix':
+        return 'Pix';
+      case 'money':
+        return 'Dinheiro';
+      case 'card-on-delivery':
+        return 'Cartão';
+      case 'card-online':
+        return 'Crédito Site';
+      case 'voucher':
+        return 'V.A';
+      default:
+        return 'Sem método de pagamento';
     }
   }
 
-  double _calculateTotal(dynamic itens) {
-    if (itens == null || itens is! List) return 0.0;
-    
-    return itens.fold(0.0, (sum, i) {
-      if (i == null) return sum;
-      return sum + ((i['total'] ?? 0.0) as num).toDouble();
-    });
+  /// Formata data para "DD-MM"
+  String _formatData(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}';
+  }
+
+  /// Formata horário para "HH:mm"
+  String _formatHorario(DateTime date) {
+    return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  /// Stream de pedidos do usuário (para OrdersScreen)
+  Stream<List<AppOrder>> getCustomerOrders(String customerPhone) {
+    try {
+      return _firestore
+          .collection('orders')
+          .doc(customerPhone)
+          .collection('pedidos')
+          .orderBy('created_at', descending: true)
+          .snapshots()
+          .map((snapshot) {
+        return snapshot.docs.map((doc) {
+          final data = doc.data();
+          
+          return AppOrder(
+            id: data['id'] ?? doc.id,
+            date: (data['agendamento']?['data'] as Timestamp?)?.toDate() ?? DateTime.now(),
+            status: data['status'] ?? '-',
+            items: (data['itens'] as List?)?.map((item) {
+              return OrderItem(
+                name: item['nome'] ?? 'Produto',
+                imageUrl: '',
+                price: 0.0,
+                quantity: item['quantidade'] ?? 1,
+              );
+            }).toList() ?? [],
+            subtotal: (data['pagamento']?['valor_total'] as num?)?.toDouble() ?? 0.0,
+            deliveryFee: (data['pagamento']?['taxa_entrega'] as num?)?.toDouble() ?? 0.0,
+            discount: 0.0,
+            total: (data['pagamento']?['valor_total'] as num?)?.toDouble() ?? 0.0,
+            address: Address(
+              id: doc.id,
+              street: data['endereco']?['rua'] ?? '',
+              number: data['endereco']?['numero'] ?? '',
+              complement: data['endereco']?['complemento'] ?? '',
+              neighborhood: data['endereco']?['bairro'] ?? '',
+              city: data['endereco']?['cidade'] ?? '',
+              state: '',
+              cep: data['endereco']?['cep'] ?? '',
+            ),
+            payment: PaymentMethod(
+              type: _reverseMapMetodoPagamento(data['pagamento']?['metodo_principal'] ?? 'pix'),
+            ),
+            rating: null,
+          );
+        }).toList();
+      });
+    } catch (e) {
+      debugPrint('❌ Erro ao buscar pedidos: $e');
+      return Stream.value([]);
+    }
+  }
+
+  /// Busca pedidos do usuário (versão Future)
+  Future<List<AppOrder>> fetchUserOrders(String customerPhone) async {
+    try {
+      final snapshot = await _firestore
+          .collection('orders')
+          .doc(customerPhone)
+          .collection('pedidos')
+          .orderBy('created_at', descending: true)
+          .get();
+
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        
+        // ✅ CONVERTE DE VOLTA PARA AppOrder
+        return AppOrder(
+          id: data['id'] ?? doc.id,
+          date: (data['agendamento']['data'] as Timestamp?)?.toDate() ?? DateTime.now(),
+          status: data['status'] ?? '-',
+          items: (data['itens'] as List?)?.map((item) {
+            return OrderItem(
+              name: item['nome'] ?? 'Produto',
+              imageUrl: '',  // Backend não tem imagem
+              price: 0.0,    // Backend não tem preço individual
+              quantity: item['quantidade'] ?? 1,
+            );
+          }).toList() ?? [],
+          subtotal: (data['pagamento']['valor_total'] as num?)?.toDouble() ?? 0.0,
+          deliveryFee: (data['pagamento']['taxa_entrega'] as num?)?.toDouble() ?? 0.0,
+          discount: 0.0,
+          total: (data['pagamento']['valor_total'] as num?)?.toDouble() ?? 0.0,
+          address: Address(
+            id: doc.id,
+            street: data['endereco']['rua'] ?? '',
+            number: data['endereco']['numero'] ?? '',
+            complement: data['endereco']['complemento'] ?? '',
+            neighborhood: data['endereco']['bairro'] ?? '',
+            city: data['endereco']['cidade'] ?? '',
+            state: '',  // Backend não tem estado
+            cep: data['endereco']['cep'] ?? '',
+          ),
+          payment: PaymentMethod(
+            type: _reverseMapMetodoPagamento(data['pagamento']['metodo_principal'] ?? 'pix'),
+          ),
+          rating: null,
+        );
+      }).toList();
+    } catch (e) {
+      debugPrint('❌ Erro ao buscar pedidos: $e');
+      return [];
+    }
+  }
+
+  /// Mapeia de volta para tipo do app
+  String _reverseMapMetodoPagamento(String metodo) {
+    switch (metodo) {
+      case 'Pix':
+        return 'pix';
+      case 'Dinheiro':
+        return 'money';
+      case 'Cartão':
+        return 'card-on-delivery';
+      case 'Crédito Site':
+        return 'card-online';
+      case 'V.A':
+      case 'Vale Alimentação':
+        return 'voucher';
+      default:
+        return 'pix';
+    }
   }
 }

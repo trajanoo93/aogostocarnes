@@ -1,1 +1,38 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"ao-gosto-app-c0b31","appId":"1:932043130642:android:a5f944b934093b94e955cb","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"ao-gosto-app-c0b31","appId":"1:932043130642:ios:932778f565ee3fcce955cb","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"dart":{"firebase_options.dart":{"projectId":"ao-gosto-app-c0b31","configurations":{"android":"1:932043130642:android:a5f944b934093b94e955cb","ios":"1:932043130642:ios:932778f565ee3fcce955cb"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "ao-gosto-app-c0b31",
+          "appId": "1:932043130642:android:a5f944b934093b94e955cb",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "ao-gosto-app-c0b31",
+          "appId": "1:932043130642:ios:932778f565ee3fcce955cb",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "firebase_options.dart": {
+          "projectId": "ao-gosto-app-c0b31",
+          "configurations": {
+            "android": "1:932043130642:android:a5f944b934093b94e955cb",
+            "ios": "1:932043130642:ios:932778f565ee3fcce955cb"
+          }
+        }
+      }
+    }
+  },
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
+  }
+}

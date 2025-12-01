@@ -1,7 +1,7 @@
 name: ao_gosto_app
 description: "O app oficial da Ao Gosto Carnes — sua boutique de carnes premium em Belo Horizonte. Peça seus cortes favoritos, kits de churrasco e produtos exclusivos com poucos toques. Experiência gourmet, entrega expressa e o verdadeiro sabor ao seu gosto."
 publish_to: 'none'
-version: 1.0.0+9
+version: 1.0.0+10
 
 environment:
   sdk: '>=3.2.3 <4.0.0'
@@ -41,11 +41,12 @@ flutter:
 
   # 🔹 Diretórios de assets (ícones e imagens gerais)
   assets:
+    - assets/icon/
     - assets/icon/app_icon.png
     - assets/icons_category/
     - assets/images/
-    - assets/lottie/empty_box.json
-    - assets/lottie/LogoSplashScreen.json
+    - assets/images/categories/
+    - assets/lottie/
 
 # 🔹 Configuração do flutter_launcher_icons
 flutter_icons:

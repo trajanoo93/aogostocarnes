@@ -1,5 +1,4 @@
 // lib/screens/checkout/checkout_controller.dart
-
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:collection/collection.dart';
@@ -13,6 +12,8 @@ import 'package:ao_gosto_app/models/order_model.dart';
 import 'package:ao_gosto_app/api/shipping_service.dart';
 import 'package:ao_gosto_app/api/firestore_service.dart';
 import 'package:ao_gosto_app/api/order_service.dart';
+import 'package:ao_gosto_app/services/pagarme_service.dart';
+import 'package:ao_gosto_app/config/pagarme_credentials.dart';
 
 
 /// Modelo de slot de horário
@@ -129,15 +130,18 @@ class CheckoutController extends ChangeNotifier {
   final Map<String, Map<String, String>> pickupLocations = {
     'barreiro': {
       'name': 'Unidade Barreiro',
-      'address': 'Av. Sinfrônio Brochado, 612 - Barreiro'
+      'address': 'Av. Sinfrônio Brochado, 612 - Barreiro',
+      'id': '110727'
     },
     'sion': {
       'name': 'Unidade Sion',
-      'address': 'R. Haití, 354 - Sion'
+      'address': 'R. Haití, 354 - Sion',
+      'id': '12'
     },
     'central': {
-      'name': 'Central Distribuição',
-      'address': 'Av. Silviano Brandão, 685 - Sagrada Família'
+      'name': 'Central Distribuição (Sagrada Família)',
+      'address': 'Av. Silviano Brandão, 685 - Sagrada Família',
+      'id': '86261'
     },
     'lagosanta': {
       'name': 'Unidade Lagoa Santa',
@@ -194,81 +198,81 @@ class CheckoutController extends ChangeNotifier {
 
 
   /// ===========================================================
-///             INICIALIZAÇÃO DO CHECKOUT (VERSÃO FINAL)
-/// ===========================================================
-Future<void> _bootstrap() async {
-  isLoading = true;
-  notifyListeners();
+  ///             INICIALIZAÇÃO DO CHECKOUT (VERSÃO FINAL)
+  /// ===========================================================
+  Future<void> _bootstrap() async {
+    isLoading = true;
+    notifyListeners();
 
-  try {
-    final customerProv = CustomerProvider.instance;
+    try {
+      final customerProv = CustomerProvider.instance;
 
-    // Se o cliente ainda não foi carregado, tenta carregar do SharedPreferences como fallback
-    if (customerProv.customer == null) {
-      final sp = await SharedPreferences.getInstance();
-      final phone = sp.getString('customer_phone');
-      final name = sp.getString('customer_name');
+      // Se o cliente ainda não foi carregado, tenta carregar do SharedPreferences como fallback
+      if (customerProv.customer == null) {
+        final sp = await SharedPreferences.getInstance();
+        final phone = sp.getString('customer_phone');
+        final name = sp.getString('customer_name');
 
-      if (phone != null && name != null && phone.isNotEmpty) {
-        // Tenta carregar do Firestore usando o telefone como UID
-        await customerProv.loadOrCreateCustomer(
-          name: name,
-          phone: phone,
-        );
+        if (phone != null && name != null && phone.isNotEmpty) {
+          // Tenta carregar do Firestore usando o telefone como UID
+          await customerProv.loadOrCreateCustomer(
+            name: name,
+            phone: phone,
+          );
+        }
       }
+
+      // Agora sim, usa o cliente do Provider
+      final customer = customerProv.customer;
+      if (customer == null) {
+        isLoading = false;
+        notifyListeners();
+        return;
+      }
+
+      // Converte endereços do Firestore → CheckoutAddress
+      addresses = customer.addresses.map((a) {
+        return CheckoutAddress(
+          id: a.id,
+          street: a.street,
+          number: a.number,
+          complement: a.complement ?? '',
+          neighborhood: a.neighborhood,
+          city: a.city,
+          state: a.state,
+          cep: a.cep,
+        );
+      }).toList();
+
+      // Seleciona o endereço padrão ou o primeiro
+      final defaultAddress = customer.addresses.firstWhereOrNull((a) => a.isDefault);
+      selectedAddressId = defaultAddress?.id ?? addresses.firstOrNull?.id;
+
+      // Telefone formatado para exibir
+      userPhone = _formatPhone(customer.phone);
+
+      // Atualiza frete se tiver endereço selecionado
+      if (selectedAddressId != null) {
+        await _refreshFee();
+      }
+    } catch (e) {
+      debugPrint("Erro no bootstrap do checkout: $e");
     }
 
-    // Agora sim, usa o cliente do Provider
-    final customer = customerProv.customer;
-    if (customer == null) {
-      isLoading = false;
-      notifyListeners();
-      return;
-    }
-
-    // Converte endereços do Firestore → CheckoutAddress
-    addresses = customer.addresses.map((a) {
-      return CheckoutAddress(
-        id: a.id,
-        street: a.street,
-        number: a.number,
-        complement: a.complement ?? '',
-        neighborhood: a.neighborhood,
-        city: a.city,
-        state: a.state,
-        cep: a.cep,
-      );
-    }).toList();
-
-    // Seleciona o endereço padrão ou o primeiro
-    final defaultAddress = customer.addresses.firstWhereOrNull((a) => a.isDefault);
-    selectedAddressId = defaultAddress?.id ?? addresses.firstOrNull?.id;
-
-    // Telefone formatado para exibir
-    userPhone = _formatPhone(customer.phone);
-
-    // Atualiza frete se tiver endereço selecionado
-    if (selectedAddressId != null) {
-      await _refreshFee();
-    }
-  } catch (e) {
-    debugPrint("Erro no bootstrap do checkout: $e");
+    isLoading = false;
+    notifyListeners();
   }
 
-  isLoading = false;
-  notifyListeners();
-}
-
-// Método auxiliar pra formatar telefone
-String _formatPhone(String phone) {
-  final digits = phone.replaceAll(RegExp(r'\D'), '');
-  if (digits.length == 11) {
-    return '(${digits.substring(0, 2)}) ${digits.substring(2, 7)}-${digits.substring(7)}';
-  } else if (digits.length == 10) {
-    return '(${digits.substring(0, 2)}) ${digits.substring(2, 6)}-${digits.substring(6)}';
+  // Método auxiliar pra formatar telefone
+  String _formatPhone(String phone) {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 11) {
+      return '(${digits.substring(0, 2)}) ${digits.substring(2, 7)}-${digits.substring(7)}';
+    } else if (digits.length == 10) {
+      return '(${digits.substring(0, 2)}) ${digits.substring(2, 6)}-${digits.substring(6)}';
+    }
+    return phone;
   }
-  return phone;
-}
  
 
   // ===========================================================
@@ -512,25 +516,18 @@ String _formatPhone(String phone) {
       final sp = await SharedPreferences.getInstance();
       final customerId = sp.getString('customer_id');
 
-      final effectiveStore =
-          deliveryType == DeliveryType.pickup
-              ? pickupLocations[selectedPickup]!['name']!
-              : storeInfo?.name ?? 'Central Distribuição';
-
-      final storeId =
-          deliveryType == DeliveryType.pickup
-              ? pickupLocations[selectedPickup]!['id'] ?? '86261'
-              : storeInfo?.id ?? '86261';
+      // ✅ 1. DETERMINAR LOJA FINAL
+      final effectiveStoreId = _getEffectiveStoreId();
+      final effectiveStoreName = _getEffectiveStoreName(effectiveStoreId);
 
       debugPrint('''
 ====================================
 CHECKOUT FINAL
-Loja: $effectiveStore
-Loja ID: $storeId
+Loja: $effectiveStoreName
+Loja ID: $effectiveStoreId
 Tipo: ${deliveryType.name}
 ====================================
 ''');
-
 
       final lineItems =
           CartController.instance.items.map((item) {
@@ -545,9 +542,9 @@ Tipo: ${deliveryType.name}
           addresses.firstWhere((a) => a.id == selectedAddressId);
 
 
-  final customer = CustomerProvider.instance.customer;
-final fullName = customer?.name ?? "Cliente";
-final userPhoneRaw = customer?.phone ?? userPhone.replaceAll(RegExp(r'\D'), '');
+      final customer = CustomerProvider.instance.customer;
+      final fullName = customer?.name ?? "Cliente";
+      final userPhoneRaw = customer?.phone ?? userPhone.replaceAll(RegExp(r'\D'), '');
 
       final nameParts = fullName.split(' ');
 
@@ -560,8 +557,9 @@ final userPhoneRaw = customer?.phone ?? userPhone.replaceAll(RegExp(r'\D'), '');
               : "";
 
 
+      // ✅ 2. CRIAR PEDIDO NO WOOCOMMERCE
       final orderData = {
-        "status": "pending",
+        "status": paymentMethod == 'pix' ? "pending" : "processing",
         "created_via": "App",
 
         "billing": {
@@ -607,9 +605,11 @@ final userPhoneRaw = customer?.phone ?? userPhone.replaceAll(RegExp(r'\D'), '');
                 : [],
 
         "meta_data": [
-          {"key": "_store_final", "value": effectiveStore},
-          {"key": "_effective_store_final", "value": effectiveStore},
-          {"key": "_shipping_pickup_store_id", "value": storeId},
+          {"key": "_store_final", "value": effectiveStoreName},
+          {"key": "_effective_store_final", "value": effectiveStoreName},
+          {"key": "_shipping_pickup_store_id", "value": effectiveStoreId},
+          {"key": "_processed_by_app", "value": "true"},
+          {"key": "_pix_paid", "value": paymentMethod == 'pix' ? "false" : "true"},
 
           {
             "key": "_is_future_date",
@@ -666,76 +666,87 @@ final userPhoneRaw = customer?.phone ?? userPhone.replaceAll(RegExp(r'\D'), '');
 
       orderId = response['id'].toString();
 
+      // ✅ 3. SE PIX, GERAR NO PAGAR.ME
       if (paymentMethod == 'pix') {
-        pixCode = response['transaction_id'] ?? _generateMockPix();
-        pixExpiresAt = DateTime.now().add(
-          const Duration(minutes: 15),
-        );
+        debugPrint('🔥 Gerando PIX no Pagar.me para pedido #$orderId');
+        
+        final pagarmeService = PagarMeService();
+        
+        try {
+          final pixResponse = await pagarmeService.generatePix(
+            orderId: orderId!,
+            storeFinal: effectiveStoreName,
+            totalAmount: total,
+            customerPhone: userPhoneRaw,
+          );
+          
+          pixCode = pixResponse.qrCodeText;
+          pixExpiresAt = pixResponse.expiresAt;
+          
+          debugPrint('✅ PIX gerado com sucesso!');
+          debugPrint('QR Code: ${pixCode?.substring(0, 50)}...');
+          debugPrint('Expira em: $pixExpiresAt');
+        } catch (e) {
+          debugPrint('❌ Erro ao gerar PIX: $e');
+          // Fallback para mock caso dê erro
+          pixCode = _generateMockPix();
+          pixExpiresAt = DateTime.now().add(const Duration(minutes: 60));
+        }
       }
 
      
 
 
       /// =======================================================
-      ///  CRIA MOCK DO PEDIDO PARA LISTAR NO APP
+      ///  4. SALVAR NO FIRESTORE
       /// =======================================================
       final firestore = FirestoreService();
-String cd = "CD Central"; // padrão
+      String cd = _getCdName(effectiveStoreName);
 
-if (deliveryType == DeliveryType.delivery) {
-  cd = storeInfo?.name ?? "CD Central";
-} else {
-  final name = pickupLocations[selectedPickup]?['name'] ?? "Central Distribuição";
-  if (name.contains("Sion")) cd = "CD Sion";
-  else if (name.contains("Barreiro")) cd = "CD Barreiro";
-  else if (name.contains("Lagoa Santa")) cd = "CD Lagoa Santa";
-  else cd = "CD Central";
-}
+      final String janelaTexto = selectedTimeSlot ?? "Horário não definido";
+      final bool isAgendado = _isFutureDate();
+      final String statusFinal = isAgendado ? "Agendado" : "-";
 
-final String janelaTexto = selectedTimeSlot ?? "Horário não definido";
-final bool isAgendado = _isFutureDate();
-final String statusFinal = isAgendado ? "Agendado" : "-";
-
-  final mockOrder = AppOrder(
-  id: orderId!,
-  date: selectedDate, // ← Usa a data escolhida no checkout
-  status: statusFinal,
-  items: CartController.instance.items.map((i) => OrderItem(
-    name: i.product.name,
-    imageUrl: i.product.imageUrl,
-    price: i.product.price,
-    quantity: i.quantity,
-  )).toList(),
-  subtotal: subtotal,
-  deliveryFee: deliveryFee,
-  discount: appliedCoupon?.discount ?? 0,
-  total: total,
-  address: Address(
-    id: selectedAddr.id,
-    street: selectedAddr.street,
-    number: selectedAddr.number,
-    complement: selectedAddr.complement,
-    neighborhood: selectedAddr.neighborhood,
-    city: selectedAddr.city,
-    state: selectedAddr.state,
-    cep: selectedAddr.cep,
-  ),
-  payment: PaymentMethod(type: paymentMethod),
-  rating: null,
-);
-  await firestore.saveOrder(
-  mockOrder,
-  userPhoneRaw, 
-  cd: cd,
-  janelaTexto: janelaTexto,
-  isAgendado: isAgendado,
-  customerName: customer?.name ?? 'Cliente',
-  customerPhone: userPhoneRaw,
-);
+      final mockOrder = AppOrder(
+        id: orderId!,
+        date: selectedDate,
+        status: statusFinal,
+        items: CartController.instance.items.map((i) => OrderItem(
+          name: i.product.name,
+          imageUrl: i.product.imageUrl,
+          price: i.product.price,
+          quantity: i.quantity,
+        )).toList(),
+        subtotal: subtotal,
+        deliveryFee: deliveryFee,
+        discount: appliedCoupon?.discount ?? 0,
+        total: total,
+        address: Address(
+          id: selectedAddr.id,
+          street: selectedAddr.street,
+          number: selectedAddr.number,
+          complement: selectedAddr.complement,
+          neighborhood: selectedAddr.neighborhood,
+          city: selectedAddr.city,
+          state: selectedAddr.state,
+          cep: selectedAddr.cep,
+        ),
+        payment: PaymentMethod(type: paymentMethod),
+        rating: null,
+      );
+      
+      await firestore.saveOrder(
+        mockOrder,
+        userPhoneRaw, 
+        cd: cd,
+        janelaTexto: janelaTexto,
+        isAgendado: isAgendado,
+        customerName: customer?.name ?? 'Cliente',
+      );
     }
 
     catch (e) {
-      print('Erro ao criar pedido: $e');
+      debugPrint('❌ Erro ao criar pedido: $e');
     }
 
     finally {
@@ -746,13 +757,51 @@ final String statusFinal = isAgendado ? "Agendado" : "-";
 
 
   Future<void> refreshFee() async {
-  await _refreshFee();
-  _safeNotify();
-}
+    await _refreshFee();
+    _safeNotify();
+  }
 
   // ===========================================================
   //                     MÉTODOS AUXILIARES
   // ===========================================================
+  
+  /// Retorna o ID da loja efetiva
+  String _getEffectiveStoreId() {
+    if (deliveryType == DeliveryType.pickup) {
+      return pickupLocations[selectedPickup]?['id'] ?? '86261';
+    }
+    return storeInfo?.id ?? '86261';
+  }
+
+  /// Retorna o nome completo da loja (para metadados Pagar.me)
+  String _getEffectiveStoreName(String storeId) {
+    // Tenta pegar do mapeamento
+    final mappedName = PagarMeCredentials.getStoreNameById(storeId);
+    
+    // Se não encontrou no mapeamento, usa o nome do storeInfo ou pickup
+    if (mappedName == 'Central Distribuição (Sagrada Família)' && storeInfo != null) {
+      // Verifica se o nome do storeInfo é diferente do padrão
+      if (storeInfo!.name != 'Central Distribuição') {
+        return storeInfo!.name;
+      }
+    }
+    
+    // Se for pickup, usa o nome do local
+    if (deliveryType == DeliveryType.pickup) {
+      return pickupLocations[selectedPickup]?['name'] ?? mappedName;
+    }
+    
+    return mappedName;
+  }
+
+  /// Converte nome da loja para CD (para Firestore)
+  String _getCdName(String storeName) {
+    if (storeName.contains("Sion")) return "CD Sion";
+    if (storeName.contains("Barreiro")) return "CD Barreiro";
+    if (storeName.contains("Lagoa Santa")) return "CD Lagoa Santa";
+    return "CD Central";
+  }
+  
   String _mapPaymentMethod(String method) {
     switch (method) {
       case 'pix':
@@ -817,16 +866,16 @@ final String statusFinal = isAgendado ? "Agendado" : "-";
     return phone;
   }
 
-   String _mapMetodoPrincipal(String method) {
-  switch (method) {
-    case 'pix': return 'Pix';
-    case 'money': return 'Dinheiro';
-    case 'card-on-delivery': return 'Cartão';
-    case 'card-online': return 'Crédito Site';
-    case 'voucher': return 'V.A';
-    default: return 'Pix';
+  String _mapMetodoPrincipal(String method) {
+    switch (method) {
+      case 'pix': return 'Pix';
+      case 'money': return 'Dinheiro';
+      case 'card-on-delivery': return 'Cartão';
+      case 'card-online': return 'Crédito Site';
+      case 'voucher': return 'V.A';
+      default: return 'Pix';
+    }
   }
-}
 
 
 
@@ -944,4 +993,3 @@ final String statusFinal = isAgendado ? "Agendado" : "-";
     });
   }
 }
-

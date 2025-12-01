@@ -70,7 +70,7 @@ class CategoriesRepository {
 
     // 3. PICANHAS
     CategoryData(
-      id: 32,
+      id: 33,
       name: 'Picanhas',
       description: 'A estrela do churrasco brasileiro.',
       imageUrl: 'https://images.unsplash.com/photo-1558030006-450675393462?q=80&w=800',
@@ -183,7 +183,7 @@ class CategoriesRepository {
       id: 390,
       name: 'Hambúrgueres',
       description: 'Suculentos e saborosos.',
-      imageUrl: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?q=80&w=800',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/hamburguer.webp?q=80&w=800',
       tags: ['Churrasco'],
       subcategories: [
         SubcategoryData(id: 390, name: 'Todos'),
@@ -195,7 +195,7 @@ class CategoriesRepository {
       id: 8,
       name: 'Massas e Pratos Prontos',
       description: 'Sabor de casa, pronto para você.',
-      imageUrl: 'https://images.unsplash.com/photo-1621996346565-e3dbc646d9a9?q=80&w=800',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/massasepratosprontos.png?q=80&w=800',
       tags: ['Dia a Dia'],
       subcategories: [
         SubcategoryData(id: 8, name: 'Todos'),
@@ -210,7 +210,7 @@ class CategoriesRepository {
       id: 377,
       name: 'Complementos',
       description: 'O toque final perfeito.',
-      imageUrl: 'https://images.unsplash.com/photo-1625937751876-4515cd8e7706?q=80&w=800',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/complementos.avif?q=80&w=800',
       tags: ['Churrasco'],
       subcategories: [
         SubcategoryData(id: 377, name: 'Todos'),
@@ -225,7 +225,7 @@ class CategoriesRepository {
       id: 342,
       name: 'Linha Dia a Dia',
       description: 'Praticidade para o seu dia.',
-      imageUrl: 'https://images.unsplash.com/photo-1504387432042-8aca549e4911?q=80&w=800',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/linhadiaadia.jpg?q=80&w=800',
       tags: ['Dia a Dia', 'Fitness'],
       subcategories: [
         SubcategoryData(id: 342, name: 'Todos'),
@@ -237,7 +237,7 @@ class CategoriesRepository {
       id: 53,
       name: 'Forno',
       description: 'Assados deliciosos.',
-      imageUrl: 'https://images.unsplash.com/photo-1574894709920-11b28e7367e3?q=80&w=800',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/forno.webp?q=80&w=800',
       tags: ['Dia a Dia'],
       subcategories: [
         SubcategoryData(id: 53, name: 'Todos'),
@@ -249,7 +249,7 @@ class CategoriesRepository {
       id: 350,
       name: 'Air Fryer',
       description: 'Crocância saudável.',
-      imageUrl: 'https://images.unsplash.com/photo-1607532941433-304659e8198a?q=80&w=800',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/categoria-airfyer.jpg?q=80&w=800',
       tags: ['Dia a Dia'],
       subcategories: [
         SubcategoryData(id: 350, name: 'Todos'),
@@ -261,7 +261,7 @@ class CategoriesRepository {
       id: 69,
       name: 'Bebidas',
       description: 'Para acompanhar.',
-      imageUrl: 'https://images.unsplash.com/photo-1437418747212-8d9709afab22?q=80&w=800',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/bebidas.jpg?q=80&w=800',
       tags: ['Churrasco', 'Dia a Dia'],
       subcategories: [
         SubcategoryData(id: 69, name: 'Todos'),
@@ -273,7 +273,7 @@ class CategoriesRepository {
       id: 12,
       name: 'Boutique',
       description: 'Seleção premium especial.',
-      imageUrl: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=800',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/acessorios.webp?q=80&w=800',
       tags: ['Churrasco', 'Premium'],
       subcategories: [
         SubcategoryData(id: 12, name: 'Todos'),
@@ -285,7 +285,7 @@ class CategoriesRepository {
       id: 62,
       name: 'Outros',
       description: 'Variedades especiais.',
-      imageUrl: 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?q=80&w=800',
+      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/outros.jpg?q=80&w=800',
       tags: ['Churrasco'],
       subcategories: [
         SubcategoryData(id: 62, name: 'Todos'),

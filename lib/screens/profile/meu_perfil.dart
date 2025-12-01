@@ -146,7 +146,7 @@ Widget build(BuildContext context) {
                           child: _buildAddressCard(addr),
                         )),
                     _buildAddAddressButton(),
-                    const SizedBox(height: 40),
+                    const SizedBox(height: 120), // ✅ Espaço para o footer não tampar
                   ],
                 ),
               ),

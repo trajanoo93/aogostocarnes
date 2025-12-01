@@ -1,5 +1,4 @@
 // lib/main.dart
-
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -11,31 +10,41 @@ import 'package:ao_gosto_app/utils/app_theme.dart';
 import 'package:ao_gosto_app/screens/onboarding/onboarding_gate.dart';
 import 'package:ao_gosto_app/screens/onboarding/onboarding_flow.dart';
 import 'package:ao_gosto_app/state/cart_controller.dart';
-import 'package:ao_gosto_app/state/customer_provider.dart'; // ← NOVO
+import 'package:ao_gosto_app/state/customer_provider.dart';
 import 'package:ao_gosto_app/root_router.dart';
+import 'package:ao_gosto_app/screens/update/forced_update_screen.dart';
+import 'package:ao_gosto_app/services/version_service.dart'; // NOVO
 
-
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // === CARREGA O CLIENTE LOGO NO INÍCIO DO APP ===
+  // === CARREGA O CLIENTE (como você já fazia) ===
   final sp = await SharedPreferences.getInstance();
   final phone = sp.getString('customer_phone');
   final name = sp.getString('customer_name');
 
   if (phone != null && name != null && phone.isNotEmpty && name.isNotEmpty) {
-    // Tenta carregar o cliente do Firestore (ou cria se não existir)
     await CustomerProvider.instance.loadOrCreateCustomer(
       name: name,
       phone: phone,
     );
   }
 
-  runApp(const MyApp());
+  // VERIFICA SE PRECISA FORÇAR ATUALIZAÇÃO
+  final needsUpdate = await VersionService.needsForcedUpdate();
+
+  runApp(
+    needsUpdate
+        ? const MaterialApp(
+            debugShowCheckedModeBanner: false,
+            home: ForcedUpdateScreen(),
+          )
+        : const MyApp(),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -46,18 +55,16 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider.value(value: CartController.instance),
-        ChangeNotifierProvider.value(value: CustomerProvider.instance), // ← ADICIONADO
+        ChangeNotifierProvider.value(value: CustomerProvider.instance),
       ],
       child: MaterialApp(
         title: 'Ao Gosto Carnes',
         debugShowCheckedModeBanner: false,
         scrollBehavior: const ScrollBehavior().copyWith(overscroll: false),
-
         builder: (context, child) {
           ErrorWidget.builder = (FlutterErrorDetails details) {
             return const SizedBox.shrink();
           };
-
           return MediaQuery(
             data: MediaQuery.of(context).copyWith(
               textScaleFactor: 1.0,
@@ -66,7 +73,6 @@ class MyApp extends StatelessWidget {
             child: child!,
           );
         },
-
         theme: AppTheme.lightTheme,
         home: const RootRouter(),
       ),
@@ -85,7 +91,6 @@ class _MainScreenWrapperState extends State<MainScreenWrapper> {
   @override
   void initState() {
     super.initState();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       OnboardingFlow.maybeStart(context);
       CartController.instance;

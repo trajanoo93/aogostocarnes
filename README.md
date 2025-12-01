@@ -96,6 +96,24 @@ Navigator.of(context).pushReplacement(
 );
 ---
 
+## Atualização Forçada (Forced Update) — Controle Total
+
+Sistema automático de atualização obrigatória implementado com **Firebase Hosting**.
+
+### Como funciona:
+- O app verifica ao abrir se a versão atual é menor que a mínima exigida
+- Se sim → **trava o app** e força o usuário a atualizar
+- Controle 100% remoto via JSON (sem precisar recompilar o app)
+
+### Arquivo de controle:
+
+https://ao-gosto-app-c0b31.web.app/app_version.json
+
+### Tela de Force Update para o usuário ###
+
+lib/screens/update/forced_update_screen.dart
+
+
 ## 🚀 Funcionalidades Implementadas
 
 | Status | Funcionalidade |

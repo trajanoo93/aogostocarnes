@@ -1,5 +1,4 @@
-// lib/screens/home/home_screen.dart
-
+// lib/screens/home/home_screen.dart - ATUALIZADO COM ÍCONES E HAMBÚRGUERES
 import 'package:flutter/material.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'package:ao_gosto_app/api/product_service.dart';
@@ -9,6 +8,8 @@ import 'package:ao_gosto_app/screens/home/widgets/section_hero.dart' as hero;
 import 'package:ao_gosto_app/screens/home/widgets/search_filter.dart';
 import 'package:ao_gosto_app/screens/home/widgets/product_carousel.dart';
 import 'package:ao_gosto_app/screens/home/widgets/featured_banner.dart';
+import 'package:ao_gosto_app/screens/home/widgets/kits_churrasco_section.dart';
+import 'package:ao_gosto_app/screens/update/forced_update_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -25,12 +26,14 @@ class _HomeScreenState extends State<HomeScreen> {
   static const _idPaoDeAlho = 73;
   static const _idEspetos = 59;
   static const _idPratosProntos = 172;
+  static const _idHamburgueres = 390; // ✅ NOVO
   static const _idBebidas = 69;
   static const _idOutros = 62;
 
   late Future<List<Product>> _paoDeAlho;
   late Future<List<Product>> _espetos;
   late Future<List<Product>> _pratosProntos;
+  late Future<List<Product>> _hamburgueres; // ✅ NOVO
   late Future<List<Product>> _bebidas;
   late Future<List<Product>> _outros;
 
@@ -51,82 +54,95 @@ class _HomeScreenState extends State<HomeScreen> {
     _paoDeAlho = _productService.fetchProductsByCategory(_idPaoDeAlho);
     _espetos = _productService.fetchProductsByCategory(_idEspetos);
     _pratosProntos = _productService.fetchProductsByCategory(_idPratosProntos);
+    _hamburgueres = _productService.fetchProductsByCategory(_idHamburgueres); // ✅ NOVO
     _bebidas = _productService.fetchProductsByCategory(_idBebidas);
     _outros = _productService.fetchProductsByCategory(_idOutros);
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: CustomScrollView(
-        controller: _scrollCtrl,
-        slivers: [
-          // ------------------------------------------------
-          // HEADER (LOGO + MENU) FIXO
-          // ------------------------------------------------
-          SliverAppBar(
-            pinned: true,
-            backgroundColor: Colors.white,
-            elevation: 0,
-            automaticallyImplyLeading: false,
-            toolbarHeight: 68, // um pouco mais compacto
-            flexibleSpace: SafeArea(
-              bottom: false,
-              child: Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                child: SizedBox(
-                  height: 56,
-                  child: Stack(
-                    children: [
-                      // LOGO CENTRAL (um pouco maior)
-                      Center(
-  child: Image.asset(
-    'assets/icon/app_icon.png',
-    height: 36,          // ajuste se quiser maior ou menor
-    fit: BoxFit.contain,
-  ),
-),
-                      // BOTÃO MENU À DIREITA
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Builder(
-                          builder: (context) {
-                            return IconButton(
-                              onPressed: () {
-                                final rootScaffold = context
-                                    .findRootAncestorStateOfType<
-                                        ScaffoldState>();
-                                rootScaffold?.openEndDrawer();
-                              },
-                              icon: Icon(
-                                Icons.menu_rounded,
-                                size: 28,
-                                color: Colors.grey[800],
-                              ),
-                            );
-                          },
-                        ),
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: Colors.white,
+    body: CustomScrollView(
+      controller: _scrollCtrl,
+      slivers: [
+        // HEADER (LOGO + MENU) FIXO
+        SliverAppBar(
+          pinned: true,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          toolbarHeight: 68,
+          flexibleSpace: SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+              child: SizedBox(
+                height: 56,
+                child: Stack(
+                  children: [
+
+                    // 🔥 ZONA SECRETA PARA ABRIR TELA DE UPDATE (DEBUG)
+                    // Mantida invisível e não atrapalha nada
+                    GestureDetector(
+                      onLongPress: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ForcedUpdateScreen(),
+                          ),
+                        );
+                      },
+                      child: Container(
+                        color: Colors.transparent,
+                        height: 56,
+                        width: double.infinity,
                       ),
-                    ],
-                  ),
+                    ),
+
+                    // LOGO CENTRAL
+                    Center(
+                      child: Image.asset(
+                        'assets/icon/app_icon.png',
+                        height: 36,
+                        fit: BoxFit.contain,
+                      ),
+                    ),
+
+                    // BOTÃO MENU À DIREITA
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Builder(
+                        builder: (context) {
+                          return IconButton(
+                            onPressed: () {
+                              final rootScaffold = context
+                                  .findRootAncestorStateOfType<ScaffoldState>();
+                              rootScaffold?.openEndDrawer();
+                            },
+                            icon: Icon(
+                              Icons.menu_rounded,
+                              size: 28,
+                              color: Colors.grey[800],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
           ),
+        ),
 
-          // ------------------------------------------------
-          // SEARCH BAR FIXA (SEGUNDA LINHA DO HEADER)
-          // ------------------------------------------------
+          // SEARCH BAR FIXA
           SliverPersistentHeader(
             pinned: true,
             delegate: _SearchBarHeaderDelegate(),
           ),
 
-          // ------------------------------------------------
           // HERO BANNER
-          // ------------------------------------------------
           const SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
@@ -136,9 +152,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
           const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
-          // ------------------------------------------------
+          // ✨ KITS CHURRASCO (PRIMEIRO CARROSSEL) ✨
+          const SliverToBoxAdapter(
+            child: KitsChurrascoSection(),
+          ),
+
           // OFERTAS DA SEMANA
-          // ------------------------------------------------
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
@@ -149,22 +168,48 @@ class _HomeScreenState extends State<HomeScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      children: const [
-                        Text(
-                          '🔥 Ofertas da Semana',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.textPrimary,
-                          ),
+                      children: [
+                        Row(
+                          children: [
+                            const Text(
+                              'Ofertas da ',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF18181B),
+                              ),
+                            ),
+                            ShaderMask(
+                              shaderCallback: (bounds) => LinearGradient(
+                                colors: [
+                                  AppColors.primary,
+                                  const Color(0xFFFF8C00),
+                                ],
+                              ).createShader(bounds),
+                              child: const Text(
+                                'Semana',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.local_offer_rounded,
+                              color: AppColors.primary,
+                              size: 22,
+                            ),
+                          ],
                         ),
-                        SizedBox(height: 4),
-                        Text(
+                        const SizedBox(height: 4),
+                        const Text(
                           'Aproveite enquanto dura!',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
-                            color: Colors.grey,
+                            color: Color(0xFF71717A),
                           ),
                         ),
                       ],
@@ -181,9 +226,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // ------------------------------------------------
           // BANNER DESTAQUE
-          // ------------------------------------------------
           const SliverToBoxAdapter(
             child: Padding(
               padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
@@ -196,35 +239,62 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // ------------------------------------------------
           // SESSÃO "TODOS OS CORTES"
-          // ------------------------------------------------
           const SliverToBoxAdapter(child: AllCutsSection()),
 
-          // ------------------------------------------------
-          // OUTRAS SESSÕES
-          // ------------------------------------------------
+          // ✨ OUTRAS SESSÕES (ÍCONES CORRIGIDOS) ✨
+          
+          // Pão de Alho
           _section(
-            title: '🍞 O Clássico Acompanhamento',
+            title: 'Pão de Alho Irresistível',
+            highlightWord: 'Alho',
+            icon: Icons.bakery_dining_rounded,
             future: _paoDeAlho,
+            subtitle: 'O clássico que não pode faltar',
           ),
+          
+          // Espetos
           _section(
-            title: '🍢 Praticidade na Grelha',
+            title: 'Praticidade na Grelha',
+            highlightWord: 'Grelha',
+            icon: Icons.dining_rounded, // ✅ Ícone de espeto
             future: _espetos,
             subtitle: 'Espetos prontos para o churrasco',
           ),
+          
+          // Pratos Prontos
           _section(
-            title: '🍽️ Sabor de Casa',
+            title: 'Sabor de Casa',
+            highlightWord: 'Casa',
+            icon: Icons.restaurant_rounded,
             future: _pratosProntos,
             subtitle: 'Pratos prontos deliciosos',
           ),
+          
+          // ✨ HAMBÚRGUERES (NOVO) ✨
           _section(
-            title: '🥤 Para Acompanhar',
+            title: 'Hambúrgueres Premium',
+            highlightWord: 'Premium',
+            icon: Icons.lunch_dining_rounded, // ✅ Ícone de hambúrguer
+            future: _hamburgueres,
+            subtitle: 'Suculentos e irresistíveis',
+          ),
+          
+          // Bebidas
+          _section(
+            title: 'Para Acompanhar',
+            highlightWord: 'Acompanhar',
+            icon: Icons.sports_bar_rounded, // ✅ Ícone de cerveja
             future: _bebidas,
           ),
+          
+          // Outros (Temperos)
           _section(
-            title: '⚡ Essenciais para o Churrasco',
+            title: 'Essenciais para o Churrasco',
+            highlightWord: 'Essenciais',
+            icon: Icons.local_fire_department_rounded, // ✅ Ícone de fogo
             future: _outros,
+            subtitle: 'Temperos e complementos',
           ),
 
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
@@ -233,14 +303,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ------------------------------------------------
-  // COMPONENTE DE SESSÃO
-  // ------------------------------------------------
   SliverToBoxAdapter _section({
     required String title,
     required Future<List<Product>> future,
     String? subtitle,
+    required String highlightWord,
+    required IconData icon,
   }) {
+    // Separar título da palavra destacada
+    final parts = title.split(highlightWord);
+    
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 24),
@@ -252,13 +324,49 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                    ),
+                  Row(
+                    children: [
+                      if (parts.isNotEmpty && parts[0].isNotEmpty)
+                        Text(
+                          parts[0],
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF18181B),
+                          ),
+                        ),
+                      ShaderMask(
+                        shaderCallback: (bounds) => LinearGradient(
+                          colors: [
+                            AppColors.primary,
+                            const Color(0xFFFF8C00),
+                          ],
+                        ).createShader(bounds),
+                        child: Text(
+                          highlightWord,
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                      if (parts.length > 1 && parts[1].isNotEmpty)
+                        Text(
+                          parts[1],
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF18181B),
+                          ),
+                        ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        icon,
+                        color: AppColors.primary,
+                        size: 22,
+                      ),
+                    ],
                   ),
                   if (subtitle != null) ...[
                     const SizedBox(height: 4),
@@ -267,7 +375,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: const TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
-                        color: Colors.grey,
+                        color: Color(0xFF71717A),
                       ),
                     ),
                   ]
@@ -287,11 +395,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ------------------------------------------------------
-// HEADER FIXO DA SEARCH BAR (COMPACTA AO ROLAR)
-// ------------------------------------------------------
+// HEADER FIXO DA SEARCH BAR
 class _SearchBarHeaderDelegate extends SliverPersistentHeaderDelegate {
-  // Alturas mínima e máxima do header da busca
   static const double _minHeight = 64;
   static const double _maxHeight = 84;
 
@@ -313,11 +418,8 @@ class _SearchBarHeaderDelegate extends SliverPersistentHeaderDelegate {
     final double delta = _maxHeight - _minHeight;
     final double t = delta == 0 ? 0 : (shrinkOffset / delta).clamp(0.0, 1.0);
 
-    // Padding vai de 10 → 4 conforme rola
     final double topPadding = _lerp(10, 4, t);
     final double bottomPadding = _lerp(10, 4, t);
-
-    // Search bar escala levemente (1.0 → 0.94) pra ficar mais compacta
     final double scale = _lerp(1.0, 0.94, t);
 
     return Container(
@@ -335,3 +437,4 @@ class _SearchBarHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(covariant _SearchBarHeaderDelegate oldDelegate) => false;
 }
+
