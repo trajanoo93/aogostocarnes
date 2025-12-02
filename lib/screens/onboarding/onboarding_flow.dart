@@ -411,45 +411,75 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
       );
 
   Widget _stepCep() => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Agora me conta seu CEP rapidinho 👇',
-            style: GoogleFonts.poppins(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: const Color(0xFF18181B),
-            ),
-            textAlign: TextAlign.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Agora me conta seu CEP rapidinho 👇',
+          style: GoogleFonts.poppins(
+            fontSize: 28,
+            fontWeight: FontWeight.w800,
+            color: const Color(0xFF18181B),
           ),
-          const SizedBox(height: 16),
-          Text(
-            'Assim eu vejo se a gente entrega aí e já calculo a taxa certinha.',
-            style: GoogleFonts.poppins(fontSize: 18, color: const Color(0xFF71717A)),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 32),
-          _customInput(
-            placeholder: '00000-000',
-            icon: Icons.location_on_outlined,
-            controller: _cepCtrl,
-            focusNode: _cepFocus,
-            keyboardType: TextInputType.number,
-            inputFormatters: [_cepMask],
-            autofocus: true,
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: 12),
-            Text(_error!, style: GoogleFonts.poppins(color: Colors.red, fontSize: 14)),
-          ],
-          const SizedBox(height: 24),
-          _primaryButton(
-            _isLoading ? 'Verificando...' : 'Verificar CEP',
-            _canProceedCep && !_isLoading ? _fetchCepAndFee : null,
-            loading: _isLoading,
-          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Assim eu vejo se a gente entrega aí e já calculo a taxa certinha.',
+          style: GoogleFonts.poppins(fontSize: 18, color: const Color(0xFF71717A)),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 32),
+        _customInput(
+          placeholder: '00000-000',
+          icon: Icons.location_on_outlined,
+          controller: _cepCtrl,
+          focusNode: _cepFocus,
+          keyboardType: TextInputType.number,
+          inputFormatters: [_cepMask],
+          autofocus: true,
+        ),
+        if (_error != null) ...[
+          const SizedBox(height: 12),
+          Text(_error!, style: GoogleFonts.poppins(color: Colors.red, fontSize: 14)),
         ],
-      );
+        const SizedBox(height: 24),
+        
+        // ✅ BOTÃO PRINCIPAL: Verificar CEP
+        _primaryButton(
+          _isLoading ? 'Verificando...' : 'Verificar CEP',
+          _canProceedCep && !_isLoading ? _fetchCepAndFee : null,
+          loading: _isLoading,
+        ),
+        
+        const SizedBox(height: 16),
+        
+        // ✅ NOVO: BOTÃO SECUNDÁRIO "Preencher Depois"
+        SizedBox(
+          width: double.infinity,
+          height: 56,
+          child: OutlinedButton(
+            onPressed: _isLoading ? null : _skipAddressAndFinish,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: const Color(0xFF71717A),
+              side: const BorderSide(
+                color: Color(0xFFE5E7EB),
+                width: 2,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: Text(
+              'Preencher Depois',
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
 
   Widget _stepAddress() {
     return SingleChildScrollView(
@@ -551,6 +581,37 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
       ),
     );
   }
+
+  // === NOVO MÉTODO: PULAR CEP E SALVAR SEM ENDEREÇO ===
+Future<void> _skipAddressAndFinish() async {
+  setState(() => _isLoading = true);
+
+  try {
+    final telefoneLimpo = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+
+    // ✅ Salva cliente SEM endereço inicial
+    await CustomerProvider.instance.loadOrCreateCustomer(
+      name: _nameCtrl.text.trim(),
+      phone: telefoneLimpo,
+      initialAddress: null, // ← SEM ENDEREÇO
+    );
+
+    final sp = await SharedPreferences.getInstance();
+    await sp.setBool('onboarding_done', true);
+
+    if (mounted) {
+      Navigator.of(context).pop();
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao salvar: $e')),
+      );
+    }
+  } finally {
+    if (mounted) setState(() => _isLoading = false);
+  }
+}
 
   // === CAMPO DE ENDEREÇO IDÊNTICO AO HTML (FLOATING LABEL) ===
   Widget _addressField({

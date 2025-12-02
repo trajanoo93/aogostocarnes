@@ -461,6 +461,364 @@ Cada pedido é salvo no Firestore imediatamente após ser criado no WooCommerce.
 
 ---
 
+## 💳 Sistema de Pagamento Online (Pagar.me)
+
+### 🎯 Integração Completa
+
+O app possui integração nativa com o **Pagar.me** para pagamentos via **PIX instantâneo**.
+
+### 🔧 Arquitetura
+```
+lib/
+├── config/
+│   └── pagarme_credentials.dart    ← Credenciais unificadas
+│
+├── services/
+│   └── pagarme_service.dart        ← Geração de PIX
+│
+└── models/
+    └── pix_response.dart           ← Modelo de resposta
+```
+
+---
+
+### 🔥 Como Funciona
+
+#### **1. Decisão da Loja Final**
+
+O sistema determina automaticamente qual CD (Centro de Distribuição) irá processar o pedido:
+
+**Entrega:**
+- Baseado no CEP do cliente
+- Considera horário de cutoff
+- Retornado pelo `shipping_service`
+
+**Retirada:**
+- Loja selecionada pelo usuário
+- IDs: `86261` (Central), `131813` (Lagoa Santa), `127163` (Sion), `110727` (Barreiro)
+```dart
+final effectiveStoreId = _getEffectiveStoreId();
+final effectiveStoreName = _getEffectiveStoreName(effectiveStoreId);
+```
+
+---
+
+#### **2. Geração do PIX**
+
+Quando o usuário escolhe **PIX** como método de pagamento:
+```dart
+if (paymentMethod == 'pix') {
+  final pagarmeService = PagarMeService();
+  
+  final pixResponse = await pagarmeService.generatePix(
+    orderId: orderId!,
+    storeFinal: effectiveStoreName,  // ← Conciliação bancária
+    totalAmount: total,
+    customerPhone: userPhoneRaw,
+  );
+  
+  pixCode = pixResponse.qrCodeText;
+  pixExpiresAt = pixResponse.expiresAt;
+}
+```
+
+**Retorno do Pagar.me:**
+- ✅ QR Code (texto para copiar)
+- ✅ Data de expiração (60 minutos)
+- ✅ ID da transação
+
+---
+
+#### **3. Credenciais Unificadas**
+```dart
+// config/pagarme_credentials.dart
+
+class PagarMeCredentials {
+  // ✅ CHAVE ÚNICA PARA TODAS AS LOJAS
+  static const String apiKey = 'sk_2b9fa1c33b224ba19a13ee0880e61d25';
+  
+  // ✅ TIMEOUT DO PIX
+  static const int pixExpiresIn = 3600; // 60 minutos
+  
+  // ✅ MAPEAMENTO DE LOJAS
+  static const Map storeNames = {
+    '86261': 'Central Distribuição (Sagrada Família)',
+    '131813': 'Unidade Lagoa Santa',
+    '127163': 'Unidade Sion',
+    '110727': 'Unidade Barreiro',
+  };
+}
+```
+
+**💡 Por que uma única chave?**
+- Simplifica a gestão de credenciais
+- A diferenciação ocorre via **metadados**
+- Relatórios financeiros filtram por `store_final`
+
+---
+
+#### **4. Metadados Enviados ao Pagar.me**
+```json
+{
+  "metadata": {
+    "store_final": "Unidade Sion",
+    "order_id": "12345",
+    "customer_phone": "31999999999",
+    "customer_name": "João Silva",
+    "delivery_type": "delivery"
+  }
+}
+```
+
+Esses dados permitem:
+- ✅ Conciliação bancária por loja
+- ✅ Rastreamento de pedidos
+- ✅ Relatórios financeiros precisos
+
+---
+
+### 📊 Status dos Pedidos
+
+#### **No WooCommerce:**
+
+| Método | Status Inicial | Status após Pagamento |
+|--------|----------------|------------------------|
+| PIX | `pending` | *(atualizado manualmente)* |
+| Dinheiro | `processing` | `processing` |
+| Cartão | `processing` | `processing` |
+| Vale | `processing` | `processing` |
+
+**⚠️ Webhook não implementado:** Status PIX requer atualização manual no painel WooCommerce.
+
+---
+
+#### **No Firestore:**
+
+Todos os pedidos são salvos instantaneamente com estrutura padronizada:
+```json
+{
+  "id": "12345",
+  "status": "-",
+  "pagamento": {
+    "metodo_principal": "Pix",
+    "valor_total": 199.90,
+    "taxa_entrega": 7.90
+  },
+  "agendamento": {
+    "is_agendado": false,
+    "janela_tempo": "18:00 - 20:00"
+  },
+  "cd": "CD Sion"
+}
+
+---
+
+## 🔄 Sistema de Webhook Real-Time (WooCommerce → Firestore)
+
+### 🎯 Arquitetura Completa
+```
+PIX pago → Pagar.me
+     ↓
+Plugin PHP → WooCommerce (status: processing)
+     ↓
+Webhook WooCommerce
+     ↓
+Cloud Function (Firebase)
+     ↓
+Firestore (atualiza status: processing)
+     ↓
+App Flutter (StreamBuilder detecta mudança)
+     ↓
+ThankYouScreen mostra: "✅ Pagamento Confirmado!"
+```
+
+---
+
+### 🔧 Componentes
+
+#### **1. Plugin PHP (Pagar.me Custom)**
+```php
+// wp-content/plugins/woocommerce-pagarme-custom/
+
+add_action('woocommerce_order_status_changed', 'agosto_sync_order_status_to_firestore', 10, 4);
+
+function agosto_sync_order_status_to_firestore($order_id, $old_status, $new_status, $order) {
+    if ($new_status !== 'processing') return;
+    
+    $webhook_url = 'https://us-central1-ao-gosto-app-c0b31.cloudfunctions.net/woocommerceStatusWebhook';
+    
+    wp_remote_post($webhook_url, array(
+        'headers' => array('Content-Type' => 'application/json'),
+        'body'    => json_encode(array(
+            'id'     => $order_id,
+            'status' => $new_status,
+        )),
+    ));
+}
+```
+
+#### **2. Cloud Function (Firebase)**
+```javascript
+// functions/index.js
+
+exports.woocommerceStatusWebhook = functions.https.onRequest(async (req, res) => {
+  const orderId = req.body.id.toString();
+  const status = req.body.status;
+  
+  const docRef = db.collection("pedidos").doc(orderId);
+  const doc = await docRef.get();
+  
+  if (!doc.exists) {
+    return res.status(404).send("Order not found");
+  }
+  
+  await docRef.set({
+    status: status === "processing" ? "processing" : status,
+    pagamento: { status_woocommerce: status },
+    updated_at: admin.firestore.FieldValue.serverTimestamp(),
+  }, { merge: true });
+  
+  return res.status(200).send("OK");
+});
+```
+
+#### **3. Backend Python (Proteção de Status)**
+```python
+# firestore_sync.py
+
+def salvar_pedido_firestore(db, pedido_id, dados):
+    doc_ref = db.collection("pedidos").document(pedido_id)
+    doc = doc_ref.get()
+    
+    # ✅ NÃO SOBRESCREVE SE JÁ ESTÁ PAGO
+    if doc.exists and doc.to_dict().get('status') == 'processing':
+        dados_safe = {k: v for k, v in dados.items() if k != 'status'}
+        doc_ref.set(dados_safe, merge=True)
+        return True
+    
+    doc_ref.set(dados, merge=True)
+    return True
+```
+
+#### **4. App Flutter (Real-Time)**
+```dart
+// thank_you_screen.dart
+
+StreamBuilder<AppOrder?>(
+  stream: FirestoreService().getOrderById(orderId),
+  builder: (context, snapshot) {
+    final status = snapshot.data?.status ?? '-';
+    
+    if (status == 'processing') {
+      return _buildPaymentConfirmed(); // ✅ Pago!
+    }
+    
+    return _buildPixPending(); // ⏳ Aguardando
+  },
+)
+```
+
+---
+
+### ⚡ Fluxo de Atualização
+
+1. **Usuário paga PIX** → Pagar.me detecta
+2. **Pagar.me envia webhook** → Plugin PHP
+3. **Plugin PHP muda status** → WooCommerce (processing)
+4. **WooCommerce envia webhook** → Cloud Function
+5. **Cloud Function atualiza** → Firestore (status: processing)
+6. **App escuta Firestore** → StreamBuilder detecta mudança
+7. **ThankYouScreen atualiza** → "✅ Pagamento Confirmado!"
+
+**⏱️ Tempo total: 2-5 segundos (instantâneo para o usuário)**
+
+---
+
+### 🛡️ Proteção contra Conflitos
+
+O backend Python **NÃO sobrescreve** o status se já estiver "processing":
+```python
+if existing_status == 'processing':
+    # Remove status dos dados
+    dados_safe = {k: v for k, v in dados.items() if k != 'status'}
+    doc_ref.set(dados_safe, merge=True)
+```
+
+Isso garante que:
+- ✅ PIX pago permanece "processing"
+- ✅ App mostra status correto
+- ✅ Backend continua processando (Sheets, WhatsApp, PDF)
+
+---
+
+### 📊 Estrutura Firestore
+```
+pedidos/
+  ├── 132221/  (orderId)
+      ├── id: "132221"
+      ├── status: "processing"  ← Atualizado pelo webhook
+      ├── cliente: { telefone: "5531999999999" }
+      ├── pagamento: { 
+          metodo_principal: "Pix",
+          status_woocommerce: "processing"
+      }
+      ├── created_at: Timestamp
+      ├── updated_at: Timestamp
+```
+
+---
+
+### 🔮 Roadmap Webhook
+
+| Feature | Status |
+|---------|--------|
+| Webhook WooCommerce → Firebase | ✅ Done |
+| Atualização real-time no app | ✅ Done |
+| Proteção contra sobrescrita | ✅ Done |
+| Status "processing" instantâneo | ✅ Done |
+| Logs de debug | ✅ Done |
+| Retry automático | 🔜 Em breve |
+| Notificação push | 🔜 Em breve |
+
+---
+---
+
+### 🎨 UI do Pagamento PIX
+
+**Features da tela:**
+- ✅ QR Code visual (placeholder)
+- ✅ Código PIX copiável (um clique)
+- ✅ Timer de expiração (60 min)
+- ✅ Feedback visual ao copiar
+- ✅ Design moderno com gradientes
+
+// screens/checkout/steps/step_payment.dart
+
+class _ModernPixCard extends StatelessWidget {
+  final String code;
+  final DateTime expiresAt;
+  
+  // Exibe QR Code + código + timer
+}
+
+
+---
+
+### 🔮 Roadmap Pagar.me
+
+| Feature | Status |
+|---------|--------|
+| Geração de PIX | ✅ Done |
+| QR Code copiável | ✅ Done |
+| Timer de expiração | ✅ Done |
+| Metadados completos | ✅ Done |
+| Webhook automático | 🔜 Planejado |
+| Cartão de crédito | 🔜 Em breve |
+| Notificação push | 🔜 Em breve |
+
+---
+
+
 ## 📊 Métricas de Qualidade
 
 ### Performance:

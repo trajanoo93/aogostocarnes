@@ -5,6 +5,7 @@ import 'package:collection/collection.dart';
 import 'package:ao_gosto_app/state/customer_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:ao_gosto_app/models/customer_data.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ao_gosto_app/state/cart_controller.dart';
@@ -80,8 +81,6 @@ class Coupon {
   const Coupon({required this.code, required this.discount});
 }
 
-
-
 /// ===============================================================
 ///              CONTROLADOR PRINCIPAL DO CHECKOUT
 /// ===============================================================
@@ -95,9 +94,18 @@ class CheckoutController extends ChangeNotifier {
   String selectedPickup = 'sion';
   DateTime selectedDate = DateTime.now();
   String? selectedTimeSlot;
-  String paymentMethod = 'pix';
+  
+  // ✅ PAYMENTMETHOD COM SETTER QUE NOTIFICA
+  String _paymentMethod = 'pix';
+  String get paymentMethod => _paymentMethod;
+  set paymentMethod(String value) {
+    _paymentMethod = value;
+    notifyListeners(); // ✅ NOTIFICA OS LISTENERS
+  }
+  
   String orderNotes = '';
   bool isSummaryExpanded = false;
+  
   bool isLoading = false;
   bool isProcessing = false;
   String? orderId;
@@ -120,11 +128,9 @@ class CheckoutController extends ChangeNotifier {
   double deliveryFee = 0.0;
   StoreInfo? storeInfo;
 
-
   // === TELEFONE ===
   String userPhone = '';
   bool isEditingPhone = false;
-
 
   // === LOCAIS DE RETIRADA ===
   final Map<String, Map<String, String>> pickupLocations = {
@@ -150,7 +156,20 @@ class CheckoutController extends ChangeNotifier {
     },
   };
 
-
+  // ✅ GETTER PARA O TEXTO DO BOTÃO (ADICIONE ESTE GETTER)
+  String get finalizarButtonText {
+    if (currentStep == 1) {
+      return 'Continuar';
+    }
+    
+    if (_paymentMethod == 'pix') {
+      final currency = NumberFormat.simpleCurrency(locale: 'pt_BR');
+      return 'Gerar PIX de ${currency.format(total)}';
+    }
+    
+    // Cartão, Dinheiro, Vale → "Pagar na Entrega"
+    return 'Pagar na Entrega';
+  }
 
   // === FERIADOS ===
   static final List<DateTime> holidays = [
@@ -278,26 +297,73 @@ class CheckoutController extends ChangeNotifier {
   // ===========================================================
   //                        ENDEREÇOS
   // ===========================================================
-  Future<void> addAddress(CheckoutAddress address) async {
-    final newAddr = address.copyWith(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
+  // === ADICIONAR ENDEREÇO (ATUALIZADO) ===
+Future<void> addAddress(CheckoutAddress address) async {
+  final newAddr = address.copyWith(
+    id: DateTime.now().millisecondsSinceEpoch.toString(),
+  );
+
+  // ✅ 1. Adiciona localmente (para uso imediato no checkout)
+  addresses.add(newAddr);
+  selectedAddressId = newAddr.id;
+
+  // ✅ 2. Sincroniza com Firestore via CustomerProvider
+  final customerProv = CustomerProvider.instance;
+  if (customerProv.customer != null) {
+    final customerAddress = CustomerAddress(
+      id: newAddr.id,
+      apelido: "Minha Casa", // Você pode pedir ao usuário
+      street: newAddr.street,
+      number: newAddr.number,
+      complement: newAddr.complement.isEmpty ? null : newAddr.complement,
+      neighborhood: newAddr.neighborhood,
+      city: newAddr.city,
+      state: newAddr.state,
+      cep: newAddr.cep,
+      isDefault: addresses.length == 1, // Primeiro endereço = padrão
     );
-
-    addresses.add(newAddr);
-    selectedAddressId = newAddr.id;
-
-    await _refreshFee();
-    _safeNotify();
+    
+    await customerProv.saveAddress(
+      customerAddress,
+      setAsDefault: addresses.length == 1,
+    );
   }
 
+  await _refreshFee();
+  _safeNotify();
+}
 
 
-  void selectAddress(String id) {
-    selectedAddressId = id;
-    _refreshFee();
-    _safeNotify();
+
+Future<void> selectAddress(String id) async {
+  selectedAddressId = id;
+  
+  // ✅ OPCIONAL: Marca como padrão no Firestore
+  final customerProv = CustomerProvider.instance;
+  if (customerProv.customer != null) {
+    final selectedAddr = addresses.firstWhere((a) => a.id == id);
+    final customerAddress = CustomerAddress(
+      id: selectedAddr.id,
+      apelido: "Endereço Padrão",
+      street: selectedAddr.street,
+      number: selectedAddr.number,
+      complement: selectedAddr.complement.isEmpty ? null : selectedAddr.complement,
+      neighborhood: selectedAddr.neighborhood,
+      city: selectedAddr.city,
+      state: selectedAddr.state,
+      cep: selectedAddr.cep,
+      isDefault: true,
+    );
+    
+    await customerProv.saveAddress(
+      customerAddress,
+      setAsDefault: true, // ✅ Marca como padrão
+    );
   }
-
+  
+  _refreshFee();
+  _safeNotify();
+}
 
 
   // ===========================================================
@@ -413,8 +479,6 @@ class CheckoutController extends ChangeNotifier {
   }
 
 
-
-
   // ===========================================================
   //                     CUPOM DE DESCONTO
   // ===========================================================
@@ -491,36 +555,45 @@ class CheckoutController extends ChangeNotifier {
     _safeNotify();
   }
 
-  Future<void> savePhone(String phone) async {
-    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
-    userPhone = cleanPhone;
-    isEditingPhone = false;
+  // === SALVAR TELEFONE (ATUALIZADO) ===
+Future<void> savePhone(String phone) async {
+  final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+  userPhone = cleanPhone;
+  isEditingPhone = false;
 
-    final sp = await SharedPreferences.getInstance();
-    await sp.setString('user_phone', cleanPhone);
+  // ✅ 1. Salva no SharedPreferences
+  final sp = await SharedPreferences.getInstance();
+  await sp.setString('user_phone', cleanPhone);
 
-    _safeNotify();
+  // ✅ 2. Atualiza no Firestore via CustomerProvider
+  final customerProv = CustomerProvider.instance;
+  if (customerProv.customer != null) {
+    final updated = customerProv.customer!.copyWith(phone: cleanPhone);
+    await customerProv.updateCustomer(updated);
   }
 
-
+  _safeNotify();
+}
 
 
   // ===========================================================
   //                     FINALIZAÇÃO DO PEDIDO
   // ===========================================================
-  Future<void> placeOrder() async {
-    isProcessing = true;
-    _safeNotify();
+  // lib/screens/checkout/checkout_controller.dart
 
-    try {
-      final sp = await SharedPreferences.getInstance();
-      final customerId = sp.getString('customer_id');
+Future<void> placeOrder() async {
+  isProcessing = true;
+  _safeNotify();
 
-      // ✅ 1. DETERMINAR LOJA FINAL
-      final effectiveStoreId = _getEffectiveStoreId();
-      final effectiveStoreName = _getEffectiveStoreName(effectiveStoreId);
+  try {
+    final sp = await SharedPreferences.getInstance();
+    final customerId = sp.getString('customer_id');
 
-      debugPrint('''
+    // ✅ 1. DETERMINAR LOJA FINAL
+    final effectiveStoreId = _getEffectiveStoreId();
+    final effectiveStoreName = _getEffectiveStoreName(effectiveStoreId);
+
+    debugPrint('''
 ====================================
 CHECKOUT FINAL
 Loja: $effectiveStoreName
@@ -529,232 +602,220 @@ Tipo: ${deliveryType.name}
 ====================================
 ''');
 
-      final lineItems =
-          CartController.instance.items.map((item) {
-            return {
-              'product_id': item.product.id,
-              'quantity': item.quantity,
-            };
-          }).toList();
-
-
-      final selectedAddr =
-          addresses.firstWhere((a) => a.id == selectedAddressId);
-
-
-      final customer = CustomerProvider.instance.customer;
-      final fullName = customer?.name ?? "Cliente";
-      final userPhoneRaw = customer?.phone ?? userPhone.replaceAll(RegExp(r'\D'), '');
-
-      final nameParts = fullName.split(' ');
-
-      final firstName =
-          nameParts.isNotEmpty ? nameParts.first : "Cliente";
-
-      final lastName =
-          nameParts.length > 1
-              ? nameParts.sublist(1).join(' ')
-              : "";
-
-
-      // ✅ 2. CRIAR PEDIDO NO WOOCOMMERCE
-      final orderData = {
-        "status": paymentMethod == 'pix' ? "pending" : "processing",
-        "created_via": "App",
-
-        "billing": {
-          "company": "App",
-          "email": "app@aogosto.com.br",
-          "first_name": firstName,
-          "last_name": lastName,
-          "phone": userPhoneRaw,
-          "address_1": selectedAddr.street,
-          "address_2": selectedAddr.complement,
-          "city": selectedAddr.city,
-          "state": selectedAddr.state,
-          "postcode": selectedAddr.cep,
-          "country": "BR"
-        },
-
-        "shipping": {
-          "first_name": firstName,
-          "last_name": lastName,
-          "address_1": selectedAddr.street,
-          "address_2": selectedAddr.complement,
-          "city": selectedAddr.city,
-          "state": selectedAddr.state,
-          "postcode": selectedAddr.cep,
-          "country": "BR"
-        },
-
-        "payment_method": _mapPaymentMethod(paymentMethod),
-        "payment_method_title": _mapPaymentTitle(paymentMethod),
-        "set_paid": false,
-
-        "line_items": lineItems,
-
-        "shipping_lines":
-            deliveryType == DeliveryType.delivery
-                ? [
-                    {
-                      "method_id": "flat_rate",
-                      "method_title": "Taxa de Entrega",
-                      "total": deliveryFee.toStringAsFixed(2)
-                    }
-                  ]
-                : [],
-
-        "meta_data": [
-          {"key": "_store_final", "value": effectiveStoreName},
-          {"key": "_effective_store_final", "value": effectiveStoreName},
-          {"key": "_shipping_pickup_store_id", "value": effectiveStoreId},
-          {"key": "_processed_by_app", "value": "true"},
-          {"key": "_pix_paid", "value": paymentMethod == 'pix' ? "false" : "true"},
-
-          {
-            "key": "_is_future_date",
-            "value": _isFutureDate() ? "yes" : "no"
-          },
-
-          {
-            "key": "delivery_type",
-            "value": deliveryType == DeliveryType.delivery
-                ? "delivery"
-                : "pickup"
-          },
-
-          {
-            "key": "_app_customer_id",
-            "value": customerId?.toString() ?? ""
-          },
-
-          if (deliveryType == DeliveryType.delivery) ...[
-            {
-              "key": "delivery_date",
-              "value":
-                  DateFormat('yyyy-MM-dd').format(selectedDate)
-            },
-            {"key": "delivery_time", "value": selectedTimeSlot}
-          ]
-          else ...[
-            {
-              "key": "pickup_date",
-              "value":
-                  DateFormat('yyyy-MM-dd').format(selectedDate)
-            },
-            {"key": "pickup_time", "value": selectedTimeSlot},
-            {
-              "key": "_shipping_pickup_stores",
-              "value": pickupLocations[selectedPickup]?['name'] ??
-                  ''
-            }
-          ],
-
-          if (needsChange) ...[
-            {"key": "needs_change", "value": "yes"},
-            {"key": "change_for_amount", "value": changeForAmount}
-          ],
-
-          if (orderNotes.isNotEmpty)
-            {"key": "order_notes", "value": orderNotes}
-        ]
+    final lineItems = CartController.instance.items.map((item) {
+      return {
+        'product_id': item.product.id,
+        'quantity': item.quantity,
       };
+    }).toList();
 
+    final selectedAddr = addresses.firstWhere((a) => a.id == selectedAddressId);
+    final customer = CustomerProvider.instance.customer;
+    final fullName = customer?.name ?? "Cliente";
+    final userPhoneRaw = customer?.phone ?? userPhone.replaceAll(RegExp(r'\D'), '');
+    final nameParts = fullName.split(' ');
+    final firstName = nameParts.isNotEmpty ? nameParts.first : "Cliente";
+    final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : "";
 
-      final orderService = OrderService();
-      final response = await orderService.createOrder(orderData);
+    // ✅ 2. CRIAR PEDIDO NO WOOCOMMERCE
+    final orderData = {
+      "status": paymentMethod == 'pix' ? "pending" : "processing",
+      "created_via": "App",
 
-      orderId = response['id'].toString();
+      "billing": {
+        "company": "App",
+        "email": "app@aogosto.com.br",
+        "first_name": firstName,
+        "last_name": lastName,
+        "phone": userPhoneRaw,
+        "address_1": selectedAddr.street,
+        "address_2": selectedAddr.complement,
+        "city": selectedAddr.city,
+        "state": selectedAddr.state,
+        "postcode": selectedAddr.cep,
+        "country": "BR"
+      },
 
-      // ✅ 3. SE PIX, GERAR NO PAGAR.ME
-      if (paymentMethod == 'pix') {
-        debugPrint('🔥 Gerando PIX no Pagar.me para pedido #$orderId');
-        
-        final pagarmeService = PagarMeService();
-        
-        try {
-          final pixResponse = await pagarmeService.generatePix(
-            orderId: orderId!,
-            storeFinal: effectiveStoreName,
-            totalAmount: total,
-            customerPhone: userPhoneRaw,
-          );
-          
-          pixCode = pixResponse.qrCodeText;
-          pixExpiresAt = pixResponse.expiresAt;
-          
-          debugPrint('✅ PIX gerado com sucesso!');
-          debugPrint('QR Code: ${pixCode?.substring(0, 50)}...');
-          debugPrint('Expira em: $pixExpiresAt');
-        } catch (e) {
-          debugPrint('❌ Erro ao gerar PIX: $e');
-          // Fallback para mock caso dê erro
-          pixCode = _generateMockPix();
-          pixExpiresAt = DateTime.now().add(const Duration(minutes: 60));
-        }
+      "shipping": {
+        "first_name": firstName,
+        "last_name": lastName,
+        "address_1": selectedAddr.street,
+        "address_2": selectedAddr.complement,
+        "city": selectedAddr.city,
+        "state": selectedAddr.state,
+        "postcode": selectedAddr.cep,
+        "country": "BR"
+      },
+
+      "payment_method": _mapPaymentMethod(paymentMethod),
+      "payment_method_title": _mapPaymentTitle(paymentMethod),
+      "set_paid": false,
+
+      "line_items": lineItems,
+
+      "shipping_lines": deliveryType == DeliveryType.delivery
+          ? [
+              {
+                "method_id": "flat_rate",
+                "method_title": "Taxa de Entrega",
+                "total": deliveryFee.toStringAsFixed(2)
+              }
+            ]
+          : [],
+
+      "meta_data": [
+        {"key": "_store_final", "value": effectiveStoreName},
+        {"key": "_effective_store_final", "value": effectiveStoreName},
+        {"key": "_shipping_pickup_store_id", "value": effectiveStoreId},
+        {"key": "_processed_by_app", "value": "true"},
+
+        {
+          "key": "_is_future_date",
+          "value": _isFutureDate() ? "yes" : "no"
+        },
+
+        {
+          "key": "delivery_type",
+          "value": deliveryType == DeliveryType.delivery ? "delivery" : "pickup"
+        },
+
+        {
+          "key": "_app_customer_id",
+          "value": customerId?.toString() ?? ""
+        },
+
+        if (deliveryType == DeliveryType.delivery) ...[
+          {
+            "key": "delivery_date",
+            "value": DateFormat('yyyy-MM-dd').format(selectedDate)
+          },
+          {"key": "delivery_time", "value": selectedTimeSlot}
+        ] else ...[
+          {
+            "key": "pickup_date",
+            "value": DateFormat('yyyy-MM-dd').format(selectedDate)
+          },
+          {"key": "pickup_time", "value": selectedTimeSlot},
+          {
+            "key": "_shipping_pickup_stores",
+            "value": pickupLocations[selectedPickup]?['name'] ?? ''
+          }
+        ],
+
+        if (needsChange) ...[
+          {"key": "needs_change", "value": "yes"},
+          {"key": "change_for_amount", "value": changeForAmount}
+        ],
+
+        if (orderNotes.isNotEmpty)
+          {"key": "order_notes", "value": orderNotes}
+      ]
+    };
+
+    final orderService = OrderService();
+    final response = await orderService.createOrder(orderData);
+
+    orderId = response['id'].toString();
+
+    // ✅ 3. SE PIX, GERAR NO PAGAR.ME
+    if (paymentMethod == 'pix') {
+      debugPrint('🔥 Gerando PIX no Pagar.me para pedido #$orderId');
+
+      final pagarmeService = PagarMeService();
+
+      try {
+        final pixResponse = await pagarmeService.generatePix(
+          orderId: orderId!,
+          storeFinal: effectiveStoreName,
+          totalAmount: total,
+          customerPhone: userPhoneRaw,
+        );
+
+        pixCode = pixResponse.qrCodeText;
+        pixExpiresAt = pixResponse.expiresAt;
+
+        debugPrint('✅ PIX gerado com sucesso!');
+        debugPrint('QR Code: ${pixCode?.substring(0, 50)}...');
+        debugPrint('Expira em: $pixExpiresAt');
+      } catch (e) {
+        debugPrint('❌ Erro ao gerar PIX: $e');
+        // Fallback para mock caso dê erro
+        pixCode = _generateMockPix();
+        pixExpiresAt = DateTime.now().add(const Duration(minutes: 60));
       }
-
-     
-
-
-      /// =======================================================
-      ///  4. SALVAR NO FIRESTORE
-      /// =======================================================
-      final firestore = FirestoreService();
-      String cd = _getCdName(effectiveStoreName);
-
-      final String janelaTexto = selectedTimeSlot ?? "Horário não definido";
-      final bool isAgendado = _isFutureDate();
-      final String statusFinal = isAgendado ? "Agendado" : "-";
-
-      final mockOrder = AppOrder(
-        id: orderId!,
-        date: selectedDate,
-        status: statusFinal,
-        items: CartController.instance.items.map((i) => OrderItem(
-          name: i.product.name,
-          imageUrl: i.product.imageUrl,
-          price: i.product.price,
-          quantity: i.quantity,
-        )).toList(),
-        subtotal: subtotal,
-        deliveryFee: deliveryFee,
-        discount: appliedCoupon?.discount ?? 0,
-        total: total,
-        address: Address(
-          id: selectedAddr.id,
-          street: selectedAddr.street,
-          number: selectedAddr.number,
-          complement: selectedAddr.complement,
-          neighborhood: selectedAddr.neighborhood,
-          city: selectedAddr.city,
-          state: selectedAddr.state,
-          cep: selectedAddr.cep,
-        ),
-        payment: PaymentMethod(type: paymentMethod),
-        rating: null,
-      );
-      
-      await firestore.saveOrder(
-        mockOrder,
-        userPhoneRaw, 
-        cd: cd,
-        janelaTexto: janelaTexto,
-        isAgendado: isAgendado,
-        customerName: customer?.name ?? 'Cliente',
-      );
     }
 
-    catch (e) {
-      debugPrint('❌ Erro ao criar pedido: $e');
+    /// =======================================================
+    ///  4. SALVAR NO FIRESTORE
+    /// =======================================================
+    final firestore = FirestoreService();
+    String cd = _getCdName(effectiveStoreName);
+
+    final String janelaTexto = selectedTimeSlot ?? "Horário não definido";
+    final bool isAgendado = _isFutureDate();
+
+    // ✅ LÓGICA DE STATUS CORRIGIDA
+    String statusFinal;
+
+    if (paymentMethod == 'pix') {
+      // PIX sempre começa como "Pendente" (independente da data)
+      statusFinal = "Pendente";
+      debugPrint('💳 Pedido $orderId: PIX não pago → Status: Pendente');
+    } else if (isAgendado) {
+      // Pagamento na entrega + Data futura = Agendado
+      statusFinal = "Agendado";
+      debugPrint('📅 Pedido $orderId: Pagamento na entrega + Data futura → Status: Agendado');
+    } else {
+      // Pagamento na entrega + Data hoje = Processando
+      statusFinal = "Processando";
+      debugPrint('✅ Pedido $orderId: Pagamento na entrega + Data hoje → Status: Processando');
     }
 
-    finally {
-      isProcessing = false;
-      _safeNotify();
-    }
+    final mockOrder = AppOrder(
+      id: orderId!,
+      date: selectedDate,
+      status: statusFinal,  // ✅ STATUS CORRETO
+      items: CartController.instance.items.map((i) => OrderItem(
+        name: i.product.name,
+        imageUrl: i.product.imageUrl,
+        price: i.product.price,
+        quantity: i.quantity,
+      )).toList(),
+      subtotal: subtotal,
+      deliveryFee: deliveryFee,
+      discount: appliedCoupon?.discount ?? 0,
+      total: total,
+      address: Address(
+        id: selectedAddr.id,
+        street: selectedAddr.street,
+        number: selectedAddr.number,
+        complement: selectedAddr.complement,
+        neighborhood: selectedAddr.neighborhood,
+        city: selectedAddr.city,
+        state: selectedAddr.state,
+        cep: selectedAddr.cep,
+      ),
+      payment: PaymentMethod(type: paymentMethod),
+      rating: null,
+    );
+
+    await firestore.saveOrder(
+      mockOrder,
+      userPhoneRaw,
+      cd: cd,
+      janelaTexto: janelaTexto,
+      isAgendado: isAgendado,
+      customerName: customer?.name ?? 'Cliente',
+    );
+
+    debugPrint('✅ Pedido $orderId salvo no Firestore com status: $statusFinal');
+  } catch (e) {
+    debugPrint('❌ Erro ao criar pedido: $e');
+  } finally {
+    isProcessing = false;
+    _safeNotify();
   }
-
+}
 
   Future<void> refreshFee() async {
     await _refreshFee();

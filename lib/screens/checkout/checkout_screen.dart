@@ -133,7 +133,7 @@ class _CheckoutView extends StatelessWidget {
     );
   }
 
-  Widget _buildFooter(CheckoutController c, NumberFormat currency) {
+ Widget _buildFooter(CheckoutController c, NumberFormat currency) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -202,11 +202,7 @@ class _CheckoutView extends StatelessWidget {
                           ),
                         )
                       : Text(
-                          c.currentStep == 1
-                              ? 'Continuar'
-                              : c.paymentMethod == 'pix'
-                                  ? 'Gerar PIX'
-                                  : 'Confirmar Pedido',
+                          c.finalizarButtonText, // ✅ USANDO O GETTER
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
@@ -222,7 +218,7 @@ class _CheckoutView extends StatelessWidget {
       ),
     );
   }
-}
+} // ✅ ADICIONE ESTA LINHA AQUI - FECHA A CLASSE _CheckoutView
 
 // ═══════════════════════════════════════════════════════════
 //           STEPPER INLINE (UMA LINHA HORIZONTAL)

@@ -1,11 +1,14 @@
-// lib/screens/checkout/thank_you_screen.dart - VERSÃO PREMIUM COM PIX
+// lib/screens/checkout/thank_you_screen.dart - VERSÃO FINAL COM STREAMBUILDER
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'package:ao_gosto_app/screens/checkout/checkout_controller.dart';
+import 'package:ao_gosto_app/api/firestore_service.dart';
+import 'package:ao_gosto_app/models/order_model.dart';
 import 'dart:async';
 
 class ThankYouScreen extends StatelessWidget {
@@ -333,9 +336,9 @@ class ThankYouScreen extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════
-//            PIX THANK YOU SCREEN (ULTRA PREMIUM)
+//       PIX THANK YOU SCREEN COM STREAMBUILDER REAL-TIME
 // ═══════════════════════════════════════════════════════════
-class _PixThankYouScreen extends StatelessWidget {
+class _PixThankYouScreen extends StatefulWidget {
   final String orderId;
   final String pixCode;
   final DateTime expiresAt;
@@ -351,313 +354,540 @@ class _PixThankYouScreen extends StatelessWidget {
   });
 
   @override
+  State<_PixThankYouScreen> createState() => _PixThankYouScreenState();
+}
+
+class _PixThankYouScreenState extends State<_PixThankYouScreen> {
+  String? _customerPhone;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadCustomerPhone();
+  }
+
+  Future<void> _loadCustomerPhone() async {
+    final sp = await SharedPreferences.getInstance();
+    final phone = sp.getString('customer_phone');
+    if (phone != null && mounted) {
+      setState(() {
+        _customerPhone = phone.replaceAll(RegExp(r'\D'), '');
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // ✅ AGUARDA TELEFONE
+    if (_customerPhone == null) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    // ✅ STREAMBUILDER PARA ESCUTAR STATUS EM TEMPO REAL
+    return StreamBuilder<AppOrder?>(
+      stream: FirestoreService().getOrderById(widget.orderId),
+      builder: (context, snapshot) {
+        // Extrai status
+        final status = snapshot.data?.status ?? '-';
+
+        // ✅ SE PAGO → MOSTRA CONFIRMAÇÃO
+        if (status == 'processing') {
+          return _buildPaymentConfirmed();
+        }
+
+        // ✅ AGUARDANDO PAGAMENTO
+        return _buildPixPending();
+      },
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  //                  PAGAMENTO CONFIRMADO
+  // ═══════════════════════════════════════════════════════════
+  Widget _buildPaymentConfirmed() {
     return Scaffold(
       backgroundColor: const Color(0xFFFAFAFA),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            children: [
-              // === HEADER COM SUCESSO ===
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      const Color(0xFF00C9A7),
-                      const Color(0xFF00B896),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // ✅ Ícone de sucesso
+                Container(
+                  padding: const EdgeInsets.all(30),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF16A34A), Color(0xFF059669)],
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF16A34A).withOpacity(0.3),
+                        blurRadius: 30,
+                        offset: const Offset(0, 10),
+                      ),
                     ],
                   ),
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF00C9A7).withOpacity(0.3),
-                      blurRadius: 20,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
+                  child: const Icon(
+                    Icons.check_rounded,
+                    size: 80,
+                    color: Colors.white,
+                  ),
                 ),
-                child: Column(
-                  children: [
-                    const Icon(
-                      Icons.check_circle_rounded,
-                      size: 60,
-                      color: Colors.white,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Pedido #$orderId',
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w900,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Total: $total',
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ],
+
+                const SizedBox(height: 32),
+
+                // ✅ Título
+                const Text(
+                  '✅ Pagamento Confirmado!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w900,
+                    color: Color(0xFF18181B),
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 24),
+                const SizedBox(height: 16),
 
-              // === CARD DO PIX ===
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: _cardDeco(),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF00C9A7), Color(0xFF00B896)],
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: const Icon(
-                            Icons.pix_rounded,
-                            color: Colors.white,
-                            size: 28,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Pagar com PIX',
-                                style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                  color: Color(0xFF18181B),
-                                ),
-                              ),
-                              Text(
-                                'Copie o código e cole no app do seu banco',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Color(0xFF71717A),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // === CÓDIGO PIX ===
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF9FAFB),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE5E7EB)),
-                      ),
-                      child: Column(
-                        children: [
-                          SelectableText(
-                            pixCode,
-                            style: const TextStyle(
-                              fontFamily: 'monospace',
-                              fontSize: 11,
-                              color: Color(0xFF18181B),
-                            ),
-                            maxLines: 3,
-                          ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 48,
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                Clipboard.setData(ClipboardData(text: pixCode));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: const Row(
-                                      children: [
-                                        Icon(Icons.check_circle, color: Colors.white),
-                                        SizedBox(width: 12),
-                                        Text(
-                                          'Código PIX copiado!',
-                                          style: TextStyle(fontWeight: FontWeight.w700),
-                                        ),
-                                      ],
-                                    ),
-                                    backgroundColor: const Color(0xFF16A34A),
-                                    behavior: SnackBarBehavior.floating,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                  ),
-                                );
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF00C9A7),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                elevation: 0,
-                              ),
-                              icon: const Icon(Icons.copy_rounded, size: 20),
-                              label: const Text(
-                                'Copiar Código PIX',
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // === TIMER PREMIUM ===
-                    _PremiumPixTimer(expiresAt: expiresAt),
-
-                    const SizedBox(height: 20),
-
-                    // === INSTRUÇÕES ===
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF0F9FF),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFBAE6FD)),
-                      ),
-                      child: Column(
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF0284C7),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(
-                                  Icons.info_outline_rounded,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              const Expanded(
-                                child: Text(
-                                  'Como pagar',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w900,
-                                    color: Color(0xFF075985),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          const Text(
-                            '1. Copie o código PIX acima\n'
-                            '2. Abra o app do seu banco\n'
-                            '3. Escolha "Pix Copia e Cola"\n'
-                            '4. Cole o código e confirme',
-                            style: TextStyle(
-                              fontSize: 13,
-                              height: 1.6,
-                              color: Color(0xFF075985),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+                // ✅ Subtítulo
+                Text(
+                  'Pedido #${widget.orderId}',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey[600],
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 24),
+                const SizedBox(height: 8),
 
-              // === BOTÕES ===
-              Column(
-                children: [
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: ElevatedButton.icon(
-                      onPressed: () => launchUrl(Uri.parse(whatsappUrl)),
-                      icon: const Icon(Icons.chat_rounded, size: 22),
-                      label: const Text(
-                        'Dúvidas? Fale no WhatsApp',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                        ),
+                const Text(
+                  'Seu pedido está sendo preparado\ne logo estará a caminho!',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: Color(0xFF71717A),
+                    height: 1.5,
+                  ),
+                ),
+
+                const SizedBox(height: 48),
+
+                // ✅ Botão voltar
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).popUntil((route) => route.isFirst);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
                       ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF25D366),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        elevation: 0,
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Voltar para o Início',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: OutlinedButton(
-                      onPressed: () {
-                        Navigator.of(context).popUntil((route) => route.isFirst);
-                      },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFF18181B),
-                        side: const BorderSide(
-                          color: Color(0xFFE5E7EB),
-                          width: 2,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                      ),
-                      child: const Text(
-                        'Voltar para o Início',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 20),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
-}
+
+  // ═══════════════════════════════════════════════════════════
+  //                  AGUARDANDO PAGAMENTO PIX
+  // ═══════════════════════════════════════════════════════════
+  Widget _buildPixPending() {
+  return Scaffold(
+    backgroundColor: const Color(0xFFFAFAFA),
+    body: SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            // ✅ HEADER LIMPO (sem fundo verde estridente)
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x08000000),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  // ✅ Ícone QR Code discreto
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(
+                      Icons.qr_code_2_rounded,
+                      size: 60,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  
+                  // ✅ Número do pedido + botão copiar
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        'Pedido ',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF71717A),
+                        ),
+                      ),
+                      Text(
+                        '#${widget.orderId}',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF18181B),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      
+                      // ✅ Botão copiar ID
+                      IconButton(
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: widget.orderId));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Row(
+                                children: [
+                                  Icon(Icons.check_circle, color: Colors.white, size: 20),
+                                  SizedBox(width: 12),
+                                  Text('ID copiado!'),
+                                ],
+                              ),
+                              backgroundColor: const Color(0xFF16A34A),
+                              behavior: SnackBarBehavior.floating,
+                              duration: const Duration(seconds: 2),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          );
+                        },
+                        icon: Icon(
+                          Icons.content_copy_rounded,
+                          size: 20,
+                          color: Colors.grey[600],
+                        ),
+                        tooltip: 'Copiar ID',
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 8),
+                  
+                  // ✅ Total (discreto)
+                  Text(
+                    'Total: ${widget.total}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF71717A),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // === CARD DO PIX (mantém como estava) ===
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x08000000),
+                    blurRadius: 12,
+                    offset: Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(
+                          Icons.pix_rounded,
+                          color: AppColors.primary,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Pagar com PIX',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w900,
+                                color: Color(0xFF18181B),
+                              ),
+                            ),
+                            Text(
+                              'Copie o código e cole no app do seu banco',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF71717A),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // === CÓDIGO PIX ===
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF9FAFB),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFE5E7EB)),
+                    ),
+                    child: Column(
+                      children: [
+                        SelectableText(
+                          widget.pixCode,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                            color: Color(0xFF18181B),
+                          ),
+                          maxLines: 3,
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Clipboard.setData(ClipboardData(text: widget.pixCode));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Row(
+                                    children: [
+                                      Icon(Icons.check_circle, color: Colors.white),
+                                      SizedBox(width: 12),
+                                      Text(
+                                        'Código PIX copiado!',
+                                        style: TextStyle(fontWeight: FontWeight.w700),
+                                      ),
+                                    ],
+                                  ),
+                                  backgroundColor: const Color(0xFF16A34A),
+                                  behavior: SnackBarBehavior.floating,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              );
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
+                            ),
+                            icon: const Icon(Icons.copy_rounded, size: 20),
+                            label: const Text(
+                              'Copiar Código PIX',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // === TIMER ===
+                  _PremiumPixTimer(expiresAt: widget.expiresAt),
+
+                  const SizedBox(height: 20),
+
+                  // === INSTRUÇÕES ===
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF0F9FF),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFBAE6FD)),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0284C7),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.info_outline_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text(
+                                'Como pagar',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFF075985),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Text(
+                          '1. Copie o código PIX acima\n'
+                          '2. Abra o app do seu banco\n'
+                          '3. Escolha "Pix Copia e Cola"\n'
+                          '4. Cole o código e confirme',
+                          style: TextStyle(
+                            fontSize: 13,
+                            height: 1.6,
+                            color: Color(0xFF075985),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // === BOTÕES ===
+            Column(
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton.icon(
+                    onPressed: () => launchUrl(Uri.parse(widget.whatsappUrl)),
+                    icon: const Icon(Icons.chat_rounded, size: 22),
+                    label: const Text(
+                      'Dúvidas? Fale no WhatsApp',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF25D366),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.of(context).popUntil((route) => route.isFirst);
+                    },
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF18181B),
+                      side: const BorderSide(
+                        color: Color(0xFFE5E7EB),
+                        width: 2,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text(
+                      'Voltar para o Início',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    ),
+  );
+} 
+
+} 
+
 
 // ═══════════════════════════════════════════════════════════
 //            TIMER PREMIUM COM ANIMAÇÃO

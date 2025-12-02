@@ -838,17 +838,18 @@ class _ModernCardInfo extends StatelessWidget {
     final c = context.watch<CheckoutController>();
     final total = c.total;
     
+    // ✅ LÓGICA DE PARCELAMENTO
     String message;
     int parcelas;
     
-    if (total > 300) {
-      message = 'Sua compra pode ser parcelada em até 3x sem juros.';
+    if (total >= 300) {
+      message = 'Parcele em até 3x sem juros no cartão de crédito';
       parcelas = 3;
-    } else if (total > 200) {
-      message = 'Sua compra pode ser parcelada em até 2x sem juros.';
+    } else if (total >= 200) {
+      message = 'Parcele em até 2x sem juros no cartão de crédito';
       parcelas = 2;
     } else {
-      message = 'Pagamento à vista no cartão.';
+      message = 'Pagamento à vista no cartão';
       parcelas = 1;
     }
     
@@ -856,20 +857,20 @@ class _ModernCardInfo extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: _boxDeco(),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
-                  ),
+                  color: const Color(0xFF3B82F6).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(
                   Icons.credit_card_rounded,
-                  color: Colors.white,
+                  color: Color(0xFF3B82F6),
                   size: 24,
                 ),
               ),
@@ -878,7 +879,7 @@ class _ModernCardInfo extends StatelessWidget {
                 child: Text(
                   'Cartão na Entrega',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 18,
                     fontWeight: FontWeight.w900,
                     color: Color(0xFF18181B),
                   ),
@@ -889,8 +890,9 @@ class _ModernCardInfo extends StatelessWidget {
           
           const SizedBox(height: 16),
           
+          // ✅ INFO DE PARCELAMENTO (DISCRETA E HARMÔNICA)
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: const Color(0xFFF0F9FF),
               borderRadius: BorderRadius.circular(12),
@@ -901,15 +903,16 @@ class _ModernCardInfo extends StatelessWidget {
                 const Icon(
                   Icons.info_outline_rounded,
                   color: Color(0xFF0284C7),
-                  size: 20,
+                  size: 18,
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
                     message,
                     style: const TextStyle(
                       fontSize: 13,
                       color: Color(0xFF075985),
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -917,6 +920,7 @@ class _ModernCardInfo extends StatelessWidget {
             ),
           ),
           
+          // ✅ CARD COM VALOR DA PARCELA (se > 1x)
           if (parcelas > 1) ...[
             const SizedBox(height: 12),
             Container(
@@ -940,10 +944,10 @@ class _ModernCardInfo extends StatelessWidget {
                   Text(
                     NumberFormat.simpleCurrency(locale: 'pt_BR')
                         .format(total / parcelas),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w900,
-                      color: Color(0xFF18181B),
+                      color: AppColors.primary,
                     ),
                   ),
                 ],
@@ -955,6 +959,7 @@ class _ModernCardInfo extends StatelessWidget {
     );
   }
 }
+
 
 // ═══════════════════════════════════════════════════════════
 //                   6. VALE ALIMENTAÇÃO
