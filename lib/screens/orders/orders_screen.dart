@@ -7,6 +7,7 @@ import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'package:ao_gosto_app/models/order_model.dart';
 import 'package:ao_gosto_app/screens/orders/order_detail_screen.dart';
 import 'package:ao_gosto_app/api/firestore_service.dart';
+import 'package:ao_gosto_app/state/customer_provider.dart'; 
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -66,46 +67,81 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 
   Future<void> _loadCustomerId() async {
-    try {
-      final sp = await SharedPreferences.getInstance();
-      final phone = sp.getString('customer_phone');
-
-      if (phone == null || phone.isEmpty) {
-        if (mounted) {
-          setState(() {
-            _customerId = null;
-            _isLoading = false;
-          });
+  try {
+    final sp = await SharedPreferences.getInstance();
+    
+    // ✅ 1. Tenta buscar do SharedPreferences
+    String? phone = sp.getString('customer_phone');
+    
+    // ✅ 2. FALLBACK: Se não encontrar, busca do CustomerProvider
+    if (phone == null || phone.isEmpty) {
+      final customerProv = CustomerProvider.instance;  // ✅ Agora funciona!
+      
+      // Se o provider não tem cliente carregado, tenta carregar
+      if (customerProv.customer == null) {
+        final name = sp.getString('customer_name');
+        final fallbackPhone = sp.getString('user_phone'); // Tenta chave antiga
+        
+        if (fallbackPhone != null && name != null) {
+          await customerProv.loadOrCreateCustomer(
+            name: name,
+            phone: fallbackPhone,
+          );
         }
-        return;
       }
-
-      final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
-
-      if (mounted) {
-        setState(() {
-          _customerId = cleanPhone;
-          _isLoading = false;
-        });
-
-        _fadeController.forward();
-
-        // ✨ Inicia animação da seta após um pequeno delay
-        Future.delayed(const Duration(milliseconds: 800), () {
-          if (mounted) {
-            _arrowController.repeat();
-          }
-        });
+      
+      // Agora sim pega do provider
+      phone = customerProv.customer?.phone;
+      
+      // ✅ 3. Se conseguiu do provider, sincroniza com SharedPreferences
+      if (phone != null && phone.isNotEmpty) {
+        await sp.setString('customer_phone', phone);
       }
-    } catch (e) {
+    }
+    
+    // ✅ DEBUG (REMOVA DEPOIS)
+    print('═══════════════════════════════════════════');
+    print('📱 DEBUG ORDERS SCREEN');
+    print('Telefone final: $phone');
+    print('Todas as chaves: ${sp.getKeys()}');
+    print('═══════════════════════════════════════════');
+
+    if (phone == null || phone.isEmpty) {
       if (mounted) {
         setState(() {
           _customerId = null;
           _isLoading = false;
         });
       }
+      return;
+    }
+
+    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+
+    if (mounted) {
+      setState(() {
+        _customerId = cleanPhone;
+        _isLoading = false;
+      });
+
+      _fadeController.forward();
+
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (mounted) {
+          _arrowController.repeat();
+        }
+      });
+    }
+  } catch (e) {
+    print('❌ ERRO ao carregar customer_id: $e');
+    if (mounted) {
+      setState(() {
+        _customerId = null;
+        _isLoading = false;
+      });
     }
   }
+}
 
   String _formatDate(DateTime date) {
     final months = [

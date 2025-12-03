@@ -155,49 +155,52 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
   }
 
   Future<void> _saveAndFinish() async {
-    if (_numberCtrl.text.trim().isEmpty) return;
-    setState(() => _isLoading = true);
+  if (_numberCtrl.text.trim().isEmpty) return;
+  setState(() => _isLoading = true);
 
-    try {
-      final telefoneLimpo = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+  try {
+    final telefoneLimpo = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
 
-      final novoEndereco = CustomerAddress(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        apelido: "Minha Casa",
-        street: _street ?? '',
-        number: _numberCtrl.text.trim(),
-        complement: _complementCtrl.text.trim().isEmpty ? null : _complementCtrl.text.trim(),
-        neighborhood: _neighborhood ?? '',
-        city: _city ?? '',
-        state: _state ?? '',
-        cep: _cepCtrl.text.replaceAll(RegExp(r'\D'), ''),
-        isDefault: true,
-      );
+    final novoEndereco = CustomerAddress(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      apelido: "Minha Casa",
+      street: _street ?? '',
+      number: _numberCtrl.text.trim(),
+      complement: _complementCtrl.text.trim().isEmpty ? null : _complementCtrl.text.trim(),
+      neighborhood: _neighborhood ?? '',
+      city: _city ?? '',
+      state: _state ?? '',
+      cep: _cepCtrl.text.replaceAll(RegExp(r'\D'), ''),
+      isDefault: true,
+    );
 
-      await CustomerProvider.instance.loadOrCreateCustomer(
-        name: _nameCtrl.text.trim(),
-        phone: telefoneLimpo,
-        initialAddress: novoEndereco,
-      );
+    await CustomerProvider.instance.loadOrCreateCustomer(
+      name: _nameCtrl.text.trim(),
+      phone: telefoneLimpo,
+      initialAddress: novoEndereco,
+    );
 
-      CartController.instance.setDeliveryFee(_deliveryFee ?? 0.0);
+    CartController.instance.setDeliveryFee(_deliveryFee ?? 0.0);
 
-      final sp = await SharedPreferences.getInstance();
-      await sp.setBool('onboarding_done', true);
+    final sp = await SharedPreferences.getInstance();
+    await sp.setBool('onboarding_done', true);
+    
+    // ✅ ADICIONE ESTA LINHA
+    await sp.setString('customer_phone', telefoneLimpo);
 
-      if (mounted) {
-        Navigator.of(context).pop();
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erro ao salvar: $e')),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+    if (mounted) {
+      Navigator.of(context).pop();
     }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erro ao salvar: $e')),
+      );
+    }
+  } finally {
+    if (mounted) setState(() => _isLoading = false);
   }
+}
 
   @override
   Widget build(BuildContext context) {
@@ -593,11 +596,14 @@ Future<void> _skipAddressAndFinish() async {
     await CustomerProvider.instance.loadOrCreateCustomer(
       name: _nameCtrl.text.trim(),
       phone: telefoneLimpo,
-      initialAddress: null, // ← SEM ENDEREÇO
+      initialAddress: null,
     );
 
     final sp = await SharedPreferences.getInstance();
     await sp.setBool('onboarding_done', true);
+    
+    // ✅ ADICIONE ESTA LINHA
+    await sp.setString('customer_phone', telefoneLimpo);
 
     if (mounted) {
       Navigator.of(context).pop();

@@ -80,7 +80,7 @@ class PagarMeService {
       final number = phoneDigits.substring(2);
       
       // ✅ Monta payload do Pagar.me
-      final payload = {
+     final payload = {
         'items': [
           {
             'amount': amountInCents,
@@ -113,6 +113,7 @@ class PagarMeService {
         'metadata': {
           'order_id': orderId,
           'store_final': storeFinal,
+          'effective_store_final': storeFinal, // ← AQUI: agora envia os dois campos
         },
         'closed': true,
       };

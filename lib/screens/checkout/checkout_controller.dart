@@ -561,9 +561,9 @@ Future<void> savePhone(String phone) async {
   userPhone = cleanPhone;
   isEditingPhone = false;
 
-  // ✅ 1. Salva no SharedPreferences
+  // ✅ 1. Salva no SharedPreferences COM A CHAVE CORRETA
   final sp = await SharedPreferences.getInstance();
-  await sp.setString('user_phone', cleanPhone);
+  await sp.setString('customer_phone', cleanPhone);  // ✅ CORRIGIDO!
 
   // ✅ 2. Atualiza no Firestore via CustomerProvider
   final customerProv = CustomerProvider.instance;
@@ -574,7 +574,6 @@ Future<void> savePhone(String phone) async {
 
   _safeNotify();
 }
-
 
   // ===========================================================
   //                     FINALIZAÇÃO DO PEDIDO
@@ -616,6 +615,7 @@ Tipo: ${deliveryType.name}
     final nameParts = fullName.split(' ');
     final firstName = nameParts.isNotEmpty ? nameParts.first : "Cliente";
     final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : "";
+    await sp.setString('customer_phone', userPhoneRaw);
 
     // ✅ 2. CRIAR PEDIDO NO WOOCOMMERCE
     final orderData = {

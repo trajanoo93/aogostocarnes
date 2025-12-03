@@ -171,5 +171,15 @@ class StoresRepository {
       lat: -19.87108193099367,
       lng: -43.97989437539252,
     ),
+    StoreUnit(
+  name: 'Afonsos',
+  address: 'Av. Nossa Sra. do Carmo, 1270 - São Pedro, Belo Horizonte - MG, 30330-000',
+  phone: '(31) 3286-2807',
+  hours: 'Seg a Sex: 07:30 às 19:00\nSáb: 07:30 às 16:30\nDom: 07:30 às 12:30',
+  imageUrl: 'https://lh3.googleusercontent.com/gps-cs-s/AG0ilSyt5eTPSWhIBIJj0JNSyvFiOEE8cYihWB7Mpg__oeKxAfN-ionBG1nljZIsTPRWJEkUJhxJ-pnqLolUNeR68YYoWRi4FvsrUm8XyZWYpz8lmV-FY-liTzUwTIB0_auD4QZTHDvY=w408-h408-k-no',
+  lat: -19.949701366077793,
+  lng: -43.936905175390464,
+),
+
   ];
 }

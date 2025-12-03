@@ -476,8 +476,7 @@ lib/
 ├── services/
 │   └── pagarme_service.dart        ← Geração de PIX
 │
-└── models/
-    └── pix_response.dart           ← Modelo de resposta
+
 ```
 
 ---

@@ -1,4 +1,4 @@
-// lib/screens/product/product_details_page.dart
+// lib/screens/product/product_details_page.dart - ATUALIZADO COM VARIAÇÕES
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -22,10 +22,22 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   bool _compactHeader = false;
   int _qty = 1;
 
+  // ✨ NOVO: Variação selecionada
+  Map<String, String> _selectedAttributes = {};
+
   @override
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
+    
+    // ✨ Se tem variações, pré-selecionar a primeira opção
+    if (widget.product.hasVariations && widget.product.attributes != null) {
+      for (final attr in widget.product.attributes!) {
+        if (attr.options.isNotEmpty) {
+          _selectedAttributes[attr.name] = attr.options.first;
+        }
+      }
+    }
   }
 
   @override
@@ -60,7 +72,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         color: color,
         borderRadius: BorderRadius.circular(999),
         boxShadow: const [
-          BoxShadow(color: Color(0x33000000), blurRadius: 6, offset: Offset(0, 2)),
+          BoxShadow(
+            color: Color(0x33000000),
+            blurRadius: 6,
+            offset: Offset(0, 2),
+          ),
         ],
       ),
       child: Row(
@@ -84,7 +100,10 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
 
   void _addToCart() async {
     for (var i = 0; i < _qty; i++) {
-      CartController.instance.add(widget.product);
+      CartController.instance.add(
+        widget.product,
+        selectedAttributes: widget.product.hasVariations ? _selectedAttributes : null,
+      );
     }
     await showCartDrawer(context);
   }
@@ -103,7 +122,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             slivers: [
               SliverAppBar(
                 automaticallyImplyLeading: false,
-                backgroundColor: _compactHeader ? Colors.white : Colors.transparent,
+                backgroundColor:
+                    _compactHeader ? Colors.white : Colors.transparent,
                 elevation: _compactHeader ? .5 : 0,
                 pinned: true,
                 expandedHeight: 340,
@@ -132,7 +152,11 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                         p.imageUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => const Center(
-                          child: Icon(Icons.image_not_supported_outlined, size: 48, color: Colors.black26),
+                          child: Icon(
+                            Icons.image_not_supported_outlined,
+                            size: 48,
+                            color: Colors.black26,
+                          ),
                         ),
                       ),
                     ),
@@ -143,7 +167,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
               // ----- Conteúdo
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 120), // espaço pro bottom bar
+                  padding: const EdgeInsets.fromLTRB(
+                      20, 20, 20, 120), // espaço pro bottom bar
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -151,13 +176,29 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                       Wrap(
                         children: [
                           if (p.isBestseller)
-                            _badge('Mais vendido', const Color(0xFFF59E0B), Icons.workspace_premium_rounded),
+                            _badge(
+                              'Mais vendido',
+                              const Color(0xFFF59E0B),
+                              Icons.workspace_premium_rounded,
+                            ),
                           if (p.isFrozen)
-                            _badge('Congelado', const Color(0xFF3B82F6), Icons.ac_unit_rounded),
+                            _badge(
+                              'Congelado',
+                              const Color(0xFF3B82F6),
+                              Icons.ac_unit_rounded,
+                            ),
                           if (p.isChilled)
-                            _badge('Resfriado', const Color(0xFF10B981), Icons.thermostat_rounded),
+                            _badge(
+                              'Resfriado',
+                              const Color(0xFF10B981),
+                              Icons.thermostat_rounded,
+                            ),
                           if (p.isSeasoned)
-                            _badge('Temperado', const Color(0xFFEF4444), Icons.restaurant_menu_rounded),
+                            _badge(
+                              'Temperado',
+                              const Color(0xFFEF4444),
+                              Icons.restaurant_menu_rounded,
+                            ),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -210,7 +251,8 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                           if (p.averageWeightGrams != null)
                             _MetaPill(
                               icon: Icons.scale_rounded,
-                              text: 'Aprox. ${p.averageWeightGrams!.toStringAsFixed(0)}g',
+                              text:
+                                  'Aprox. ${p.averageWeightGrams!.toStringAsFixed(0)}g',
                             ),
                           if (p.pricePerKg != null)
                             _MetaPill(
@@ -220,6 +262,12 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                         ],
                       ),
                       const SizedBox(height: 18),
+
+                      // ✨ SELETOR DE VARIAÇÕES (SE HOUVER)
+                      if (p.hasVariations && p.attributes != null) ...[
+                        _buildVariationSelector(p),
+                        const SizedBox(height: 24),
+                      ],
 
                       const Text(
                         'Descrição',
@@ -264,8 +312,61 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     );
   }
 
+  // ✨ SELETOR DE VARIAÇÕES ULTRA MODERNO
+  Widget _buildVariationSelector(Product p) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: p.attributes!.map((attr) {
+        final currentValue = _selectedAttributes[attr.name] ?? '';
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Label
+              Text(
+                attr.name,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // Opções
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: attr.options.map((option) {
+                  final isSelected = currentValue == option;
+
+                  return _VariationChip(
+                    label: option,
+                    isSelected: isSelected,
+                    onTap: () {
+                      setState(() {
+                        _selectedAttributes[attr.name] = option;
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildBottomBar() {
-    final total = widget.product.price * _qty;
+    double unitPrice = widget.product.price;
+
+// Se a sua estrutura de variação tiver preço específico,
+// você pode substituir aqui. Por enquanto, usa o preço do produto pai:
+
+final total = unitPrice * _qty;
 
     return SafeArea(
       top: false,
@@ -333,7 +434,57 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 }
 
-// ======= widgets auxiliares =======
+// ======= WIDGETS AUXILIARES =======
+
+/// Chip de variação
+class _VariationChip extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _VariationChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? AppColors.primary : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : const Color(0xFFE5E7EB),
+            width: isSelected ? 2 : 1.5,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  )
+                ]
+              : [],
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: isSelected ? Colors.white : Colors.black87,
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _MetaPill extends StatelessWidget {
   final IconData icon;
@@ -416,7 +567,11 @@ class _RoundIcon extends StatelessWidget {
   final VoidCallback? onTap;
   final bool enabled;
 
-  const _RoundIcon({required this.icon, this.onTap, this.enabled = true});
+  const _RoundIcon({
+    required this.icon,
+    this.onTap,
+    this.enabled = true,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -429,7 +584,9 @@ class _RoundIcon extends StatelessWidget {
         child: Icon(
           icon,
           size: 22,
-          color: enabled ? const Color(0xFF111827) : const Color(0xFF9CA3AF),
+          color: enabled
+              ? const Color(0xFF111827)
+              : const Color(0xFF9CA3AF),
         ),
       ),
     );

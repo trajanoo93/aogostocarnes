@@ -1,3 +1,5 @@
+// lib/models/product.dart - ATUALIZADO COM VARIAÇÕES
+
 class Product {
   final int id;
   final String name;
@@ -8,17 +10,22 @@ class Product {
   // Mantém compatibilidade: pode existir string de categoria em alguns usos
   final String? category;
 
-  // Para filtros/“Todos os Cortes”
+  // Para filtros/"Todos os Cortes"
   final List<int> categoryIds;
 
   // Campos para detalhes e badges
   final String? shortDescription;
   final double? pricePerKg;          // ex.: 59.90
   final double? averageWeightGrams;  // ex.: 850
-  final bool isFrozen;               // “Congelado”
-  final bool isChilled;              // “Resfriado”
-  final bool isSeasoned;             // “Temperado”
-  final bool isBestseller;           // “Mais vendido”
+  final bool isFrozen;               // "Congelado"
+  final bool isChilled;              // "Resfriado"
+  final bool isSeasoned;             // "Temperado"
+  final bool isBestseller;           // "Mais vendido"
+
+  // ✨ NOVO: Suporte a variações
+  final String type;                 // "simple" ou "variable"
+  final List<ProductAttribute>? attributes;  // Atributos (ex: Sabor)
+  final List<int>? variationIds;     // IDs das variações
 
   const Product({
     required this.id,
@@ -35,7 +42,13 @@ class Product {
     this.isChilled = false,
     this.isSeasoned = false,
     this.isBestseller = false,
+    this.type = 'simple',
+    this.attributes,
+    this.variationIds,
   });
+
+  bool get isVariable => type == 'variable';
+  bool get hasVariations => variationIds != null && variationIds!.isNotEmpty;
 
   factory Product.fromWoo(Map<String, dynamic> p) {
     final images = (p['images'] as List?) ?? const [];
@@ -78,6 +91,25 @@ class Product {
       return false;
     }
 
+    // ✨ PARSE ATRIBUTOS E VARIAÇÕES
+    List<ProductAttribute>? attributes;
+    List<int>? variationIds;
+    
+    if (p['type'] == 'variable') {
+      // Atributos
+      final attrsRaw = (p['attributes'] as List?) ?? [];
+      attributes = attrsRaw
+          .where((a) => a['variation'] == true)
+          .map((a) => ProductAttribute(
+                name: a['name'] ?? '',
+                options: (a['options'] as List?)?.cast<String>() ?? [],
+              ))
+          .toList();
+      
+      // IDs das variações
+      variationIds = (p['variations'] as List?)?.cast<int>() ?? [];
+    }
+
     return Product(
       id: (p['id'] as num).toInt(),
       name: (p['name'] as String?) ?? '',
@@ -96,6 +128,20 @@ class Product {
       isChilled: metaBool('_is_chilled'),
       isSeasoned: metaBool('_is_seasoned'),
       isBestseller: metaBool('_is_bestseller'),
+      type: p['type'] ?? 'simple',
+      attributes: attributes,
+      variationIds: variationIds,
     );
   }
+}
+
+// ✨ CLASSE DE ATRIBUTO (SIMPLES)
+class ProductAttribute {
+  final String name;
+  final List<String> options;
+
+  const ProductAttribute({
+    required this.name,
+    required this.options,
+  });
 }

@@ -22,7 +22,8 @@ class ProductService {
 
   // Campos retornados do WooCommerce
   static const String _FIELDS =
-      'id,name,regular_price,sale_price,price,images,short_description,categories,meta_data';
+    'id,name,type,regular_price,sale_price,price,images,short_description,categories,meta_data,attributes,variations';
+
 
   double? _toDouble(dynamic v) {
     if (v == null) return null;
@@ -45,33 +46,82 @@ class ProductService {
   }
 
   Product _mapProduct(Map<String, dynamic> p) {
-    final meta = (p['meta_data'] as List?)?.cast<Map<String, dynamic>>();
-    final catIds = ((p['categories'] as List?) ?? [])
-        .map((c) =>
-            (c is Map && c['id'] is int) ? c['id'] as int? : null)
-        .whereType<int>()
-        .toList();
+  final meta = (p['meta_data'] as List?)?.cast<Map<String, dynamic>>();
+  final catIds = ((p['categories'] as List?) ?? [])
+      .map((c) =>
+          (c is Map && c['id'] is int) ? c['id'] as int? : null)
+      .whereType<int>()
+      .toList();
 
-    return Product(
-      id: (p['id'] as num).toInt(),
-      name: (p['name'] as String?) ?? '',
-      price: _toDouble(p['price']) ?? 0.0,
-      regularPrice: _toDouble(p['regular_price']),
-      imageUrl: (p['images'] as List?)?.isNotEmpty == true
-          ? ((((p['images'] as List).first) as Map)['src']
-                  as String? ??
-              _placeholder)
-          : _placeholder,
-      categoryIds: catIds,
-      shortDescription: (p['short_description'] as String?)?.trim(),
-      pricePerKg: _toDouble(_findMeta(meta, '_price_per_kg')),
-      averageWeightGrams: _toDouble(_findMeta(meta, '_weight_grams')),
-      isFrozen: _toBool(_findMeta(meta, '_is_frozen')),
-      isChilled: _toBool(_findMeta(meta, '_is_chilled')),
-      isSeasoned: _toBool(_findMeta(meta, '_is_seasoned')),
-      isBestseller: _toBool(_findMeta(meta, '_is_bestseller')),
-    );
+  // --------- VARIAÇÕES E ATRIBUTOS DO WOO ----------
+  String type = (p['type'] ?? 'simple').toString();
+
+  // Atributos variáveis (ex: Sabor)
+  List<ProductAttribute>? attributes;
+  if (type == "variable") {
+    final attrsRaw = (p['attributes'] as List?) ?? [];
+
+    attributes = attrsRaw
+        .where((a) => a['variation'] == true)
+        .map((a) => ProductAttribute(
+              name: a['name'] ?? '',
+              options:
+                  (a['options'] as List?)?.cast<String>() ?? const [],
+            ))
+        .toList();
   }
+
+  // IDs das variações
+  final variationIds =
+      (p['variations'] as List?)?.map((v) => v as int).toList();
+
+  return Product(
+    id: (p['id'] as num).toInt(),
+    name: (p['name'] as String?) ?? '',
+    type: type,
+    attributes: attributes,
+    variationIds: variationIds,
+
+    price: _toDouble(p['price']) ?? 0.0,
+    regularPrice: _toDouble(p['regular_price']),
+
+    imageUrl: (p['images'] as List?)?.isNotEmpty == true
+        ? (((p['images'] as List).first)['src'] as String? ??
+            _placeholder)
+        : _placeholder,
+
+    categoryIds: catIds,
+    shortDescription: _cleanHtml(
+  (p['short_description'] as String?) ?? ''
+),
+
+
+    pricePerKg: _toDouble(_findMeta(meta, '_price_per_kg')),
+    averageWeightGrams: _toDouble(_findMeta(meta, '_weight_grams')),
+
+    isFrozen: _toBool(_findMeta(meta, '_is_frozen')),
+    isChilled: _toBool(_findMeta(meta, '_is_chilled')),
+    isSeasoned: _toBool(_findMeta(meta, '_is_seasoned')),
+    isBestseller: _toBool(_findMeta(meta, '_is_bestseller')),
+  );
+}
+
+String _cleanHtml(String input) {
+  // Remove tags HTML
+  final noTags = input.replaceAll(RegExp(r'<[^>]*>'), ' ');
+
+  // Remove entidades HTML (&#8211;, &nbsp;, etc)
+  final noEntities = noTags
+      .replaceAll(RegExp(r'&[^;\s]+;'), ' ')
+      .replaceAll('&#8211;', '-')
+      .replaceAll('&#8217;', "'")
+      .replaceAll('&nbsp;', ' ')
+      .replaceAll('&amp;', '&');
+
+  // Espaçamentos finais
+  return noEntities.replaceAll(RegExp(r'\s+'), ' ').trim();
+}
+
 
   // ------------------- ENDPOINTS -------------------
 

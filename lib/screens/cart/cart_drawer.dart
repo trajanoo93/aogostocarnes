@@ -432,14 +432,14 @@ class _CartItemCard extends StatelessWidget {
   final Product product;
   final NumberFormat brl;
   final CartController controller;
-  
+
   const _CartItemCard({
     required this.item,
     required this.product,
     required this.brl,
     required this.controller,
   });
-  
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -452,29 +452,20 @@ class _CartItemCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Imagem
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: SizedBox(
               width: 80,
               height: 80,
               child: Image.network(
-                product.imageUrl ?? '',
+                product.imageUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  color: Colors.grey[200],
-                  child: const Icon(
-                    Icons.image_not_supported_outlined,
-                    color: Color(0xFF9CA3AF),
-                  ),
-                ),
               ),
             ),
           ),
-          
+
           const SizedBox(width: 12),
-          
-          // Info
+
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -493,25 +484,40 @@ class _CartItemCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
+
                     IconButton(
-                      onPressed: () => controller.remove(product),
-                      icon: const Icon(
-                        Icons.delete_outline_rounded,
-                        color: Color(0xFF9CA3AF),
-                        size: 20,
+                      onPressed: () => controller.remove(
+                        product,
+                        variationId: item.variationId,
                       ),
+                      icon: const Icon(Icons.delete_outline_rounded,
+                          color: Color(0xFF9CA3AF), size: 20),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
                   ],
                 ),
-                
-                const SizedBox(height: 8),
-                
+
+                // 🔥 ATRIBUTOS EXIBIDOS
+                if (item.selectedAttributes != null &&
+                    item.selectedAttributes!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, bottom: 8),
+                    child: Text(
+                      item.selectedAttributes!.entries
+                          .map((e) => "${e.key}: ${e.value}")
+                          .join(" • "),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF71717A),
+                      ),
+                    ),
+                  ),
+
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Preço
                     Text(
                       brl.format(item.totalPrice),
                       style: const TextStyle(
@@ -520,8 +526,7 @@ class _CartItemCard extends StatelessWidget {
                         fontSize: 16,
                       ),
                     ),
-                    
-                    // Contador
+
                     Container(
                       height: 36,
                       decoration: BoxDecoration(
@@ -533,11 +538,15 @@ class _CartItemCard extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            onPressed: () => controller.decrement(product),
+                            onPressed: () => controller.decrement(
+                              product,
+                              variationId: item.variationId,
+                            ),
                             icon: const Icon(Icons.remove, size: 16),
                             padding: const EdgeInsets.all(8),
                             constraints: const BoxConstraints(),
                           ),
+
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             child: Text(
@@ -548,8 +557,12 @@ class _CartItemCard extends StatelessWidget {
                               ),
                             ),
                           ),
+
                           IconButton(
-                            onPressed: () => controller.increment(product),
+                            onPressed: () => controller.increment(
+                              product,
+                              variationId: item.variationId,
+                            ),
                             icon: const Icon(Icons.add, size: 16),
                             padding: const EdgeInsets.all(8),
                             constraints: const BoxConstraints(),
@@ -567,6 +580,7 @@ class _CartItemCard extends StatelessWidget {
     );
   }
 }
+
 
 // ═══════════════════════════════════════════════════════════
 //            UP-SELLING DISCRETO (CATEGORIA 250)

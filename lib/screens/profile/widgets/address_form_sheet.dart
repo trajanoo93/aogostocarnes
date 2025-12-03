@@ -1,10 +1,9 @@
-// lib/screens/profile/widgets/address_form_sheet.dart
+// lib/screens/profile/widgets/address_form_sheet.dart - VERSÃO CORRIGIDA
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-
 
 class AddressFormSheet extends StatefulWidget {
   final Map<String, dynamic>? address;
@@ -22,28 +21,6 @@ class AddressFormSheet extends StatefulWidget {
 
 class _AddressFormSheetState extends State<AddressFormSheet> {
   final _formKey = GlobalKey<FormState>();
-  Future<Map<String, dynamic>?> _lookupCep(String cep) async {
-  final clean = cep.replaceAll(RegExp(r'\D'), '');
-  if (clean.length != 8) return null;
-
-  try {
-    final resp = await http.get(Uri.parse('https://viacep.com.br/ws/$clean/json/'));
-    if (resp.statusCode == 200) {
-      final data = json.decode(resp.body);
-      if (data['erro'] != true) {
-        return {
-          'street': data['logradouro'] ?? '',
-          'neighborhood': data['bairro'] ?? '',
-          'city': data['localidade'] ?? '',
-          'state': data['uf'] ?? '',
-        };
-      }
-    }
-  } catch (e) {
-    // silencioso
-  }
-  return null;
-}
   
   late TextEditingController _nicknameCtrl;
   late TextEditingController _cepCtrl;
@@ -61,7 +38,9 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
     super.initState();
     
     final addr = widget.address;
-    _nicknameCtrl = TextEditingController(text: addr?['nickname'] ?? '');
+    
+    // ✅ CORREÇÃO: Usar 'apelido' ao invés de 'nickname'
+    _nicknameCtrl = TextEditingController(text: addr?['apelido'] ?? '');
     _cepCtrl = TextEditingController(text: addr?['cep'] ?? '');
     _streetCtrl = TextEditingController(text: addr?['street'] ?? '');
     _numberCtrl = TextEditingController(text: addr?['number'] ?? '');
@@ -84,25 +63,47 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
     super.dispose();
   }
 
-  Future<void> _searchCep() async {
-  final cep = _cepCtrl.text.replaceAll(RegExp(r'\D'), '');
-  if (cep.length != 8) return;
+  Future<Map<String, dynamic>?> _lookupCep(String cep) async {
+    final clean = cep.replaceAll(RegExp(r'\D'), '');
+    if (clean.length != 8) return null;
 
-  setState(() => _isLoadingCep = true);
-
-  final result = await _lookupCep(cep);
-  if (result != null && mounted) {
-    setState(() {
-      _streetCtrl.text = result['street'] ?? '';
-      _neighborhoodCtrl.text = result['neighborhood'] ?? '';
-      _cityCtrl.text = result['city'] ?? '';
-      _stateCtrl.text = result['state'] ?? '';
-    });
+    try {
+      final resp = await http.get(Uri.parse('https://viacep.com.br/ws/$clean/json/'));
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body);
+        if (data['erro'] != true) {
+          return {
+            'street': data['logradouro'] ?? '',
+            'neighborhood': data['bairro'] ?? '',
+            'city': data['localidade'] ?? '',
+            'state': data['uf'] ?? '',
+          };
+        }
+      }
+    } catch (e) {
+      debugPrint('Erro ao buscar CEP: $e');
+    }
+    return null;
   }
 
-  if (mounted) setState(() => _isLoadingCep = false);
-}
+  Future<void> _searchCep() async {
+    final cep = _cepCtrl.text.replaceAll(RegExp(r'\D'), '');
+    if (cep.length != 8) return;
 
+    setState(() => _isLoadingCep = true);
+
+    final result = await _lookupCep(cep);
+    if (result != null && mounted) {
+      setState(() {
+        _streetCtrl.text = result['street'] ?? '';
+        _neighborhoodCtrl.text = result['neighborhood'] ?? '';
+        _cityCtrl.text = result['city'] ?? '';
+        _stateCtrl.text = result['state'] ?? '';
+      });
+    }
+
+    if (mounted) setState(() => _isLoadingCep = false);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -138,6 +139,7 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
               Text(
                 widget.address == null ? 'Novo Endereço' : 'Editar Endereço',
                 style: const TextStyle(
+                  fontFamily: 'Poppins',
                   fontSize: 26,
                   fontWeight: FontWeight.w900,
                   color: AppColors.textPrimary,
@@ -147,6 +149,7 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
               Text(
                 'Preencha os dados abaixo',
                 style: TextStyle(
+                  fontFamily: 'Poppins',
                   fontSize: 15,
                   color: Colors.grey[600],
                 ),
@@ -311,6 +314,7 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                       child: const Text(
                         'Cancelar',
                         style: TextStyle(
+                          fontFamily: 'Poppins',
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                         ),
@@ -333,6 +337,7 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                       child: const Text(
                         'Salvar Endereço',
                         style: TextStyle(
+                          fontFamily: 'Poppins',
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                         ),
@@ -384,6 +389,7 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
         filled: true,
         fillColor: Colors.grey[50],
       ),
+      style: const TextStyle(fontFamily: 'Poppins'),
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       textCapitalization: textCapitalization,
@@ -394,9 +400,10 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
   void _save() {
     if (!_formKey.currentState!.validate()) return;
 
+    // ✅ CORREÇÃO: Salvar como 'apelido' ao invés de 'nickname'
     final addressData = {
-      'id': widget.address?['id'] ?? DateTime.now().millisecondsSinceEpoch,
-      'nickname': _nicknameCtrl.text.trim(),
+      'id': widget.address?['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      'apelido': _nicknameCtrl.text.trim(), // ✅ CORRIGIDO!
       'street': _streetCtrl.text.trim(),
       'number': _numberCtrl.text.trim(),
       'complement': _complementCtrl.text.trim(),
