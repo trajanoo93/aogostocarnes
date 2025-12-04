@@ -6,6 +6,8 @@ import 'package:ao_gosto_app/utils/debouncer.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'package:ao_gosto_app/widgets/shimmer_loading.dart';
 import 'package:ao_gosto_app/screens/product/product_details_page.dart';
+import 'package:ao_gosto_app/models/category_data.dart';
+import 'package:ao_gosto_app/screens/categories/category_detail_screen.dart';
 
 /// Modal de busca fullscreen premium estilo iFood/Nubank
 class SearchModal extends StatefulWidget {
@@ -265,34 +267,47 @@ class _SearchModalState extends State<SearchModal>
   }
 
   Widget _buildCategoryFilters() {
-    return Container(
-      height: 60,
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: [
-          _CategoryChip(
-            label: 'Todos',
-            isSelected: _selectedCategory == null,
-            onTap: () => _selectCategory(null),
-          ),
-          const SizedBox(width: 8),
-          ..._categories.entries.map((entry) {
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: _CategoryChip(
-                label: entry.value,
-                isSelected: _selectedCategory == entry.key,
-                onTap: () => _selectCategory(entry.key),
-              ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
+  // PEGA TODAS AS CATEGORIAS DO REPOSITÓRIO
+  final allCategories = CategoriesRepository.categories;
 
+  return Container(
+    height: 60,
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    child: ListView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      children: [
+        // "TODOS" (limpa filtro)
+        _CategoryChip(
+          label: 'Todos',
+          isSelected: _selectedCategory == null,
+          onTap: () => _selectCategory(null),
+        ),
+        const SizedBox(width: 8),
+
+        // TODAS AS CATEGORIAS REAIS (automaticamente!)
+        ...allCategories.map((cat) {
+          final isSelected = _selectedCategory == cat.id;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: _CategoryChip(
+              label: cat.name,
+              isSelected: isSelected,
+              categoryId: cat.id, // ID real da categoria
+              onTap: () {
+                _selectCategory(cat.id);
+                // NAVEGA DIRETO PRA CATEGORIA
+                Navigator.of(context).pushReplacement(
+  MaterialPageRoute(builder: (_) => CategoryDetailScreen(category: cat)),
+);
+              },
+            ),
+          );
+        }),
+      ],
+    ),
+  );
+}
   Widget _buildContent() {
     // Sugestões antes de buscar
     if (!_hasSearched) {
@@ -449,18 +464,33 @@ class _SearchModalState extends State<SearchModal>
 class _CategoryChip extends StatelessWidget {
   final String label;
   final bool isSelected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final int? categoryId;
 
   const _CategoryChip({
     required this.label,
     required this.isSelected,
-    required this.onTap,
+    this.onTap,
+    this.categoryId,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+  onTap?.call();
+  if (categoryId != null) {
+    final cat = CategoriesRepository.categories
+        .firstWhere((c) => c.id == categoryId);
+    
+    // MUDANÇA AQUI: push → pushReplacement
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => CategoryDetailScreen(category: cat),
+      ),
+    );
+  }
+},
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

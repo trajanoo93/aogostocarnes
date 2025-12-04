@@ -1,4 +1,4 @@
-// lib/api/product_service.dart - CORRIGIDO
+// lib/api/product_service.dart - VERSÃO FINAL E DEFINITIVA
 
 import 'dart:async';
 import 'dart:convert';
@@ -20,10 +20,8 @@ class ProductService {
     return 'Basic $credentials';
   }
 
-  // Campos retornados do WooCommerce
   static const String _FIELDS =
-    'id,name,type,regular_price,sale_price,price,images,short_description,categories,meta_data,attributes,variations';
-
+      'id,name,type,regular_price,sale_price,price,images,short_description,categories,meta_data,attributes,variations';
 
   double? _toDouble(dynamic v) {
     if (v == null) return null;
@@ -48,32 +46,25 @@ class ProductService {
   Product _mapProduct(Map<String, dynamic> p) {
     final meta = (p['meta_data'] as List?)?.cast<Map<String, dynamic>>();
     final catIds = ((p['categories'] as List?) ?? [])
-        .map((c) =>
-            (c is Map && c['id'] is int) ? c['id'] as int? : null)
+        .map((c) => (c is Map && c['id'] is int) ? c['id'] as int? : null)
         .whereType<int>()
         .toList();
 
-    // --------- VARIAÇÕES E ATRIBUTOS DO WOO ----------
     String type = (p['type'] ?? 'simple').toString();
 
-    // Atributos variáveis (ex: Sabor)
     List<ProductAttribute>? attributes;
     if (type == "variable") {
       final attrsRaw = (p['attributes'] as List?) ?? [];
-
       attributes = attrsRaw
           .where((a) => a['variation'] == true)
           .map((a) => ProductAttribute(
                 name: a['name'] ?? '',
-                options:
-                    (a['options'] as List?)?.cast<String>() ?? const [],
+                options: (a['options'] as List?)?.cast<String>() ?? const [],
               ))
           .toList();
     }
 
-    // IDs das variações
-    final variationIds =
-        (p['variations'] as List?)?.map((v) => v as int).toList();
+    final variationIds = (p['variations'] as List?)?.map((v) => v as int).toList();
 
     return Product(
       id: (p['id'] as num).toInt(),
@@ -81,23 +72,15 @@ class ProductService {
       type: type,
       attributes: attributes,
       variationIds: variationIds,
-
       price: _toDouble(p['price']) ?? 0.0,
       regularPrice: _toDouble(p['regular_price']),
-
       imageUrl: (p['images'] as List?)?.isNotEmpty == true
-          ? (((p['images'] as List).first)['src'] as String? ??
-              _placeholder)
+          ? (((p['images'] as List).first)['src'] as String? ?? _placeholder)
           : _placeholder,
-
       categoryIds: catIds,
-      shortDescription: _cleanHtml(
-        (p['short_description'] as String?) ?? ''
-      ),
-
+      shortDescription: _cleanHtml((p['short_description'] as String?) ?? ''),
       pricePerKg: _toDouble(_findMeta(meta, '_price_per_kg')),
       averageWeightGrams: _toDouble(_findMeta(meta, '_weight_grams')),
-
       isFrozen: _toBool(_findMeta(meta, '_is_frozen')),
       isChilled: _toBool(_findMeta(meta, '_is_chilled')),
       isSeasoned: _toBool(_findMeta(meta, '_is_seasoned')),
@@ -105,13 +88,9 @@ class ProductService {
     );
   }
 
-  // ✅ LIMPEZA HTML CORRIGIDA
   String _cleanHtml(String input) {
     if (input.trim().isEmpty) return '';
-    
     var s = input;
-    
-    // ✅ MANTÉM quebras de linha importantes
     s = s.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
     s = s.replaceAll(RegExp(r'</p>\s*<p>', caseSensitive: false), '\n\n');
     s = s.replaceAll(RegExp(r'</div>\s*<div[^>]*>', caseSensitive: false), '\n');
@@ -119,11 +98,7 @@ class ProductService {
     s = s.replaceAll(RegExp(r'</div>', caseSensitive: false), '');
     s = s.replaceAll(RegExp(r'<li[^>]*>', caseSensitive: false), '\n- ');
     s = s.replaceAll(RegExp(r'</li>', caseSensitive: false), '');
-    
-    // ✅ REMOVE tags HTML (depois de preservar quebras)
     s = s.replaceAll(RegExp(r'<[^>]+>'), '');
-    
-    // ✅ CONVERTE entidades HTML
     s = s.replaceAll('&nbsp;', ' ');
     s = s.replaceAll('&#8211;', '-');
     s = s.replaceAll('&#8217;', "'");
@@ -133,106 +108,78 @@ class ProductService {
     s = s.replaceAll('&quot;', '"');
     s = s.replaceAll('&lt;', '<');
     s = s.replaceAll('&gt;', '>');
-    
-    // ✅ LIMPA entidades restantes
     s = s.replaceAll(RegExp(r'&#\d+;'), '');
     s = s.replaceAll(RegExp(r'&[a-z]+;', caseSensitive: false), '');
-    
-    // ✅ LIMPA espaços múltiplos
     s = s.replaceAll(RegExp(r' +'), ' ');
     s = s.replaceAll(RegExp(r'\t+'), '');
     s = s.replaceAll(RegExp(r' *\n *'), '\n');
     s = s.replaceAll(RegExp(r'\n{3,}'), '\n\n');
-    
-    // ✅ REMOVE linhas indesejadas
-    final lines = s.split('\n')
-        .map((line) => line.trim())
-        .where((line) {
-          if (line.isEmpty) return false;
-          
-          final upper = line.toUpperCase();
-          return !upper.contains('IMAGEM') &&
-                 !upper.contains('ILUSTRATIVA') &&
-                 !upper.contains('MERAMENTE') &&
-                 !upper.startsWith('*') &&
-                 !upper.contains('***');
-        })
-        .toList();
-    
+
+    final lines = s.split('\n').map((line) => line.trim()).where((line) {
+      if (line.isEmpty) return false;
+      final upper = line.toUpperCase();
+      return !upper.contains('IMAGEM') &&
+             !upper.contains('ILUSTRATIVA') &&
+             !upper.contains('MERAMENTE') &&
+             !upper.startsWith('*') &&
+             !upper.contains('***');
+    }).toList();
+
     return lines.join('\n').trim();
   }
 
-  // ------------------- ENDPOINTS -------------------
-
-  /// Ofertas da semana
+  // OFERTAS
   Future<List<Product>> fetchOnSaleProducts({int perPage = 20}) async {
-    final url =
-        '$_baseUrl/products?status=publish&per_page=$perPage&stock_status=instock&category=72&_fields=$_FIELDS';
+    final url = '$_baseUrl/products?status=publish&per_page=$perPage&stock_status=instock&category=72&_fields=$_FIELDS';
     try {
-      final resp = await http.get(
-        Uri.parse(url),
-        headers: {'Authorization': _authHeader},
-      );
-
+      final resp = await http.get(Uri.parse(url), headers: {'Authorization': _authHeader});
       if (resp.statusCode == 200) {
         final List data = json.decode(resp.body);
-        return data
-            .map((e) => _mapProduct(e as Map<String, dynamic>))
-            .toList();
+        return data.map((e) => _mapProduct(e as Map<String, dynamic>)).toList();
       }
     } catch (_) {}
     return [];
   }
 
-  /// Busca geral
+  // BUSCA
   Future<List<Product>> fetchProductsBySearch(String query) async {
-    final url =
-        '$_baseUrl/products?search=${Uri.encodeComponent(query)}&per_page=30&status=publish&stock_status=instock&_fields=$_FIELDS';
-
+    final url = '$_baseUrl/products?search=${Uri.encodeComponent(query)}&per_page=30&status=publish&stock_status=instock&_fields=$_FIELDS';
     try {
-      final resp = await http.get(
-        Uri.parse(url),
-        headers: {'Authorization': _authHeader},
-      );
-
+      final resp = await http.get(Uri.parse(url), headers: {'Authorization': _authHeader});
       if (resp.statusCode == 200) {
         final List data = json.decode(resp.body);
-        return data
-            .map((e) => _mapProduct(e as Map<String, dynamic>))
-            .toList();
+        return data.map((e) => _mapProduct(e as Map<String, dynamic>)).toList();
       }
     } catch (_) {}
-
     return [];
   }
 
-  /// Uma categoria específica
   Future<List<Product>> fetchProductsByCategory(
-    int categoryId, {
-    int perPage = 20,
-    int page = 1,
-  }) async {
-    final url =
-        '$_baseUrl/products?status=publish&per_page=$perPage&page=$page&stock_status=instock&category=$categoryId&_fields=$_FIELDS';
+  int categoryId, {
+  int perPage = 20,
+  int page = 1,
+}) async {
+  final url = '$_baseUrl/products?'
+      'status=publish'
+      '&per_page=$perPage'
+      '&page=$page'
+      '&stock_status=instock'
+      '&category=$categoryId'
+      '&_fields=$_FIELDS';
 
-    try {
-      final resp = await http.get(
-        Uri.parse(url),
-        headers: {'Authorization': _authHeader},
-      );
-
-      if (resp.statusCode == 200) {
-        final List data = json.decode(resp.body);
-        return data
-            .map((e) => _mapProduct(e as Map<String, dynamic>))
-            .toList();
-      }
-    } catch (_) {}
-
-    return [];
+  try {
+    final resp = await http.get(Uri.parse(url), headers: {'Authorization': _authHeader});
+    if (resp.statusCode == 200) {
+      final List data = json.decode(resp.body);
+      return data.map((e) => _mapProduct(e as Map<String, dynamic>)).toList();
+    }
+  } catch (e) {
+    print('Erro ao carregar categoria $categoryId: $e');
   }
+  return [];
+}
 
-  /// Várias categorias — CORRETO (faz requisições paralelas)
+  // VÁRIAS CATEGORIAS (mantido como estava)
   Future<List<Product>> fetchProductsByCategories(
     List<int> categoryIds, {
     int perCategory = 50,
@@ -241,20 +188,15 @@ class ProductService {
     if (categoryIds.isEmpty) return [];
 
     try {
-      // Cada categoria gera uma requisição
       final futures = categoryIds.map((id) {
         final url =
             '$_baseUrl/products?status=publish&per_page=$perCategory&page=$page&stock_status=instock&category=$id&_fields=$_FIELDS';
-        return http.get(Uri.parse(url),
-            headers: {'Authorization': _authHeader});
+        return http.get(Uri.parse(url), headers: {'Authorization': _authHeader});
       }).toList();
 
-      // Executa todas em paralelo
       final responses = await Future.wait(futures);
-
       final Map<int, Product> unique = {};
 
-      // Mapeia e evita produtos duplicados
       for (final resp in responses) {
         if (resp.statusCode == 200) {
           final List data = json.decode(resp.body);
@@ -264,7 +206,6 @@ class ProductService {
           }
         }
       }
-
       return unique.values.toList();
     } catch (_) {
       return [];

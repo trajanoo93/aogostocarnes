@@ -243,7 +243,7 @@ class _VariationSelectorModalState extends State<_VariationSelectorModal>
                     const Row(
                       children: [
                         Icon(
-                          Icons.tune_rounded,
+                          Icons.restaurant_menu_rounded,
                           size: 20,
                           color: Color(0xFF71717A),
                         ),
@@ -331,12 +331,12 @@ class _VariationSelectorModalState extends State<_VariationSelectorModal>
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Icon(
-                          Icons.shopping_cart_rounded,
+                          Icons.inventory_2_rounded,
                           size: 20,
                         ),
                         const SizedBox(width: 8),
                         const Text(
-                          'Adicionar ao Carrinho',
+                          'Adicionar à Caixinha',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,

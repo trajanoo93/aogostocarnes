@@ -65,25 +65,24 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
     }
   }
 
-  Future<void> _loadProductsBySubcategory(int subcategoryId) async {
-    setState(() => _isLoading = true);
+Future<void> _loadProductsBySubcategory(int subcategoryId) async {
+  setState(() => _isLoading = true);
+  
+  try {
+    final products = await _productService.fetchProductsByCategory(
+      subcategoryId,
+      perPage: 100,
+    );
     
-    try {
-      final products = await _productService.fetchProductsByCategory(
-        subcategoryId,
-        perPage: 100,
-      );
-      
-      setState(() {
-        _allProducts = products;
-        _filterProducts();
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
-    }
+    setState(() {
+      _allProducts = products;
+      _filteredProducts = products;
+      _isLoading = false;
+    });
+  } catch (e) {
+    setState(() => _isLoading = false);
   }
-
+}
   void _filterProducts() {
     final searchTerm = _searchController.text.toLowerCase();
     
@@ -96,16 +95,9 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   }
 
   void _onSubcategoryTap(SubcategoryData subcategory) {
-    setState(() => _activeSubcategoryId = subcategory.id);
-    
-    // Se for "Todos", usa a categoria principal
-    if (subcategory.name == 'Todos') {
-      _loadProducts();
-    } else {
-      // Senão, carrega produtos da subcategoria
-      _loadProductsBySubcategory(subcategory.id);
-    }
-  }
+  setState(() => _activeSubcategoryId = subcategory.id);
+  _loadProductsBySubcategory(subcategory.id);
+}
 
   @override
   Widget build(BuildContext context) {

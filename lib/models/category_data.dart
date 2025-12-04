@@ -192,18 +192,19 @@ class CategoriesRepository {
 
     // 13. MASSAS E PRATOS PRONTOS
     CategoryData(
-      id: 8,
-      name: 'Massas e Pratos Prontos',
-      description: 'Sabor de casa, pronto para você.',
-      imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/massasepratosprontos.png?q=80&w=800',
-      tags: ['Dia a Dia'],
-      subcategories: [
-        SubcategoryData(id: 8, name: 'Todos'),
-        SubcategoryData(id: 175, name: 'Massas'),
-        SubcategoryData(id: 70, name: 'Massas e Tortas'),
-        SubcategoryData(id: 172, name: 'Pratos Prontos'),
-      ],
-    ),
+  id: 8,
+  name: 'Massas e Pratos Prontos',
+  description: 'Sabor de casa, pronto para você.',
+  imageUrl: 'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/massasepratosprontos.png?q=80&w=800',
+  tags: ['Dia a Dia'],
+  subcategories: [
+    // REMOVEMOS "TODOS" — FICA SÓ AS CATEGORIAS REAIS
+    SubcategoryData(id: 520, name: 'Massas'),
+    SubcategoryData(id: 70,  name: 'Tortas'),
+    SubcategoryData(id: 172, name: 'Pratos Prontos'),
+    SubcategoryData(id: 522, name: 'Massas Vegetarianas'),
+  ],
+),
 
     // 14. COMPLEMENTOS
     CategoryData(
