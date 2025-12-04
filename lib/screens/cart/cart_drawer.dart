@@ -1,7 +1,7 @@
-// lib/screens/cart/cart_drawer.dart - VERSÃO ULTRA MODERNA
+// lib/screens/cart/cart_drawer.dart - VERSÃO ULTRA HARMONIOSA
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:lottie/lottie.dart';
 import 'package:ao_gosto_app/state/cart_controller.dart';
 import 'package:ao_gosto_app/models/cart_item.dart';
 import 'package:ao_gosto_app/models/product.dart';
@@ -96,8 +96,8 @@ class CartFullScreen extends StatelessWidget {
                               : _CartWithItems(items: items, brl: brl),
                         ),
 
-                        // FOOTER PREMIUM
-                        if (!isEmpty) _PremiumFooter(brl: brl),
+                        // FOOTER PREMIUM COM UP-SELLING
+                        if (!isEmpty) _PremiumFooterWithUpselling(brl: brl),
                       ],
                     ),
                   ),
@@ -112,7 +112,7 @@ class CartFullScreen extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════
-//              HEADER MODERNO COM LARANJA
+//              HEADER MODERNO
 // ═══════════════════════════════════════════════════════════
 class _ModernHeader extends StatelessWidget {
   final int totalItems;
@@ -136,7 +136,6 @@ class _ModernHeader extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Título: "Meus Cortes" (Cortes em laranja)
                 Row(
                   children: [
                     const Text(
@@ -189,19 +188,18 @@ class _ModernHeader extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════
-//              FOOTER PREMIUM SEM TAXA
+//         FOOTER PREMIUM COM UP-SELLING FIXO
 // ═══════════════════════════════════════════════════════════
-class _PremiumFooter extends StatelessWidget {
+class _PremiumFooterWithUpselling extends StatelessWidget {
   final NumberFormat brl;
   
-  const _PremiumFooter({required this.brl});
+  const _PremiumFooterWithUpselling({required this.brl});
   
   @override
   Widget build(BuildContext context) {
     final controller = CartController.instance;
     
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border(
@@ -218,68 +216,323 @@ class _PremiumFooter extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Subtotal
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            // ✨ UP-SELLING COMPACTO FIXO
+            const _CompactUpsellingRow(),
+            
+            // Divider sutil
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: Colors.grey.shade100,
+            ),
+            
+            // Subtotal + Botão
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+              child: Column(
+                children: [
+                  // Subtotal
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Subtotal',
+                        style: TextStyle(
+                          fontSize: 15,
+                          color: Color(0xFF71717A),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        brl.format(controller.subtotal),
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF18181B),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  // Botão
+                  SizedBox(
+                    width: double.infinity,
+                    height: 52,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final navigator = Navigator.of(context);
+                        navigator.pop();
+                        navigator.push(
+                          MaterialPageRoute(
+                            builder: (_) => const CheckoutScreen(),
+                          ),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFFA4815),
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        shadowColor: Colors.transparent,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        'Finalizar Pedido',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//            UP-SELLING COMPACTO (1 LINHA FIXA)
+// ═══════════════════════════════════════════════════════════
+class _CompactUpsellingRow extends StatefulWidget {
+  const _CompactUpsellingRow();
+  
+  @override
+  State<_CompactUpsellingRow> createState() => _CompactUpsellingRowState();
+}
+
+class _CompactUpsellingRowState extends State<_CompactUpsellingRow> {
+  List<Product> _products = [];
+  bool _loading = true;
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+  
+  Future<void> _loadProducts() async {
+    try {
+      final service = ProductService();
+      final products = await service.fetchProductsByCategory(250, perPage: 10);
+      
+      // Filtrar produtos que já estão no carrinho
+      final cartController = CartController.instance;
+      final cartProductIds = cartController.items.map((e) => e.product.id).toSet();
+      final filtered = products.where((p) => !cartProductIds.contains(p.id)).toList();
+      
+      if (mounted) {
+        setState(() {
+          _products = filtered.take(10).toList();
+          _loading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    if (_loading || _products.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header compacto
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
               children: [
-                const Text(
-                  'Subtotal',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Color(0xFF71717A),
-                    fontWeight: FontWeight.w600,
+                Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF7ED),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Icon(
+                    Icons.add_shopping_cart_rounded,
+                    size: 13,
+                    color: Color(0xFFFA4815),
                   ),
                 ),
-                Text(
-                  brl.format(controller.subtotal),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
+                const SizedBox(width: 6),
+                const Text(
+                  'Não deixe de experimentar',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
                     color: Color(0xFF18181B),
                   ),
                 ),
               ],
             ),
-            
-            const SizedBox(height: 16),
-            
-            // Botão Clean e Elegante
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: () {
-                  // ✅ CORREÇÃO: Salvar contexto e navigator ANTES do async
-                  final navigator = Navigator.of(context);
-                  
-                  // Fecha o drawer
-                  navigator.pop();
-                  
-                  // Navega para o checkout SEM delay
-                  navigator.push(
-                    MaterialPageRoute(
-                      builder: (_) => const CheckoutScreen(),
+          ),
+          
+          const SizedBox(height: 10),
+          
+          // Lista horizontal
+          SizedBox(
+            height: 90,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: _products.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
+              itemBuilder: (context, i) {
+                final product = _products[i];
+                return _MiniUpsellingCard(product: product);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//            CARD MINI UP-SELLING (90px altura)
+// ═══════════════════════════════════════════════════════════
+class _MiniUpsellingCard extends StatelessWidget {
+  final Product product;
+  
+  const _MiniUpsellingCard({required this.product});
+  
+  @override
+  Widget build(BuildContext context) {
+    final brl = NumberFormat.simpleCurrency(locale: 'pt_BR');
+    final controller = CartController.instance;
+    
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ProductDetailsPage(product: product),
+          ),
+        );
+      },
+      child: Container(
+        width: 200,
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFAFAFA),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Row(
+          children: [
+            // Imagem quadrada
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SizedBox(
+                width: 70,
+                height: 70,
+                child: Image.network(
+                  product.imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    color: Colors.grey[200],
+                    child: const Icon(
+                      Icons.image_not_supported_outlined,
+                      size: 24,
+                      color: Color(0xFF9CA3AF),
                     ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFFA4815),
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shadowColor: Colors.transparent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                child: const Text(
-                  'Finalizar Pedido',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.3,
+              ),
+            ),
+            
+            const SizedBox(width: 10),
+            
+            // Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Nome
+                  Text(
+                    product.name,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF18181B),
+                      height: 1.2,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
+                  
+                  const SizedBox(height: 6),
+                  
+                  // Preço + Botão
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          brl.format(product.price),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                            color: Color(0xFFFA4815),
+                          ),
+                        ),
+                      ),
+                      // Botão +
+                      GestureDetector(
+                        onTap: () {
+                          controller.add(product);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text('Adicionado!'),
+                              duration: const Duration(seconds: 2),
+                              backgroundColor: const Color(0xFF16A34A),
+                              behavior: SnackBarBehavior.floating,
+                              margin: const EdgeInsets.only(
+                                bottom: 80,
+                                left: 20,
+                                right: 20,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFA4815),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.add,
+                            size: 16,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
@@ -322,29 +575,29 @@ class _EmptyCartState extends State<_EmptyCart> with TickerProviderStateMixin {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           SizedBox(
-  width: 180,
-  height: 180,
-  child: const _AnimatedEmptyBox(),
-),
-const SizedBox(height: 32),
-Text.rich(
-  TextSpan(
-    style: const TextStyle(
-      fontSize: 24,
-      fontWeight: FontWeight.w900,
-      color: Color(0xFF18181B),
-    ),
-    children: const [
-      TextSpan(text: 'Sua '),
-      TextSpan(
-        text: 'caixa',
-        style: TextStyle(color: Color(0xFFFA4815)), // 🔥 Cor laranja do botão
-      ),
-      TextSpan(text: ' está vazia 😅'),
-    ],
-  ),
-  textAlign: TextAlign.center,
-),
+            width: 180,
+            height: 180,
+            child: const _AnimatedEmptyBox(),
+          ),
+          const SizedBox(height: 32),
+          Text.rich(
+            TextSpan(
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w900,
+                color: Color(0xFF18181B),
+              ),
+              children: const [
+                TextSpan(text: 'Sua '),
+                TextSpan(
+                  text: 'caixa',
+                  style: TextStyle(color: Color(0xFFFA4815)),
+                ),
+                TextSpan(text: ' está vazia 😅'),
+              ],
+            ),
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 12),
           const Text(
             'Que tal adicionar alguns cortes suculentos?',
@@ -384,7 +637,7 @@ Text.rich(
 }
 
 // ═══════════════════════════════════════════════════════════
-//              CARRINHO COM ITENS + UP-SELLING
+//              CARRINHO COM ITENS
 // ═══════════════════════════════════════════════════════════
 class _CartWithItems extends StatelessWidget {
   final List<CartItem> items;
@@ -396,44 +649,35 @@ class _CartWithItems extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = CartController.instance;
 
-    return ListView(
+    return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-      children: [
-        // Lista de itens
-        ...items.asMap().entries.map((entry) {
-          final i = entry.key;
-          final item = entry.value;
-          final product = item.product;
+      itemCount: items.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 12),
+      itemBuilder: (context, i) {
+        final item = items[i];
+        final product = item.product;
 
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: i < items.length - 1 ? 20 : 0,
-            ),
-            child: _CartItemCard(
-              item: item,
-              product: product,
-              brl: brl,
-              controller: controller,
-            ),
-          );
-        }),
-        
-        // Up-selling (discreto)
-        const SizedBox(height: 32),
-        const _UpSellingSection(),
-      ],
+        return _CompactCartItemCard(
+          item: item,
+          product: product,
+          brl: brl,
+          controller: controller,
+        );
+      },
     );
   }
 }
 
-// === CARD DO ITEM ===
-class _CartItemCard extends StatelessWidget {
+// ═══════════════════════════════════════════════════════════
+//            CARD DO ITEM COMPACTO E HARMONIOSO
+// ═══════════════════════════════════════════════════════════
+class _CompactCartItemCard extends StatelessWidget {
   final CartItem item;
   final Product product;
   final NumberFormat brl;
   final CartController controller;
 
-  const _CartItemCard({
+  const _CompactCartItemCard({
     required this.item,
     required this.product,
     required this.brl,
@@ -443,20 +687,21 @@ class _CartItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: const Color(0xFFFAFAFA),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Imagem menor
           ClipRRect(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             child: SizedBox(
-              width: 80,
-              height: 80,
+              width: 70,
+              height: 70,
               child: Image.network(
                 product.imageUrl,
                 fit: BoxFit.cover,
@@ -464,12 +709,14 @@ class _CartItemCard extends StatelessWidget {
             ),
           ),
 
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
 
+          // Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Nome + Botão remover
                 Row(
                   children: [
                     Expanded(
@@ -477,8 +724,9 @@ class _CartItemCard extends StatelessWidget {
                         product.name,
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
-                          fontSize: 14,
+                          fontSize: 13,
                           color: Color(0xFF18181B),
+                          height: 1.2,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -490,31 +738,54 @@ class _CartItemCard extends StatelessWidget {
                         product,
                         variationId: item.variationId,
                       ),
-                      icon: const Icon(Icons.delete_outline_rounded,
-                          color: Color(0xFF9CA3AF), size: 20),
+                      icon: const Icon(
+                        Icons.delete_outline_rounded,
+                        color: Color(0xFF9CA3AF),
+                        size: 18,
+                      ),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
                   ],
                 ),
 
-                // 🔥 ATRIBUTOS EXIBIDOS
+                // ✨ ATRIBUTOS DISCRETOS (BADGES CINZA)
                 if (item.selectedAttributes != null &&
                     item.selectedAttributes!.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(top: 4, bottom: 8),
-                    child: Text(
-                      item.selectedAttributes!.entries
-                          .map((e) => "${e.key}: ${e.value}")
-                          .join(" • "),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF71717A),
-                      ),
+                    padding: const EdgeInsets.only(top: 6, bottom: 6),
+                    child: Wrap(
+                      spacing: 5,
+                      runSpacing: 4,
+                      children: item.selectedAttributes!.entries.map((e) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF3F4F6),
+                            borderRadius: BorderRadius.circular(5),
+                            border: Border.all(
+                              color: const Color(0xFFE5E7EB),
+                              width: 0.5,
+                            ),
+                          ),
+                          child: Text(
+                            e.value,
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF6B7280),
+                              letterSpacing: -0.1,
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
 
+                // Preço + Stepper
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -523,12 +794,13 @@ class _CartItemCard extends StatelessWidget {
                       style: const TextStyle(
                         color: Color(0xFFFA4815),
                         fontWeight: FontWeight.w900,
-                        fontSize: 16,
+                        fontSize: 15,
                       ),
                     ),
 
+                    // Stepper compacto
                     Container(
-                      height: 36,
+                      height: 32,
                       decoration: BoxDecoration(
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(30),
@@ -542,18 +814,18 @@ class _CartItemCard extends StatelessWidget {
                               product,
                               variationId: item.variationId,
                             ),
-                            icon: const Icon(Icons.remove, size: 16),
-                            padding: const EdgeInsets.all(8),
+                            icon: const Icon(Icons.remove, size: 14),
+                            padding: const EdgeInsets.all(6),
                             constraints: const BoxConstraints(),
                           ),
 
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
                             child: Text(
                               '${item.quantity}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.w700,
-                                fontSize: 14,
+                                fontSize: 13,
                               ),
                             ),
                           ),
@@ -563,8 +835,8 @@ class _CartItemCard extends StatelessWidget {
                               product,
                               variationId: item.variationId,
                             ),
-                            icon: const Icon(Icons.add, size: 16),
-                            padding: const EdgeInsets.all(8),
+                            icon: const Icon(Icons.add, size: 14),
+                            padding: const EdgeInsets.all(6),
                             constraints: const BoxConstraints(),
                           ),
                         ],
@@ -581,259 +853,9 @@ class _CartItemCard extends StatelessWidget {
   }
 }
 
-
 // ═══════════════════════════════════════════════════════════
-//            UP-SELLING DISCRETO (CATEGORIA 250)
+//              ANIMATED EMPTY BOX
 // ═══════════════════════════════════════════════════════════
-class _UpSellingSection extends StatefulWidget {
-  const _UpSellingSection();
-  
-  @override
-  State<_UpSellingSection> createState() => _UpSellingSectionState();
-}
-
-class _UpSellingSectionState extends State<_UpSellingSection> {
-  List<Product> _products = [];
-  bool _loading = true;
-  bool _hidden = false; // ✅ Estado para ocultar
-  
-  @override
-  void initState() {
-    super.initState();
-    _loadProducts();
-  }
-  
-  Future<void> _loadProducts() async {
-    try {
-      final service = ProductService();
-      final products = await service.fetchProductsByCategory(250, perPage: 10);
-      
-      // Filtrar produtos que já estão no carrinho
-      final cartController = CartController.instance;
-      final cartProductIds = cartController.items.map((e) => e.product.id).toSet();
-      final filtered = products.where((p) => !cartProductIds.contains(p.id)).toList();
-      
-      if (mounted) {
-        setState(() {
-          _products = filtered.take(10).toList();
-          _loading = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
-  }
-  
-  @override
-  Widget build(BuildContext context) {
-    if (_loading || _hidden) {
-      return const SizedBox.shrink();
-    }
-    
-    if (_products.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: 32), // ✅ Espaço maior antes
-        
-        // Header com botão fechar
-        Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF7ED),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.add_shopping_cart_rounded,
-                size: 16,
-                color: Color(0xFFFA4815),
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text(
-                'Não deixe de experimentar',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF18181B),
-                ),
-              ),
-            ),
-            // ✅ Botão fechar
-            IconButton(
-              onPressed: () => setState(() => _hidden = true),
-              icon: const Icon(
-                Icons.close_rounded,
-                size: 18,
-                color: Color(0xFF71717A),
-              ),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-            ),
-          ],
-        ),
-        
-        const SizedBox(height: 12),
-        
-        // Grid horizontal compacto
-        SizedBox(
-          height: 140, // ✅ Altura reduzida
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            itemCount: _products.length,
-            separatorBuilder: (_, __) => const SizedBox(width: 10),
-            itemBuilder: (context, i) {
-              final product = _products[i];
-              return _CompactUpSellingCard(product: product);
-            },
-          ),
-        ),
-        
-        const SizedBox(height: 24), // ✅ Espaço antes do footer
-      ],
-    );
-  }
-}
-
-// === CARD UP-SELLING COMPACTO ===
-class _CompactUpSellingCard extends StatelessWidget {
-  final Product product;
-  
-  const _CompactUpSellingCard({required this.product});
-  
-  @override
-  Widget build(BuildContext context) {
-    final brl = NumberFormat.simpleCurrency(locale: 'pt_BR');
-    final controller = CartController.instance;
-    
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => ProductDetailsPage(product: product),
-          ),
-        );
-      },
-      child: Container(
-        width: 110, // ✅ Mais compacto
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE5E7EB)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Imagem compacta
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
-              ),
-              child: SizedBox(
-                height: 70, // ✅ Altura fixa menor
-                width: double.infinity,
-                child: Image.network(
-                  product.imageUrl ?? '',
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    color: Colors.grey[200],
-                    child: const Icon(
-                      Icons.image_not_supported_outlined,
-                      size: 24,
-                      color: Color(0xFF9CA3AF),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            
-            // Info compacta
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    // Nome
-                    Text(
-                      product.name,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: Color(0xFF18181B),
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    
-                    // Preço + Botão
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            brl.format(product.price),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w900,
-                              color: Color(0xFFFA4815),
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        // Botão adicionar compacto
-                        GestureDetector(
-                          onTap: () {
-                            controller.add(product);
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text('Adicionado!'),
-                                duration: const Duration(seconds: 2),
-                                backgroundColor: const Color(0xFF16A34A),
-                                behavior: SnackBarBehavior.floating,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFA4815),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Icon(
-                              Icons.add,
-                              size: 14,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _AnimatedEmptyBox extends StatefulWidget {
   const _AnimatedEmptyBox();
 
@@ -858,7 +880,6 @@ class _AnimatedEmptyBoxState extends State<_AnimatedEmptyBox>
   void initState() {
     super.initState();
 
-    // 🎬 Entry Animation (vibrante)
     _introController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 850),
@@ -885,7 +906,6 @@ class _AnimatedEmptyBoxState extends State<_AnimatedEmptyBox>
       ),
     );
 
-    // ♾️ Loop Animation (super leve)
     _loopController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 3),
@@ -905,7 +925,6 @@ class _AnimatedEmptyBoxState extends State<_AnimatedEmptyBox>
       ),
     );
 
-    // ⏳ Start intro, depois deixa flutuando
     _introController.forward();
   }
 
@@ -944,7 +963,7 @@ class _AnimatedEmptyBoxState extends State<_AnimatedEmptyBox>
       },
       child: Image.asset(
         'assets/images/caixinhaLaranja.png',
-        width: 180, // 🔥 menor e mais elegante
+        width: 180,
         height: 180,
       ),
     );

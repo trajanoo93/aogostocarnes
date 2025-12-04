@@ -1,10 +1,8 @@
-// lib/screens/home/widgets/product_carousel.dart
+// lib/screens/home/widgets/product_carousel.dart - ATUALIZADO COM MODAL
 import 'package:flutter/material.dart';
 import 'package:ao_gosto_app/models/product.dart';
 import 'package:ao_gosto_app/widgets/product_card.dart';
-import 'package:ao_gosto_app/state/cart_controller.dart';
-import 'package:ao_gosto_app/utils/app_colors.dart';
-import 'package:ao_gosto_app/screens/cart/cart_drawer.dart';
+import 'package:ao_gosto_app/widgets/variation_selector_modal.dart';
 import 'package:ao_gosto_app/screens/product/product_details_page.dart';
 
 class ProductCarousel extends StatelessWidget {
@@ -87,9 +85,12 @@ class ProductCarousel extends StatelessWidget {
                       ),
                     );
                   },
+                  // ✅ USA O MODAL PARA PRODUTOS COM VARIAÇÕES
                   onAddToCart: () async {
-                    CartController.instance.add(p);
-                    await showCartDrawer(context);
+                    await showVariationSelector(
+                      context: context,
+                      product: p,
+                    );
                   },
                 ),
               );

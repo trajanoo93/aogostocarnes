@@ -1,4 +1,4 @@
-// lib/screens/product/product_details_page.dart - ATUALIZADO COM VARIAÇÕES
+// lib/screens/product/product_details_page.dart - VERSÃO FINAL CLEAN
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -22,7 +22,6 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   bool _compactHeader = false;
   int _qty = 1;
 
-  // ✨ NOVO: Variação selecionada
   Map<String, String> _selectedAttributes = {};
 
   @override
@@ -30,7 +29,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     super.initState();
     _scroll.addListener(_onScroll);
     
-    // ✨ Se tem variações, pré-selecionar a primeira opção
+    // Pré-selecionar primeira opção
     if (widget.product.hasVariations && widget.product.attributes != null) {
       for (final attr in widget.product.attributes!) {
         if (attr.options.isNotEmpty) {
@@ -54,14 +53,64 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     }
   }
 
-  String _htmlToPlainText(String html) {
+  // ✨ LIMPEZA AGRESSIVA DE HTML (CORRIGIDO)
+  String _cleanDescription(String html) {
+    if (html.trim().isEmpty) return '';
+    
     var s = html;
-    s = s.replaceAll(RegExp(r'<img[^>]*>', caseSensitive: false), '');
+    
+    // Remove tags HTML mantendo quebras de linha
     s = s.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
     s = s.replaceAll(RegExp(r'</p>\s*<p>', caseSensitive: false), '\n\n');
+    s = s.replaceAll(RegExp(r'</div>\s*<div[^>]*>', caseSensitive: false), '\n');
+    s = s.replaceAll(RegExp(r'<div[^>]*>', caseSensitive: false), '\n');
+    s = s.replaceAll(RegExp(r'</div>', caseSensitive: false), '');
+    s = s.replaceAll(RegExp(r'<li[^>]*>', caseSensitive: false), '\n- ');
+    s = s.replaceAll(RegExp(r'</li>', caseSensitive: false), '');
     s = s.replaceAll(RegExp(r'<[^>]+>'), '');
-    s = s.replaceAll('&nbsp;', ' ').trim();
-    return s;
+    
+    // Remove entidades HTML
+    s = s.replaceAll('&nbsp;', ' ');
+    s = s.replaceAll('&#8211;', '-');
+    s = s.replaceAll('&#8217;', "'");
+    s = s.replaceAll('&#8220;', '"');
+    s = s.replaceAll('&#8221;', '"');
+    s = s.replaceAll('&amp;', '&');
+    s = s.replaceAll('&quot;', '"');
+    s = s.replaceAll('&lt;', '<');
+    s = s.replaceAll('&gt;', '>');
+    s = s.replaceAll(RegExp(r'&#\d+;'), '');
+    s = s.replaceAll(RegExp(r'&[a-z]+;', caseSensitive: false), '');
+    
+    // Limpa espaços e quebras
+    s = s.replaceAll(RegExp(r' +'), ' ');
+    s = s.replaceAll(RegExp(r'\t+'), '');
+    s = s.replaceAll(RegExp(r' *\n *'), '\n');
+    s = s.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    
+    // Remove linhas indesejadas
+    final lines = s.split('\n')
+        .map((line) => line.trim())
+        .where((line) {
+          if (line.isEmpty) return false;
+          
+          final upper = line.toUpperCase();
+          return !upper.contains('IMAGEM') &&
+                 !upper.contains('ILUSTRATIVA') &&
+                 !upper.contains('MERAMENTE') &&
+                 !upper.startsWith('*') &&
+                 !upper.contains('***');
+        })
+        .toList();
+    
+    final result = lines.join('\n').trim();
+    
+    // Se ficou vazio, retorna mensagem padrão
+    if (result.isEmpty) {
+      return '';
+    }
+    
+    return result;
   }
 
   Widget _badge(String text, Color color, IconData icon) {
@@ -164,11 +213,9 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                 ),
               ),
 
-              // ----- Conteúdo
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                      20, 20, 20, 120), // espaço pro bottom bar
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -243,7 +290,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                       ),
                       const SizedBox(height: 12),
 
-                      // meta curta
+                      // Meta pills
                       Wrap(
                         spacing: 12,
                         runSpacing: 8,
@@ -261,14 +308,15 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                             ),
                         ],
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: 24),
 
-                      // ✨ SELETOR DE VARIAÇÕES (SE HOUVER)
+                      // ✨ SELETOR DE VARIAÇÕES SEM ÍCONES
                       if (p.hasVariations && p.attributes != null) ...[
                         _buildVariationSelector(p),
                         const SizedBox(height: 24),
                       ],
 
+                      // Descrição
                       const Text(
                         'Descrição',
                         style: TextStyle(
@@ -279,20 +327,30 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
                       ),
                       const SizedBox(height: 8),
 
-                      if ((p.shortDescription ?? '').trim().isNotEmpty) ...[
-                        Text(
-                          _htmlToPlainText(p.shortDescription!),
-                          style: const TextStyle(
-                            fontSize: 15,
-                            height: 1.55,
-                            color: Color(0xFF374151),
-                          ),
-                        ),
-                      ] else
-                        const Text(
-                          'Sem descrição disponível.',
-                          style: TextStyle(color: Color(0xFF6B7280)),
-                        ),
+                      Builder(
+                        builder: (context) {
+                          final description = _cleanDescription(p.shortDescription ?? '');
+                          
+                          if (description.isEmpty) {
+                            return const Text(
+                              'Sem descrição disponível.',
+                              style: TextStyle(
+                                fontSize: 15,
+                                color: Color(0xFF9CA3AF),
+                              ),
+                            );
+                          }
+                          
+                          return Text(
+                            description,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              height: 1.55,
+                              color: Color(0xFF374151),
+                            ),
+                          );
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -300,7 +358,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
             ],
           ),
 
-          // ----- Bottom bar
+          // Bottom bar
           Positioned.fill(
             child: Align(
               alignment: Alignment.bottomCenter,
@@ -312,7 +370,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
     );
   }
 
-  // ✨ SELETOR DE VARIAÇÕES ULTRA MODERNO
+  // ✨ SELETOR SEM ÍCONES
   Widget _buildVariationSelector(Product p) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,36 +378,41 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
         final currentValue = _selectedAttributes[attr.name] ?? '';
 
         return Padding(
-          padding: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.only(bottom: 18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Label
+              // ✅ LABEL SIMPLES SEM ÍCONE
               Text(
                 attr.name,
                 style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: Colors.black87,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF18181B),
+                  letterSpacing: -0.3,
                 ),
               ),
               const SizedBox(height: 10),
 
-              // Opções
+              // Chips
               Wrap(
-                spacing: 10,
-                runSpacing: 10,
+                spacing: 8,
+                runSpacing: 8,
                 children: attr.options.map((option) {
                   final isSelected = currentValue == option;
+                  final isAvailable = true;
 
-                  return _VariationChip(
+                  return _CleanVariationChip(
                     label: option,
                     isSelected: isSelected,
-                    onTap: () {
-                      setState(() {
-                        _selectedAttributes[attr.name] = option;
-                      });
-                    },
+                    isAvailable: isAvailable,
+                    onTap: isAvailable
+                        ? () {
+                            setState(() {
+                              _selectedAttributes[attr.name] = option;
+                            });
+                          }
+                        : null,
                   );
                 }).toList(),
               ),
@@ -361,12 +424,7 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 
   Widget _buildBottomBar() {
-    double unitPrice = widget.product.price;
-
-// Se a sua estrutura de variação tiver preço específico,
-// você pode substituir aqui. Por enquanto, usa o preço do produto pai:
-
-final total = unitPrice * _qty;
+    final total = widget.product.price * _qty;
 
     return SafeArea(
       top: false,
@@ -434,41 +492,51 @@ final total = unitPrice * _qty;
   }
 }
 
-// ======= WIDGETS AUXILIARES =======
-
-/// Chip de variação
-class _VariationChip extends StatelessWidget {
+// ========================================
+// CHIP LIMPO E PROFISSIONAL
+// ========================================
+class _CleanVariationChip extends StatelessWidget {
   final String label;
   final bool isSelected;
-  final VoidCallback onTap;
+  final bool isAvailable;
+  final VoidCallback? onTap;
 
-  const _VariationChip({
+  const _CleanVariationChip({
     required this.label,
     required this.isSelected,
-    required this.onTap,
+    required this.isAvailable,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: isAvailable ? onTap : null,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 9),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary : Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          color: isSelected
+              ? const Color(0xFFFA4815)
+              : isAvailable
+                  ? Colors.white
+                  : const Color(0xFFFAFAFA),
+          borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected ? AppColors.primary : const Color(0xFFE5E7EB),
-            width: isSelected ? 2 : 1.5,
+            color: isSelected
+                ? const Color(0xFFFA4815)
+                : isAvailable
+                    ? const Color(0xFFE5E7EB)
+                    : const Color(0xFFF3F4F6),
+            width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: AppColors.primary.withOpacity(0.3),
+                    color: const Color(0xFFFA4815).withOpacity(0.25),
                     blurRadius: 8,
-                    offset: const Offset(0, 3),
+                    offset: const Offset(0, 2),
                   )
                 ]
               : [],
@@ -476,15 +544,24 @@ class _VariationChip extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-            color: isSelected ? Colors.white : Colors.black87,
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: isSelected
+                ? Colors.white
+                : isAvailable
+                    ? const Color(0xFF18181B)
+                    : const Color(0xFF9CA3AF),
+            letterSpacing: -0.2,
           ),
         ),
       ),
     );
   }
 }
+
+// ========================================
+// WIDGETS AUXILIARES
+// ========================================
 
 class _MetaPill extends StatelessWidget {
   final IconData icon;

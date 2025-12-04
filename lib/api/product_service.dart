@@ -1,4 +1,4 @@
-// lib/api/product_service.dart
+// lib/api/product_service.dart - CORRIGIDO
 
 import 'dart:async';
 import 'dart:convert';
@@ -46,82 +46,121 @@ class ProductService {
   }
 
   Product _mapProduct(Map<String, dynamic> p) {
-  final meta = (p['meta_data'] as List?)?.cast<Map<String, dynamic>>();
-  final catIds = ((p['categories'] as List?) ?? [])
-      .map((c) =>
-          (c is Map && c['id'] is int) ? c['id'] as int? : null)
-      .whereType<int>()
-      .toList();
-
-  // --------- VARIAÇÕES E ATRIBUTOS DO WOO ----------
-  String type = (p['type'] ?? 'simple').toString();
-
-  // Atributos variáveis (ex: Sabor)
-  List<ProductAttribute>? attributes;
-  if (type == "variable") {
-    final attrsRaw = (p['attributes'] as List?) ?? [];
-
-    attributes = attrsRaw
-        .where((a) => a['variation'] == true)
-        .map((a) => ProductAttribute(
-              name: a['name'] ?? '',
-              options:
-                  (a['options'] as List?)?.cast<String>() ?? const [],
-            ))
+    final meta = (p['meta_data'] as List?)?.cast<Map<String, dynamic>>();
+    final catIds = ((p['categories'] as List?) ?? [])
+        .map((c) =>
+            (c is Map && c['id'] is int) ? c['id'] as int? : null)
+        .whereType<int>()
         .toList();
+
+    // --------- VARIAÇÕES E ATRIBUTOS DO WOO ----------
+    String type = (p['type'] ?? 'simple').toString();
+
+    // Atributos variáveis (ex: Sabor)
+    List<ProductAttribute>? attributes;
+    if (type == "variable") {
+      final attrsRaw = (p['attributes'] as List?) ?? [];
+
+      attributes = attrsRaw
+          .where((a) => a['variation'] == true)
+          .map((a) => ProductAttribute(
+                name: a['name'] ?? '',
+                options:
+                    (a['options'] as List?)?.cast<String>() ?? const [],
+              ))
+          .toList();
+    }
+
+    // IDs das variações
+    final variationIds =
+        (p['variations'] as List?)?.map((v) => v as int).toList();
+
+    return Product(
+      id: (p['id'] as num).toInt(),
+      name: (p['name'] as String?) ?? '',
+      type: type,
+      attributes: attributes,
+      variationIds: variationIds,
+
+      price: _toDouble(p['price']) ?? 0.0,
+      regularPrice: _toDouble(p['regular_price']),
+
+      imageUrl: (p['images'] as List?)?.isNotEmpty == true
+          ? (((p['images'] as List).first)['src'] as String? ??
+              _placeholder)
+          : _placeholder,
+
+      categoryIds: catIds,
+      shortDescription: _cleanHtml(
+        (p['short_description'] as String?) ?? ''
+      ),
+
+      pricePerKg: _toDouble(_findMeta(meta, '_price_per_kg')),
+      averageWeightGrams: _toDouble(_findMeta(meta, '_weight_grams')),
+
+      isFrozen: _toBool(_findMeta(meta, '_is_frozen')),
+      isChilled: _toBool(_findMeta(meta, '_is_chilled')),
+      isSeasoned: _toBool(_findMeta(meta, '_is_seasoned')),
+      isBestseller: _toBool(_findMeta(meta, '_is_bestseller')),
+    );
   }
 
-  // IDs das variações
-  final variationIds =
-      (p['variations'] as List?)?.map((v) => v as int).toList();
-
-  return Product(
-    id: (p['id'] as num).toInt(),
-    name: (p['name'] as String?) ?? '',
-    type: type,
-    attributes: attributes,
-    variationIds: variationIds,
-
-    price: _toDouble(p['price']) ?? 0.0,
-    regularPrice: _toDouble(p['regular_price']),
-
-    imageUrl: (p['images'] as List?)?.isNotEmpty == true
-        ? (((p['images'] as List).first)['src'] as String? ??
-            _placeholder)
-        : _placeholder,
-
-    categoryIds: catIds,
-    shortDescription: _cleanHtml(
-  (p['short_description'] as String?) ?? ''
-),
-
-
-    pricePerKg: _toDouble(_findMeta(meta, '_price_per_kg')),
-    averageWeightGrams: _toDouble(_findMeta(meta, '_weight_grams')),
-
-    isFrozen: _toBool(_findMeta(meta, '_is_frozen')),
-    isChilled: _toBool(_findMeta(meta, '_is_chilled')),
-    isSeasoned: _toBool(_findMeta(meta, '_is_seasoned')),
-    isBestseller: _toBool(_findMeta(meta, '_is_bestseller')),
-  );
-}
-
-String _cleanHtml(String input) {
-  // Remove tags HTML
-  final noTags = input.replaceAll(RegExp(r'<[^>]*>'), ' ');
-
-  // Remove entidades HTML (&#8211;, &nbsp;, etc)
-  final noEntities = noTags
-      .replaceAll(RegExp(r'&[^;\s]+;'), ' ')
-      .replaceAll('&#8211;', '-')
-      .replaceAll('&#8217;', "'")
-      .replaceAll('&nbsp;', ' ')
-      .replaceAll('&amp;', '&');
-
-  // Espaçamentos finais
-  return noEntities.replaceAll(RegExp(r'\s+'), ' ').trim();
-}
-
+  // ✅ LIMPEZA HTML CORRIGIDA
+  String _cleanHtml(String input) {
+    if (input.trim().isEmpty) return '';
+    
+    var s = input;
+    
+    // ✅ MANTÉM quebras de linha importantes
+    s = s.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
+    s = s.replaceAll(RegExp(r'</p>\s*<p>', caseSensitive: false), '\n\n');
+    s = s.replaceAll(RegExp(r'</div>\s*<div[^>]*>', caseSensitive: false), '\n');
+    s = s.replaceAll(RegExp(r'<div[^>]*>', caseSensitive: false), '\n');
+    s = s.replaceAll(RegExp(r'</div>', caseSensitive: false), '');
+    s = s.replaceAll(RegExp(r'<li[^>]*>', caseSensitive: false), '\n- ');
+    s = s.replaceAll(RegExp(r'</li>', caseSensitive: false), '');
+    
+    // ✅ REMOVE tags HTML (depois de preservar quebras)
+    s = s.replaceAll(RegExp(r'<[^>]+>'), '');
+    
+    // ✅ CONVERTE entidades HTML
+    s = s.replaceAll('&nbsp;', ' ');
+    s = s.replaceAll('&#8211;', '-');
+    s = s.replaceAll('&#8217;', "'");
+    s = s.replaceAll('&#8220;', '"');
+    s = s.replaceAll('&#8221;', '"');
+    s = s.replaceAll('&amp;', '&');
+    s = s.replaceAll('&quot;', '"');
+    s = s.replaceAll('&lt;', '<');
+    s = s.replaceAll('&gt;', '>');
+    
+    // ✅ LIMPA entidades restantes
+    s = s.replaceAll(RegExp(r'&#\d+;'), '');
+    s = s.replaceAll(RegExp(r'&[a-z]+;', caseSensitive: false), '');
+    
+    // ✅ LIMPA espaços múltiplos
+    s = s.replaceAll(RegExp(r' +'), ' ');
+    s = s.replaceAll(RegExp(r'\t+'), '');
+    s = s.replaceAll(RegExp(r' *\n *'), '\n');
+    s = s.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+    
+    // ✅ REMOVE linhas indesejadas
+    final lines = s.split('\n')
+        .map((line) => line.trim())
+        .where((line) {
+          if (line.isEmpty) return false;
+          
+          final upper = line.toUpperCase();
+          return !upper.contains('IMAGEM') &&
+                 !upper.contains('ILUSTRATIVA') &&
+                 !upper.contains('MERAMENTE') &&
+                 !upper.startsWith('*') &&
+                 !upper.contains('***');
+        })
+        .toList();
+    
+    return lines.join('\n').trim();
+  }
 
   // ------------------- ENDPOINTS -------------------
 
