@@ -8,6 +8,7 @@ import 'package:ao_gosto_app/widgets/product_card.dart';
 import 'package:ao_gosto_app/screens/cart/cart_drawer.dart';
 import 'package:ao_gosto_app/screens/product/product_details_page.dart';
 import 'package:ao_gosto_app/state/cart_controller.dart';
+import 'package:ao_gosto_app/widgets/variation_selector_modal.dart';
 
 class CategoryDetailScreen extends StatefulWidget {
   final CategoryData category;
@@ -32,12 +33,11 @@ class _CategoryDetailScreenState extends State<CategoryDetailScreen> {
   bool _showSearch = false;
 
   @override
-  void initState() {
-    super.initState();
-    // Define a primeira subcategoria como ativa (sempre "Todos")
-    _activeSubcategoryId = widget.category.subcategories.first.id;
-    _loadProducts();
-  }
+void initState() {
+  super.initState();
+  _activeSubcategoryId = widget.category.subcategories.first.id;
+  _loadProductsBySubcategory(_activeSubcategoryId);  
+}
 
   @override
   void dispose() {
@@ -380,9 +380,11 @@ Future<void> _loadProductsBySubcategory(int subcategoryId) async {
                         );
                       },
                       onAddToCart: () async {
-                        CartController.instance.add(product);
-                        await showCartDrawer(context);
-                      },
+  await showVariationSelector(
+    context: context,
+    product: product,
+  );
+},
                     );
                   },
                   childCount: _filteredProducts.length,

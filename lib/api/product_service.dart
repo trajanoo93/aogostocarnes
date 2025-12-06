@@ -1,9 +1,10 @@
-// lib/api/product_service.dart - VERSÃO FINAL E DEFINITIVA
+// lib/api/product_service.dart - VERSÃO COM SUPORTE A VARIAÇÕES
 
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:ao_gosto_app/models/product.dart';
+import 'package:ao_gosto_app/models/product_variation.dart';
 
 class ProductService {
   final String _baseUrl = 'https://aogosto.com.br/delivery/wp-json/wc/v3';
@@ -42,6 +43,21 @@ class ProductService {
     }
     return null;
   }
+
+
+Future<Product?> fetchProductById(int productId) async {
+  final url = '$_baseUrl/products/$productId?$_FIELDS';
+  try {
+    final resp = await http.get(Uri.parse(url), headers: {'Authorization': _authHeader});
+    if (resp.statusCode == 200) {
+      final data = json.decode(resp.body);
+      return _mapProduct(data);
+    }
+  } catch (e) {
+    print('Erro ao carregar produto $productId: $e');
+  }
+  return null;
+}
 
   Product _mapProduct(Map<String, dynamic> p) {
     final meta = (p['meta_data'] as List?)?.cast<Map<String, dynamic>>();
@@ -128,6 +144,29 @@ class ProductService {
     return lines.join('\n').trim();
   }
 
+  // ✨ NOVO: BUSCAR VARIAÇÕES DE UM PRODUTO
+  Future<List<ProductVariation>> fetchProductVariations(int productId) async {
+    final url = '$_baseUrl/products/$productId/variations?per_page=100';
+    
+    try {
+      final resp = await http.get(
+        Uri.parse(url),
+        headers: {'Authorization': _authHeader},
+      );
+      
+      if (resp.statusCode == 200) {
+        final List data = json.decode(resp.body);
+        return data
+            .map((e) => ProductVariation.fromWoo(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      print('❌ Erro ao buscar variações do produto $productId: $e');
+    }
+    
+    return [];
+  }
+
   // OFERTAS
   Future<List<Product>> fetchOnSaleProducts({int perPage = 20}) async {
     final url = '$_baseUrl/products?status=publish&per_page=$perPage&stock_status=instock&category=72&_fields=$_FIELDS';
@@ -155,31 +194,31 @@ class ProductService {
   }
 
   Future<List<Product>> fetchProductsByCategory(
-  int categoryId, {
-  int perPage = 20,
-  int page = 1,
-}) async {
-  final url = '$_baseUrl/products?'
-      'status=publish'
-      '&per_page=$perPage'
-      '&page=$page'
-      '&stock_status=instock'
-      '&category=$categoryId'
-      '&_fields=$_FIELDS';
+    int categoryId, {
+    int perPage = 20,
+    int page = 1,
+  }) async {
+    final url = '$_baseUrl/products?'
+        'status=publish'
+        '&per_page=$perPage'
+        '&page=$page'
+        '&stock_status=instock'
+        '&category=$categoryId'
+        '&_fields=$_FIELDS';
 
-  try {
-    final resp = await http.get(Uri.parse(url), headers: {'Authorization': _authHeader});
-    if (resp.statusCode == 200) {
-      final List data = json.decode(resp.body);
-      return data.map((e) => _mapProduct(e as Map<String, dynamic>)).toList();
+    try {
+      final resp = await http.get(Uri.parse(url), headers: {'Authorization': _authHeader});
+      if (resp.statusCode == 200) {
+        final List data = json.decode(resp.body);
+        return data.map((e) => _mapProduct(e as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      print('Erro ao carregar categoria $categoryId: $e');
     }
-  } catch (e) {
-    print('Erro ao carregar categoria $categoryId: $e');
+    return [];
   }
-  return [];
-}
 
-  // VÁRIAS CATEGORIAS (mantido como estava)
+  // VÁRIAS CATEGORIAS
   Future<List<Product>> fetchProductsByCategories(
     List<int> categoryIds, {
     int perCategory = 50,

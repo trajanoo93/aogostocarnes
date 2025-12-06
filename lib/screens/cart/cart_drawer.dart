@@ -2,12 +2,16 @@
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:ao_gosto_app/state/cart_controller.dart';
 import 'package:ao_gosto_app/models/cart_item.dart';
 import 'package:ao_gosto_app/models/product.dart';
 import 'package:ao_gosto_app/api/product_service.dart';
 import 'package:ao_gosto_app/screens/checkout/checkout_screen.dart';
 import 'package:ao_gosto_app/screens/product/product_details_page.dart';
+
+
 
 Future<void> showCartDrawer(BuildContext context) async {
   await Navigator.of(context).push(
@@ -306,56 +310,117 @@ class _PremiumFooterWithUpselling extends StatelessWidget {
 // ═══════════════════════════════════════════════════════════
 class _CompactUpsellingRow extends StatefulWidget {
   const _CompactUpsellingRow();
-  
+
   @override
   State<_CompactUpsellingRow> createState() => _CompactUpsellingRowState();
 }
 
 class _CompactUpsellingRowState extends State<_CompactUpsellingRow> {
-  List<Product> _products = [];
+  late final CartController _cartController;
+  List<Product> _allSuggestions = [];
+  List<Product> _visibleSuggestions = [];
   bool _loading = true;
-  
+
+  // Cache global (agora dentro da classe, mas estático pra persistir entre aberturas)
+  static final Map<int, Product> _upsellCache = {};
+
+  // Seus IDs reais dos mais vendidos
+  static const List<int> _bestsellerIds = [
+    1822, 376, 373, 345, 346, 342, 339, 337, 335, 331, 329,
+  ];
+
   @override
   void initState() {
     super.initState();
-    _loadProducts();
+    _cartController = CartController.instance;
+    _loadBestsellers();
+    _cartController.addListener(_updateVisibleProducts);
   }
-  
-  Future<void> _loadProducts() async {
-    try {
-      final service = ProductService();
-      final products = await service.fetchProductsByCategory(250, perPage: 10);
-      
-      // Filtrar produtos que já estão no carrinho
-      final cartController = CartController.instance;
-      final cartProductIds = cartController.items.map((e) => e.product.id).toSet();
-      final filtered = products.where((p) => !cartProductIds.contains(p.id)).toList();
-      
+
+  @override
+  void dispose() {
+    _cartController.removeListener(_updateVisibleProducts);
+    super.dispose();
+  }
+
+  Future<void> _loadBestsellers() async {
+  // 1. Tenta usar cache primeiro
+  final cached = _bestsellerIds
+      .where((id) => _upsellCache.containsKey(id))
+      .map((id) => _upsellCache[id]!)
+      .toList();
+
+  if (cached.length == _bestsellerIds.length) {
+    setState(() {
+      _allSuggestions = cached;
+      _loading = false;
+    });
+    _updateVisibleProducts();
+    return;
+  }
+
+  // 2. Busca do servidor com 1 única requisição (usando o método público!)
+  final service = ProductService();
+  final missingIds = _bestsellerIds.where((id) => !_upsellCache.containsKey(id)).toList();
+  final idsParam = missingIds.join(',');
+
+  if (missingIds.isEmpty) return;
+
+  final url =
+      'https://aogosto.com.br/delivery/wp-json/wc/v3/products?include=$idsParam&per_page=50&status=publish&consumer_key=ck_5156e2360f442f2585c8c9a761ef084b710e811f&consumer_secret=cs_c62f9d8f6c08a1d14917e2a6db5dccce2815de8c';
+
+  try {
+    final resp = await http.get(Uri.parse(url));
+
+    if (resp.statusCode == 200) {
+      final List data = json.decode(resp.body);
+      final List<Product> loaded = [];
+
+      for (final item in data) {
+        final product = Product.fromWoo(item as Map<String, dynamic>);
+        _upsellCache[product.id] = product;  // guarda no cache
+        loaded.add(product);
+      }
+
+      // Junta com os que já estavam no cache
+      final allLoaded = _bestsellerIds.map((id) => _upsellCache[id]!).toList();
+
       if (mounted) {
         setState(() {
-          _products = filtered.take(10).toList();
+          _allSuggestions = allLoaded;
           _loading = false;
         });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() => _loading = false);
+        _updateVisibleProducts();
       }
     }
+  } catch (e) {
+    print('Erro upsell: $e');
+    if (mounted) setState(() => _loading = false);
   }
-  
+}
+
+  void _updateVisibleProducts() {
+    if (!mounted) return;
+
+    final cartIds = _cartController.items.map((e) => e.product.id).toSet();
+    final filtered = _allSuggestions.where((p) => !cartIds.contains(p.id)).toList();
+
+    setState(() {
+      _visibleSuggestions = filtered;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_loading || _products.isEmpty) {
+    if (_loading || _visibleSuggestions.isEmpty) {
       return const SizedBox.shrink();
     }
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header compacto
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
@@ -366,39 +431,25 @@ class _CompactUpsellingRowState extends State<_CompactUpsellingRow> {
                     color: const Color(0xFFFFF7ED),
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: const Icon(
-                    Icons.add_shopping_cart_rounded,
-                    size: 13,
-                    color: Color(0xFFFA4815),
-                  ),
+                  child: const Text('🔥', style: TextStyle(fontSize: 14)),
                 ),
                 const SizedBox(width: 6),
                 const Text(
                   'Não deixe de experimentar',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF18181B),
-                  ),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF18181B)),
                 ),
               ],
             ),
           ),
-          
           const SizedBox(height: 10),
-          
-          // Lista horizontal
           SizedBox(
             height: 90,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: _products.length,
+              itemCount: _visibleSuggestions.length,
               separatorBuilder: (_, __) => const SizedBox(width: 10),
-              itemBuilder: (context, i) {
-                final product = _products[i];
-                return _MiniUpsellingCard(product: product);
-              },
+              itemBuilder: (context, i) => _MiniUpsellingCard(product: _visibleSuggestions[i]),
             ),
           ),
         ],

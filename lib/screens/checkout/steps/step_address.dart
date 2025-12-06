@@ -658,43 +658,51 @@ class _AddressSection extends StatelessWidget {
             );
           }),
           
-          if (controller.selectedAddressId != null &&
-              controller.deliveryFee > 0)
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF9FAFB),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.local_shipping_outlined,
-                    size: 16,
-                    color: Colors.grey[600],
-                  ),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Taxa de Entrega',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF71717A),
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    'R\$ ${controller.deliveryFee.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF18181B),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+          if (controller.selectedAddressId != null)
+  Container(
+    margin: const EdgeInsets.only(top: 12),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFFF9FAFB),
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Row(
+      children: [
+        Icon(
+          Icons.local_shipping_outlined,
+          size: 16,
+          color: Colors.grey[600],
+        ),
+        const SizedBox(width: 8),
+        const Text(
+          'Taxa de Entrega',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF71717A)),
+        ),
+        const Spacer(),
+        if (controller.isCalculatingFee)
+          const SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+          )
+        else
+          AnimatedSwitcher(
+  duration: const Duration(milliseconds: 300),
+  child: Text(
+    key: ValueKey(controller.deliveryFee),
+    controller.deliveryFee > 0
+        ? 'R\$ ${controller.deliveryFee.toStringAsFixed(2)}'
+        : 'Grátis',
+    style: TextStyle(
+      fontSize: 14,
+      fontWeight: FontWeight.w900,
+      color: controller.deliveryFee > 0 ? const Color(0xFF18181B) : Colors.green[700],
+    ),
+  ),
+),
+      ],
+    ),
+  ),
         ],
       ),
     );

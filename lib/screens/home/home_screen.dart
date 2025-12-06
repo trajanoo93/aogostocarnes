@@ -1,4 +1,4 @@
-// lib/screens/home/home_screen.dart - ATUALIZADO COM ÍCONES E HAMBÚRGUERES
+// lib/screens/home/home_screen.dart - CORRIGIDO COM CATEGORIA 521
 import 'package:flutter/material.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'package:ao_gosto_app/api/product_service.dart';
@@ -25,15 +25,15 @@ class _HomeScreenState extends State<HomeScreen> {
   late Future<List<Product>> _onSaleProducts;
   static const _idPaoDeAlho = 73;
   static const _idEspetos = 59;
-  static const _idPratosProntos = 172;
-  static const _idHamburgueres = 390; // ✅ NOVO
+  static const _idPratosProntos = 521; // ✅ CATEGORIA MÃE (Massas + Tortas + Pratos Prontos)
+  static const _idHamburgueres = 390;
   static const _idBebidas = 69;
   static const _idOutros = 62;
 
   late Future<List<Product>> _paoDeAlho;
   late Future<List<Product>> _espetos;
   late Future<List<Product>> _pratosProntos;
-  late Future<List<Product>> _hamburgueres; // ✅ NOVO
+  late Future<List<Product>> _hamburgueres;
   late Future<List<Product>> _bebidas;
   late Future<List<Product>> _outros;
 
@@ -54,7 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _paoDeAlho = _productService.fetchProductsByCategory(_idPaoDeAlho);
     _espetos = _productService.fetchProductsByCategory(_idEspetos);
     _pratosProntos = _productService.fetchProductsByCategory(_idPratosProntos);
-    _hamburgueres = _productService.fetchProductsByCategory(_idHamburgueres); // ✅ NOVO
+    _hamburgueres = _productService.fetchProductsByCategory(_idHamburgueres);
     _bebidas = _productService.fetchProductsByCategory(_idBebidas);
     _outros = _productService.fetchProductsByCategory(_idOutros);
   }
@@ -83,7 +83,6 @@ Widget build(BuildContext context) {
                   children: [
 
                     // 🔥 ZONA SECRETA PARA ABRIR TELA DE UPDATE (DEBUG)
-                    // Mantida invisível e não atrapalha nada
                     GestureDetector(
                       onLongPress: () {
                         Navigator.push(
@@ -242,7 +241,7 @@ Widget build(BuildContext context) {
           // SESSÃO "TODOS OS CORTES"
           const SliverToBoxAdapter(child: AllCutsSection()),
 
-          // ✨ OUTRAS SESSÕES (ÍCONES CORRIGIDOS) ✨
+          // ✨ OUTRAS SESSÕES ✨
           
           // Pão de Alho
           _section(
@@ -257,25 +256,25 @@ Widget build(BuildContext context) {
           _section(
             title: 'Praticidade na Grelha',
             highlightWord: 'Grelha',
-            icon: Icons.dining_rounded, // ✅ Ícone de espeto
+            icon: Icons.dining_rounded,
             future: _espetos,
             subtitle: 'Espetos prontos para o churrasco',
           ),
           
-          // Pratos Prontos
+          // ✅ Pratos Prontos (AGORA PUXA CATEGORIA 521)
           _section(
             title: 'Sabor de Casa',
             highlightWord: 'Casa',
             icon: Icons.restaurant_rounded,
             future: _pratosProntos,
-            subtitle: 'Pratos prontos deliciosos',
+            subtitle: 'Massas, tortas e pratos deliciosos',
           ),
           
-          // ✨ HAMBÚRGUERES (NOVO) ✨
+          // Hambúrgueres
           _section(
             title: 'Hambúrgueres Premium',
             highlightWord: 'Premium',
-            icon: Icons.lunch_dining_rounded, // ✅ Ícone de hambúrguer
+            icon: Icons.lunch_dining_rounded,
             future: _hamburgueres,
             subtitle: 'Suculentos e irresistíveis',
           ),
@@ -284,7 +283,7 @@ Widget build(BuildContext context) {
           _section(
             title: 'Para Acompanhar',
             highlightWord: 'Acompanhar',
-            icon: Icons.sports_bar_rounded, // ✅ Ícone de cerveja
+            icon: Icons.sports_bar_rounded,
             future: _bebidas,
           ),
           
@@ -292,7 +291,7 @@ Widget build(BuildContext context) {
           _section(
             title: 'Essenciais para o Churrasco',
             highlightWord: 'Essenciais',
-            icon: Icons.local_fire_department_rounded, // ✅ Ícone de fogo
+            icon: Icons.local_fire_department_rounded,
             future: _outros,
             subtitle: 'Temperos e complementos',
           ),
@@ -310,7 +309,6 @@ Widget build(BuildContext context) {
     required String highlightWord,
     required IconData icon,
   }) {
-    // Separar título da palavra destacada
     final parts = title.split(highlightWord);
     
     return SliverToBoxAdapter(
@@ -437,4 +435,3 @@ class _SearchBarHeaderDelegate extends SliverPersistentHeaderDelegate {
   @override
   bool shouldRebuild(covariant _SearchBarHeaderDelegate oldDelegate) => false;
 }
-

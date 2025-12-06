@@ -17,6 +17,7 @@ import 'package:ao_gosto_app/services/pagarme_service.dart';
 import 'package:ao_gosto_app/config/pagarme_credentials.dart';
 
 
+
 /// Modelo de slot de horário
 class TimeSlot {
   final String id;
@@ -94,6 +95,9 @@ class CheckoutController extends ChangeNotifier {
   String selectedPickup = 'sion';
   DateTime selectedDate = DateTime.now();
   String? selectedTimeSlot;
+
+  bool _isCalculatingFee = false;
+  bool get isCalculatingFee => _isCalculatingFee;
   
   // ✅ PAYMENTMETHOD COM SETTER QUE NOTIFICA
   String _paymentMethod = 'pix';
@@ -388,41 +392,35 @@ Future<void> selectAddress(String id) async {
   //                         FRETE
   // ===========================================================
   Future<void> _refreshFee() async {
-    if (deliveryType != DeliveryType.delivery || selectedAddressId == null) {
-      deliveryFee = 0;
-      storeInfo = null;
-      _safeNotify();
-      return;
-    }
-
-    try {
-      final addr = addresses.firstWhere((a) => a.id == selectedAddressId);
-      final result = await _shipping.fetchDeliveryFee(addr.cep);
-
-      if (result != null) {
-        deliveryFee = result.cost;
-        storeInfo = result;
-      } else {
-        deliveryFee = 0;
-        storeInfo = StoreInfo(
-          name: 'Central Distribuição',
-          id: '86261',
-          cost: 0.0,
-        );
-      }
-    } catch (e) {
-      deliveryFee = 0;
-      storeInfo = StoreInfo(
-        name: 'Central Distribuição',
-        id: '86261',
-        cost: 0.0,
-      );
-    }
-
+  if (deliveryType != DeliveryType.delivery || selectedAddressId == null) {
+    deliveryFee = 0;
+    storeInfo = null;
     _safeNotify();
+    return;
   }
 
+  _isCalculatingFee = true;        // ← ADICIONA O LOADING
+  _safeNotify();                   // ← ATUALIZA A UI IMEDIATAMENTE
 
+  try {
+    final addr = addresses.firstWhere((a) => a.id == selectedAddressId);
+    final result = await _shipping.fetchDeliveryFee(addr.cep);
+
+    if (result != null) {
+      deliveryFee = result.cost;
+      storeInfo = result;
+    } else {
+      deliveryFee = 0;
+      storeInfo = StoreInfo(name: 'Central', id: '86261', cost: 0.0);
+    }
+  } catch (e) {
+    deliveryFee = 0;
+    storeInfo = StoreInfo(name: 'Central', id: '86261', cost: 0.0);
+  } finally {
+    _isCalculatingFee = false;      // ← TIRA O LOADING
+    _safeNotify();                  // ← ATUALIZA NOVAMENTE
+  }
+}
 
   // ===========================================================
   //                FLUXO DE NAVEGAÇÃO NO CHECKOUT
