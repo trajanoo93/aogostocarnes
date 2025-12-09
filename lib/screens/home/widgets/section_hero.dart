@@ -17,7 +17,7 @@ class SectionHero extends StatefulWidget {
     this.banners = const [
       'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/bannerApp1.jpg?q=80&w=1600&auto=format&fit=crop',
       'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/REDIMENSIONADO-2.png?q=80&w=1600&auto=format&fit=crop',
-      'https://aogosto.com.br/delivery/wp-content/uploads/2025/11/REDIMENSIONADO-3.png?q=80&w=1600&auto=format&fit=crop',
+      
     ],
     this.height = 200,
     this.title,

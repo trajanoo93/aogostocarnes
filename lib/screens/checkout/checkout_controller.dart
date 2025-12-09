@@ -193,9 +193,20 @@ class CheckoutController extends ChangeNotifier {
     DateTime(2025, 12, 8),
   ];
 
+  // === DIAS FECHADOS (RECESSO) ===
   static final List<DateTime> closedDays = [
-    DateTime(2025, 12, 25),
-    DateTime(2026, 1, 1),
+    DateTime(2025, 12, 25), // Natal
+    DateTime(2026, 1, 1),   // Ano Novo
+    DateTime(2026, 12, 25), // Natal 2026
+    DateTime(2027, 1, 1),   // Ano Novo 2027
+  ];
+
+  // === DIAS ESPECIAIS (HORÁRIO REDUZIDO) ===
+  static final List<DateTime> specialDays = [
+    DateTime(2025, 12, 24), // Véspera de Natal
+    DateTime(2025, 12, 31), // Véspera de Ano Novo
+    DateTime(2026, 12, 24), // Véspera de Natal 2026
+    DateTime(2026, 12, 31), // Véspera de Ano Novo 2026
   ];
 
 
@@ -210,6 +221,46 @@ class CheckoutController extends ChangeNotifier {
   }
 
 
+
+  // ═══════════════════════════════════════════════════════════
+  //  ✨ NOVO: FORMATAÇÃO INTELIGENTE DE DATA
+  // ═══════════════════════════════════════════════════════════
+  String getSmartDateLabel() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final selected = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
+    
+    // Se é hoje
+    if (selected == today) {
+      return 'Receber hoje';
+    }
+    
+    // Se é amanhã
+    final tomorrow = today.add(const Duration(days: 1));
+    if (selected == tomorrow) {
+      return 'Receber amanhã';
+    }
+    
+    // Se está na mesma semana (próximos 6 dias)
+    final diff = selected.difference(today).inDays;
+    if (diff > 1 && diff <= 6) {
+      final weekDays = [
+        'Segunda-feira',
+        'Terça-feira',
+        'Quarta-feira',
+        'Quinta-feira',
+        'Sexta-feira',
+        'Sábado',
+        'Domingo'
+      ];
+      // weekday: 1 = Monday, 7 = Sunday
+      final weekdayName = weekDays[selected.weekday - 1];
+      return 'Receber $weekdayName';
+    }
+    
+    // Se for após 6 dias, mostra data completa
+    return '${selected.day.toString().padLeft(2, '0')}/${selected.month.toString().padLeft(2, '0')}/${selected.year}';
+  }
 
 
   /// ===========================================================
@@ -938,9 +989,9 @@ Tipo: ${deliveryType.name}
 
 
 
-  // ===========================================================
-  //                     SLOTS DE HORÁRIO
-  // ===========================================================
+  // ═══════════════════════════════════════════════════════════
+  //  ✨ ATUALIZADO: SLOTS COM DIAS ESPECIAIS
+  // ═══════════════════════════════════════════════════════════
   List<TimeSlot> getTimeSlots() {
     final today = DateTime.now();
 
@@ -949,28 +1000,48 @@ Tipo: ${deliveryType.name}
         selectedDate.month == today.month &&
         selectedDate.day == today.day;
 
-    final isSunday =
-        selectedDate.weekday == DateTime.sunday;
+    final isSunday = selectedDate.weekday == DateTime.sunday;
 
-    final isHoliday =
-        holidays.any((h) =>
-            h.year == selectedDate.year &&
-            h.month == selectedDate.month &&
-            h.day == selectedDate.day);
+    final isHoliday = holidays.any((h) =>
+        h.year == selectedDate.year &&
+        h.month == selectedDate.month &&
+        h.day == selectedDate.day);
 
-    final isClosed =
-        closedDays.any((c) =>
-            c.year == selectedDate.year &&
-            c.month == selectedDate.month &&
-            c.day == selectedDate.day);
+    final isClosed = closedDays.any((c) =>
+        c.year == selectedDate.year &&
+        c.month == selectedDate.month &&
+        c.day == selectedDate.day);
 
+    // ✨ NOVO: Verifica se é dia especial
+    final isSpecialDay = specialDays.any((s) =>
+        s.year == selectedDate.year &&
+        s.month == selectedDate.month &&
+        s.day == selectedDate.day);
 
+    // Se fechado, retorna vazio
     if (isClosed) return [];
 
     List<String> slots;
 
-
-    if (deliveryType == DeliveryType.pickup) {
+    // ═══════════════════════════════════════════════════════════
+    //  ✨ DIAS ESPECIAIS (24/12 e 31/12)
+    // ═══════════════════════════════════════════════════════════
+    if (isSpecialDay) {
+      if (deliveryType == DeliveryType.delivery) {
+        slots = [
+          '09:00 - 12:00',
+          '12:00 - 15:00',
+          '15:00 - 16:00',  // ← Horário reduzido
+        ];
+      } else {
+        // Retirada em dias especiais: igual domingo/feriado
+        slots = ['09:00 - 12:00'];
+      }
+    }
+    // ═══════════════════════════════════════════════════════════
+    //  RETIRADA (NORMAL)
+    // ═══════════════════════════════════════════════════════════
+    else if (deliveryType == DeliveryType.pickup) {
       if (isSunday || isHoliday) {
         slots = ['09:00 - 12:00'];
       } else {
@@ -981,6 +1052,9 @@ Tipo: ${deliveryType.name}
         ];
       }
     }
+    // ═══════════════════════════════════════════════════════════
+    //  ENTREGA (NORMAL)
+    // ═══════════════════════════════════════════════════════════
     else {
       if (isSunday || isHoliday) {
         slots = ['09:00 - 12:00'];
@@ -994,19 +1068,16 @@ Tipo: ${deliveryType.name}
       }
     }
 
-
+    // ═══════════════════════════════════════════════════════════
+    //  FILTRO DE HORÁRIOS PASSADOS (SE FOR HOJE)
+    // ═══════════════════════════════════════════════════════════
     if (isToday) {
       final now = today;
 
       slots = slots.where((slot) {
         final endTimeStr = slot.split(' - ')[1];
-
-        final endHour =
-            int.tryParse(endTimeStr.split(':')[0]) ?? 0;
-
-        final endMinute =
-            int.tryParse(endTimeStr.split(':')[1]) ?? 0;
-
+        final endHour = int.tryParse(endTimeStr.split(':')[0]) ?? 0;
+        final endMinute = int.tryParse(endTimeStr.split(':')[1]) ?? 0;
 
         final slotEndTime = DateTime(
           selectedDate.year,
@@ -1027,9 +1098,9 @@ Tipo: ${deliveryType.name}
 
 
 
-  // ===========================================================
-  //                 DATAS INDISPONÍVEIS
-  // ===========================================================
+  // ═══════════════════════════════════════════════════════════
+  //  ✨ ATUALIZADO: VERIFICA TIPOS DE DATAS
+  // ═══════════════════════════════════════════════════════════
   static bool isDateUnavailable(DateTime date) {
     return holidays.any((d) =>
             d.year == date.year &&
@@ -1039,6 +1110,20 @@ Tipo: ${deliveryType.name}
             d.year == date.year &&
             d.month == date.month &&
             d.day == date.day);
+  }
+
+  static bool isClosedDay(DateTime date) {
+    return closedDays.any((d) =>
+        d.year == date.year &&
+        d.month == date.month &&
+        d.day == date.day);
+  }
+
+  static bool isSpecialDay(DateTime date) {
+    return specialDays.any((d) =>
+        d.year == date.year &&
+        d.month == date.month &&
+        d.day == date.day);
   }
 
 

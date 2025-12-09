@@ -1,4 +1,4 @@
-// lib/screens/home/home_screen.dart - CORRIGIDO COM CATEGORIA 521
+// lib/screens/home/home_screen.dart - CORRIGIDO COM PULL-TO-REFRESH
 import 'package:flutter/material.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'package:ao_gosto_app/api/product_service.dart';
@@ -10,6 +10,7 @@ import 'package:ao_gosto_app/screens/home/widgets/product_carousel.dart';
 import 'package:ao_gosto_app/screens/home/widgets/featured_banner.dart';
 import 'package:ao_gosto_app/screens/home/widgets/kits_churrasco_section.dart';
 import 'package:ao_gosto_app/screens/update/forced_update_screen.dart';
+import 'package:ao_gosto_app/state/navigation_controller.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -25,7 +26,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late Future<List<Product>> _onSaleProducts;
   static const _idPaoDeAlho = 73;
   static const _idEspetos = 59;
-  static const _idPratosProntos = 521; // ✅ CATEGORIA MÃE (Massas + Tortas + Pratos Prontos)
+  static const _idPratosProntos = 521;
   static const _idHamburgueres = 390;
   static const _idBebidas = 69;
   static const _idOutros = 62;
@@ -49,255 +50,264 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  void _loadProducts() {
-    _onSaleProducts = _productService.fetchOnSaleProducts();
-    _paoDeAlho = _productService.fetchProductsByCategory(_idPaoDeAlho);
-    _espetos = _productService.fetchProductsByCategory(_idEspetos);
-    _pratosProntos = _productService.fetchProductsByCategory(_idPratosProntos);
-    _hamburgueres = _productService.fetchProductsByCategory(_idHamburgueres);
-    _bebidas = _productService.fetchProductsByCategory(_idBebidas);
-    _outros = _productService.fetchProductsByCategory(_idOutros);
+  void _loadProducts({bool forceRefresh = false}) {
+    setState(() {
+      _onSaleProducts = _productService.fetchOnSaleProducts(forceRefresh: forceRefresh);
+      _paoDeAlho = _productService.fetchProductsByCategory(_idPaoDeAlho, forceRefresh: forceRefresh);
+      _espetos = _productService.fetchProductsByCategory(_idEspetos, forceRefresh: forceRefresh);
+      _pratosProntos = _productService.fetchProductsByCategory(_idPratosProntos, forceRefresh: forceRefresh);
+      _hamburgueres = _productService.fetchProductsByCategory(_idHamburgueres, forceRefresh: forceRefresh);
+      _bebidas = _productService.fetchProductsByCategory(_idBebidas, forceRefresh: forceRefresh);
+      _outros = _productService.fetchProductsByCategory(_idOutros, forceRefresh: forceRefresh);
+    });
+  }
+
+  // ✨ PULL-TO-REFRESH
+  Future<void> _onRefresh() async {
+    ProductService.clearCache();
+    _loadProducts(forceRefresh: true);
+    
+    await Future.wait([
+      _onSaleProducts,
+      _paoDeAlho,
+      _espetos,
+      _pratosProntos,
+      _hamburgueres,
+      _bebidas,
+      _outros,
+    ]);
   }
 
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    backgroundColor: Colors.white,
-    body: CustomScrollView(
-      controller: _scrollCtrl,
-      slivers: [
-        // HEADER (LOGO + MENU) FIXO
-        SliverAppBar(
-          pinned: true,
-          backgroundColor: Colors.white,
-          elevation: 0,
-          automaticallyImplyLeading: false,
-          toolbarHeight: 68,
-          flexibleSpace: SafeArea(
-            bottom: false,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-              child: SizedBox(
-                height: 56,
-                child: Stack(
-                  children: [
-
-                    // 🔥 ZONA SECRETA PARA ABRIR TELA DE UPDATE (DEBUG)
-                    GestureDetector(
-                      onLongPress: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ForcedUpdateScreen(),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        color: Colors.transparent,
-                        height: 56,
-                        width: double.infinity,
-                      ),
-                    ),
-
-                    // LOGO CENTRAL
-                    Center(
-                      child: Image.asset(
-                        'assets/icon/app_icon.png',
-                        height: 36,
-                        fit: BoxFit.contain,
-                      ),
-                    ),
-
-                    // BOTÃO MENU À DIREITA
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Builder(
-                        builder: (context) {
-                          return IconButton(
-                            onPressed: () {
-                              final rootScaffold = context
-                                  .findRootAncestorStateOfType<ScaffoldState>();
-                              rootScaffold?.openEndDrawer();
-                            },
-                            icon: Icon(
-                              Icons.menu_rounded,
-                              size: 28,
-                              color: Colors.grey[800],
-                            ),
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-
-          // SEARCH BAR FIXA
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _SearchBarHeaderDelegate(),
-          ),
-
-          // HERO BANNER
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: hero.SectionHero(height: 180),
-            ),
-          ),
-
-          const SliverToBoxAdapter(child: SizedBox(height: 12)),
-
-          // ✨ KITS CHURRASCO (PRIMEIRO CARROSSEL) ✨
-          const SliverToBoxAdapter(
-            child: KitsChurrascoSection(),
-          ),
-
-          // OFERTAS DA SEMANA
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: RefreshIndicator(
+        onRefresh: _onRefresh,
+        color: AppColors.primary,
+        child: CustomScrollView(
+          controller: _scrollCtrl,
+          slivers: [
+            // HEADER
+            SliverAppBar(
+              pinned: true,
+              backgroundColor: Colors.white,
+              elevation: 0,
+              automaticallyImplyLeading: false,
+              toolbarHeight: 68,
+              flexibleSpace: SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                  child: SizedBox(
+                    height: 56,
+                    child: Stack(
                       children: [
-                        Row(
-                          children: [
-                            const Text(
-                              'Ofertas da ',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF18181B),
+                        GestureDetector(
+                          onLongPress: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ForcedUpdateScreen(),
                               ),
-                            ),
-                            ShaderMask(
-                              shaderCallback: (bounds) => LinearGradient(
-                                colors: [
-                                  AppColors.primary,
-                                  const Color(0xFFFF8C00),
-                                ],
-                              ).createShader(bounds),
-                              child: const Text(
-                                'Semana',
-                                style: TextStyle(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            const Icon(
-                              Icons.local_offer_rounded,
-                              color: AppColors.primary,
-                              size: 22,
-                            ),
-                          ],
+                            );
+                          },
+                          child: Container(
+                            color: Colors.transparent,
+                            height: 56,
+                            width: double.infinity,
+                          ),
                         ),
-                        const SizedBox(height: 4),
-                        const Text(
-                          'Aproveite enquanto dura!',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: Color(0xFF71717A),
+
+                        Center(
+                          child: Image.asset(
+                            'assets/icon/app_icon.png',
+                            height: 36,
+                            fit: BoxFit.contain,
+                          ),
+                        ),
+
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Builder(
+                            builder: (context) {
+                              return IconButton(
+                                onPressed: () {
+                                  final rootScaffold = context
+                                      .findRootAncestorStateOfType<ScaffoldState>();
+                                  rootScaffold?.openEndDrawer();
+                                },
+                                icon: Icon(
+                                  Icons.menu_rounded,
+                                  size: 28,
+                                  color: Colors.grey[800],
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  ProductCarousel(
-                    productsFuture: _onSaleProducts,
-                    height: 295,
-                    itemWidth: 170,
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
 
-          // BANNER DESTAQUE
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 24, 16, 12),
-              child: FeaturedBanner(
-                title: 'Churrasco Perfeito',
-                subtitle: 'Os melhores cortes para seu final de semana',
-                imageUrl:
-                    'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600',
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _SearchBarHeaderDelegate(),
+            ),
+
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: hero.SectionHero(height: 180),
               ),
             ),
-          ),
 
-          // SESSÃO "TODOS OS CORTES"
-          const SliverToBoxAdapter(child: AllCutsSection()),
+            const SliverToBoxAdapter(child: SizedBox(height: 12)),
 
-          // ✨ OUTRAS SESSÕES ✨
-          
-          // Pão de Alho
-          _section(
-            title: 'Pão de Alho Irresistível',
-            highlightWord: 'Alho',
-            icon: Icons.bakery_dining_rounded,
-            future: _paoDeAlho,
-            subtitle: 'O clássico que não pode faltar',
-          ),
-          
-          // Espetos
-          _section(
-            title: 'Praticidade na Grelha',
-            highlightWord: 'Grelha',
-            icon: Icons.dining_rounded,
-            future: _espetos,
-            subtitle: 'Espetos prontos para o churrasco',
-          ),
-          
-          // ✅ Pratos Prontos (AGORA PUXA CATEGORIA 521)
-          _section(
-            title: 'Sabor de Casa',
-            highlightWord: 'Casa',
-            icon: Icons.restaurant_rounded,
-            future: _pratosProntos,
-            subtitle: 'Massas, tortas e pratos deliciosos',
-          ),
-          
-          // Hambúrgueres
-          _section(
-            title: 'Hambúrgueres Premium',
-            highlightWord: 'Premium',
-            icon: Icons.lunch_dining_rounded,
-            future: _hamburgueres,
-            subtitle: 'Suculentos e irresistíveis',
-          ),
-          
-          // Bebidas
-          _section(
-            title: 'Para Acompanhar',
-            highlightWord: 'Acompanhar',
-            icon: Icons.sports_bar_rounded,
-            future: _bebidas,
-          ),
-          
-          // Outros (Temperos)
-          _section(
-            title: 'Essenciais para o Churrasco',
-            highlightWord: 'Essenciais',
-            icon: Icons.local_fire_department_rounded,
-            future: _outros,
-            subtitle: 'Temperos e complementos',
-          ),
+            const SliverToBoxAdapter(
+              child: KitsChurrascoSection(),
+            ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: 100)),
-        ],
+            // OFERTAS
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Text(
+                                'Ofertas da ',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF18181B),
+                                ),
+                              ),
+                              ShaderMask(
+                                shaderCallback: (bounds) => LinearGradient(
+                                  colors: [
+                                    AppColors.primary,
+                                    const Color(0xFFFF8C00),
+                                  ],
+                                ).createShader(bounds),
+                                child: const Text(
+                                  'Semana',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.w900,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.local_offer_rounded,
+                                color: AppColors.primary,
+                                size: 22,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          const Text(
+                            'Aproveite enquanto dura!',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF71717A),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ProductCarousel(
+                      productsFuture: _onSaleProducts,
+                      height: 295,
+                      itemWidth: 170,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // ✅ BANNER COM AÇÃO
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
+                child: FeaturedBanner(
+                  title: 'Churrasco Perfeito',
+                  subtitle: 'Os melhores cortes para seu final de semana',
+                  imageUrl:
+                      'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=1600',
+                  onTap: () {
+                    NavigationController.changeTab?.call(1);
+                  },
+                ),
+              ),
+            ),
+
+            const SliverToBoxAdapter(child: AllCutsSection()),
+
+            _section(
+              title: 'Pão de Alho Irresistível',
+              highlightWord: 'Alho',
+              icon: Icons.bakery_dining_rounded,
+              future: _paoDeAlho,
+              subtitle: 'O clássico que não pode faltar',
+            ),
+            
+            _section(
+              title: 'Praticidade na Grelha',
+              highlightWord: 'Grelha',
+              icon: Icons.dining_rounded,
+              future: _espetos,
+              subtitle: 'Espetos prontos para o churrasco',
+            ),
+            
+            _section(
+              title: 'Sabor de Casa',
+              highlightWord: 'Casa',
+              icon: Icons.restaurant_rounded,
+              future: _pratosProntos,
+              subtitle: 'Massas, tortas e pratos deliciosos',
+            ),
+            
+            _section(
+              title: 'Hambúrgueres Premium',
+              highlightWord: 'Premium',
+              icon: Icons.lunch_dining_rounded,
+              future: _hamburgueres,
+              subtitle: 'Suculentos e irresistíveis',
+            ),
+            
+            _section(
+              title: 'Para Acompanhar',
+              highlightWord: 'Acompanhar',
+              icon: Icons.sports_bar_rounded,
+              future: _bebidas,
+            ),
+            
+            _section(
+              title: 'Essenciais para o Churrasco',
+              highlightWord: 'Essenciais',
+              icon: Icons.local_fire_department_rounded,
+              future: _outros,
+              subtitle: 'Temperos e complementos',
+            ),
+
+            const SliverToBoxAdapter(child: SizedBox(height: 100)),
+          ],
+        ),
       ),
     );
   }
@@ -393,7 +403,6 @@ Widget build(BuildContext context) {
   }
 }
 
-// HEADER FIXO DA SEARCH BAR
 class _SearchBarHeaderDelegate extends SliverPersistentHeaderDelegate {
   static const double _minHeight = 64;
   static const double _maxHeight = 84;

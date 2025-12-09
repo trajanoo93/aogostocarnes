@@ -1,4 +1,4 @@
-// lib/screens/cart/cart_drawer.dart - VERSÃO ULTRA HARMONIOSA
+// lib/screens/cart/cart_drawer.dart - VERSÃO FINAL COM KITS E BOTÕES VERTICAIS
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -11,7 +11,38 @@ import 'package:ao_gosto_app/api/product_service.dart';
 import 'package:ao_gosto_app/screens/checkout/checkout_screen.dart';
 import 'package:ao_gosto_app/screens/product/product_details_page.dart';
 
+// ═══════════════════════════════════════════════════════════
+//              MAPA DE KITS E SEUS ITENS
+// ═══════════════════════════════════════════════════════════
+class KitItemsMap {
+  static const Map<int, List<int>> kitItems = {
+    89944: [343, 341, 1822], // KIT DELIVERY | PREÇO BAIXO
+    438: [1822, 1928], // Kit 5 pessoas PREMIUM
+    449: [331, 344, 345, 335, 343], // Kit Uruguay | 7 a 10 Pessoas
+    446: [329, 335, 344, 345, 343], // Kit Churrasco 10 Pessoas
+    12615: [341, 335, 345, 344], // Kit 10 Pessoas Steakhouse
+    447: [331, 336, 335, 340, 345, 344], // Kit Churrasco 15 Pessoas
+    12613: [331, 345, 344, 341, 336, 335], // Kit 20 Pessoas SteakHouse
+    12610: [334, 336, 331, 335, 341, 345, 344, 339, 343], // Kit Uruguay | 20 Pessoas
+    448: [329, 331, 336, 335, 341, 344, 345], // Kit Churrasco 20 Pessoas
+  };
 
+  // Retorna IDs dos produtos que devem ser ocultados baseado nos kits no carrinho
+  static Set<int> getItemsToHideFromKits(List<CartItem> cartItems) {
+    final Set<int> itemsToHide = {};
+    
+    for (final cartItem in cartItems) {
+      final productId = cartItem.product.id;
+      
+      // Se o produto no carrinho é um kit, pega seus itens
+      if (kitItems.containsKey(productId)) {
+        itemsToHide.addAll(kitItems[productId]!);
+      }
+    }
+    
+    return itemsToHide;
+  }
+}
 
 Future<void> showCartDrawer(BuildContext context) async {
   await Navigator.of(context).push(
@@ -39,13 +70,11 @@ class CartFullScreen extends StatelessWidget {
       backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          // Overlay escuro
           GestureDetector(
             onTap: () => Navigator.pop(context),
             child: Container(color: Colors.black.withOpacity(0.6)),
           ),
 
-          // Painel principal
           AnimatedBuilder(
             animation: controller,
             builder: (context, _) {
@@ -71,10 +100,8 @@ class CartFullScreen extends StatelessWidget {
                     color: Colors.white,
                     child: Column(
                       children: [
-                        // HEADER MODERNO
                         if (!isEmpty) _ModernHeader(totalItems: totalItems),
 
-                        // Botão X quando vazio
                         if (isEmpty)
                           SafeArea(
                             child: Align(
@@ -93,14 +120,12 @@ class CartFullScreen extends StatelessWidget {
                             ),
                           ),
 
-                        // CONTEÚDO
                         Expanded(
                           child: isEmpty
                               ? const _EmptyCart()
                               : _CartWithItems(items: items, brl: brl),
                         ),
 
-                        // FOOTER PREMIUM COM UP-SELLING
                         if (!isEmpty) _PremiumFooterWithUpselling(brl: brl),
                       ],
                     ),
@@ -192,7 +217,7 @@ class _ModernHeader extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════
-//         FOOTER PREMIUM COM UP-SELLING FIXO
+//         FOOTER COM BOTÕES VERTICAIS E UP-SELLING
 // ═══════════════════════════════════════════════════════════
 class _PremiumFooterWithUpselling extends StatelessWidget {
   final NumberFormat brl;
@@ -222,17 +247,16 @@ class _PremiumFooterWithUpselling extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ✨ UP-SELLING COMPACTO FIXO
+            // ✨ UP-SELLING COM LÓGICA DE KITS
             const _CompactUpsellingRow(),
             
-            // Divider sutil
             Divider(
               height: 1,
               thickness: 1,
               color: Colors.grey.shade100,
             ),
             
-            // Subtotal + Botão
+            // Subtotal + Botões VERTICAIS
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
               child: Column(
@@ -262,7 +286,36 @@ class _PremiumFooterWithUpselling extends StatelessWidget {
                   
                   const SizedBox(height: 12),
                   
-                  // Botão
+                  // ✨ BOTÃO CONTINUAR (OUTLINE - ACIMA)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFF18181B),
+                        side: const BorderSide(
+                          color: Color(0xFFE5E7EB),
+                          width: 1.5,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: const Text(
+                        'Continuar Comprando',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 10),
+                  
+                  // ✨ BOTÃO FINALIZAR (PREENCHIDO - ABAIXO)
                   SizedBox(
                     width: double.infinity,
                     height: 52,
@@ -306,7 +359,7 @@ class _PremiumFooterWithUpselling extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════
-//            UP-SELLING COMPACTO (1 LINHA FIXA)
+//      UP-SELLING COM LÓGICA DE OCULTAR ITENS DE KITS
 // ═══════════════════════════════════════════════════════════
 class _CompactUpsellingRow extends StatefulWidget {
   const _CompactUpsellingRow();
@@ -321,10 +374,8 @@ class _CompactUpsellingRowState extends State<_CompactUpsellingRow> {
   List<Product> _visibleSuggestions = [];
   bool _loading = true;
 
-  // Cache global (agora dentro da classe, mas estático pra persistir entre aberturas)
   static final Map<int, Product> _upsellCache = {};
 
-  // Seus IDs reais dos mais vendidos
   static const List<int> _bestsellerIds = [
     1822, 376, 373, 345, 346, 342, 339, 337, 335, 331, 329,
   ];
@@ -344,70 +395,78 @@ class _CompactUpsellingRowState extends State<_CompactUpsellingRow> {
   }
 
   Future<void> _loadBestsellers() async {
-  // 1. Tenta usar cache primeiro
-  final cached = _bestsellerIds
-      .where((id) => _upsellCache.containsKey(id))
-      .map((id) => _upsellCache[id]!)
-      .toList();
+    final cached = _bestsellerIds
+        .where((id) => _upsellCache.containsKey(id))
+        .map((id) => _upsellCache[id]!)
+        .toList();
 
-  if (cached.length == _bestsellerIds.length) {
-    setState(() {
-      _allSuggestions = cached;
-      _loading = false;
-    });
-    _updateVisibleProducts();
-    return;
-  }
-
-  // 2. Busca do servidor com 1 única requisição (usando o método público!)
-  final service = ProductService();
-  final missingIds = _bestsellerIds.where((id) => !_upsellCache.containsKey(id)).toList();
-  final idsParam = missingIds.join(',');
-
-  if (missingIds.isEmpty) return;
-
-  final url =
-      'https://aogosto.com.br/delivery/wp-json/wc/v3/products?include=$idsParam&per_page=50&status=publish&consumer_key=ck_5156e2360f442f2585c8c9a761ef084b710e811f&consumer_secret=cs_c62f9d8f6c08a1d14917e2a6db5dccce2815de8c';
-
-  try {
-    final resp = await http.get(Uri.parse(url));
-
-    if (resp.statusCode == 200) {
-      final List data = json.decode(resp.body);
-      final List<Product> loaded = [];
-
-      for (final item in data) {
-        final product = Product.fromWoo(item as Map<String, dynamic>);
-        _upsellCache[product.id] = product;  // guarda no cache
-        loaded.add(product);
-      }
-
-      // Junta com os que já estavam no cache
-      final allLoaded = _bestsellerIds.map((id) => _upsellCache[id]!).toList();
-
-      if (mounted) {
-        setState(() {
-          _allSuggestions = allLoaded;
-          _loading = false;
-        });
-        _updateVisibleProducts();
-      }
+    if (cached.length == _bestsellerIds.length) {
+      setState(() {
+        _allSuggestions = cached;
+        _loading = false;
+      });
+      _updateVisibleProducts();
+      return;
     }
-  } catch (e) {
-    print('Erro upsell: $e');
-    if (mounted) setState(() => _loading = false);
+
+    final missingIds = _bestsellerIds.where((id) => !_upsellCache.containsKey(id)).toList();
+    final idsParam = missingIds.join(',');
+
+    if (missingIds.isEmpty) return;
+
+    final url =
+        'https://aogosto.com.br/delivery/wp-json/wc/v3/products?include=$idsParam&per_page=50&status=publish&consumer_key=ck_5156e2360f442f2585c8c9a761ef084b710e811f&consumer_secret=cs_c62f9d8f6c08a1d14917e2a6db5dccce2815de8c';
+
+    try {
+      final resp = await http.get(Uri.parse(url));
+
+      if (resp.statusCode == 200) {
+        final List data = json.decode(resp.body);
+        final List<Product> loaded = [];
+
+        for (final item in data) {
+          final product = Product.fromWoo(item as Map<String, dynamic>);
+          _upsellCache[product.id] = product;
+          loaded.add(product);
+        }
+
+        final allLoaded = _bestsellerIds.map((id) => _upsellCache[id]!).toList();
+
+        if (mounted) {
+          setState(() {
+            _allSuggestions = allLoaded;
+            _loading = false;
+          });
+          _updateVisibleProducts();
+        }
+      }
+    } catch (e) {
+      print('Erro upsell: $e');
+      if (mounted) setState(() => _loading = false);
+    }
   }
-}
 
   void _updateVisibleProducts() {
     if (!mounted) return;
 
-    final cartIds = _cartController.items.map((e) => e.product.id).toSet();
-    final filtered = _allSuggestions.where((p) => !cartIds.contains(p.id)).toList();
+    // 1. IDs dos produtos que estão diretamente no carrinho
+    final cartProductIds = _cartController.items.map((e) => e.product.id).toSet();
+    
+    // 2. IDs dos produtos que estão DENTRO dos kits do carrinho
+    final kitItemsToHide = KitItemsMap.getItemsToHideFromKits(_cartController.items);
+    
+    // 3. Combina ambos os conjuntos
+    final allIdsToHide = {...cartProductIds, ...kitItemsToHide};
+    
+    // 4. Filtra produtos do upsell
+    final filtered = _allSuggestions.where((p) => !allIdsToHide.contains(p.id)).toList();
 
     setState(() {
       _visibleSuggestions = filtered;
     });
+    
+    print('🔍 Up-sell: ${_visibleSuggestions.length} produtos visíveis');
+    print('❌ Ocultados: $allIdsToHide');
   }
 
   @override
@@ -459,7 +518,7 @@ class _CompactUpsellingRowState extends State<_CompactUpsellingRow> {
 }
 
 // ═══════════════════════════════════════════════════════════
-//            CARD MINI UP-SELLING (90px altura)
+//            CARD MINI UP-SELLING
 // ═══════════════════════════════════════════════════════════
 class _MiniUpsellingCard extends StatelessWidget {
   final Product product;
@@ -490,7 +549,6 @@ class _MiniUpsellingCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Imagem quadrada
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: SizedBox(
@@ -513,13 +571,11 @@ class _MiniUpsellingCard extends StatelessWidget {
             
             const SizedBox(width: 10),
             
-            // Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Nome
                   Text(
                     product.name,
                     style: const TextStyle(
@@ -534,7 +590,6 @@ class _MiniUpsellingCard extends StatelessWidget {
                   
                   const SizedBox(height: 6),
                   
-                  // Preço + Botão
                   Row(
                     children: [
                       Expanded(
@@ -547,7 +602,6 @@ class _MiniUpsellingCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      // Botão +
                       GestureDetector(
                         onTap: () {
                           controller.add(product);
@@ -720,7 +774,7 @@ class _CartWithItems extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════
-//            CARD DO ITEM COMPACTO E HARMONIOSO
+//            CARD DO ITEM
 // ═══════════════════════════════════════════════════════════
 class _CompactCartItemCard extends StatelessWidget {
   final CartItem item;
@@ -747,7 +801,6 @@ class _CompactCartItemCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Imagem menor
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: SizedBox(
@@ -762,12 +815,10 @@ class _CompactCartItemCard extends StatelessWidget {
 
           const SizedBox(width: 10),
 
-          // Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Nome + Botão remover
                 Row(
                   children: [
                     Expanded(
@@ -800,7 +851,6 @@ class _CompactCartItemCard extends StatelessWidget {
                   ],
                 ),
 
-                // ✨ ATRIBUTOS DISCRETOS (BADGES CINZA)
                 if (item.selectedAttributes != null &&
                     item.selectedAttributes!.isNotEmpty)
                   Padding(
@@ -836,7 +886,6 @@ class _CompactCartItemCard extends StatelessWidget {
                     ),
                   ),
 
-                // Preço + Stepper
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -849,7 +898,6 @@ class _CompactCartItemCard extends StatelessWidget {
                       ),
                     ),
 
-                    // Stepper compacto
                     Container(
                       height: 32,
                       decoration: BoxDecoration(

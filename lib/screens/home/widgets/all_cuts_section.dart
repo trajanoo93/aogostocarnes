@@ -1,4 +1,4 @@
-// lib/screens/home/widgets/all_cuts_section.dart - VERSÃO PREMIUM
+// lib/screens/home/widgets/all_cuts_section.dart - VERSÃO OTIMIZADA
 import 'package:flutter/material.dart';
 import 'package:ao_gosto_app/api/product_service.dart';
 import 'package:ao_gosto_app/models/product.dart';
@@ -20,7 +20,6 @@ class AllCutsSection extends StatefulWidget {
 class _AllCutsSectionState extends State<AllCutsSection> {
   final _service = ProductService();
 
-  // IDs e imagens (na ordem)
   final _categories = const [
     (name: 'Picanha', id: 33, img: 'assets/icons_category/picanha.webp'),
     (name: 'Boi', id: 34, img: 'assets/icons_category/boi.webp'),
@@ -40,7 +39,7 @@ class _AllCutsSectionState extends State<AllCutsSection> {
     _activeCategoryId = _categories.first.id;
     _allCutsFuture = _service.fetchProductsByCategories(
       _categories.map((c) => c.id).toList(),
-      perCategory: 50,
+      perCategory: 20, // ✅ REDUZIDO DE 50 PARA 20
     );
   }
 
@@ -62,7 +61,6 @@ class _AllCutsSectionState extends State<AllCutsSection> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ✨ HEADER PREMIUM
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Column(
@@ -72,7 +70,6 @@ class _AllCutsSectionState extends State<AllCutsSection> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Título
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,7 +121,6 @@ class _AllCutsSectionState extends State<AllCutsSection> {
                       ),
                     ),
                     
-                    // Ver todos minimalista
                     GestureDetector(
                       onTap: () => NavigationController.changeTab?.call(1),
                       child: Container(
@@ -167,13 +163,12 @@ class _AllCutsSectionState extends State<AllCutsSection> {
             ),
           ),
           
-          const SizedBox(height: 16), // ✅ Reduzido
+          const SizedBox(height: 16),
 
-          // ✨ BUBBLES (altura reduzida)
           SizedBox(
-            height: 110, // ✅ Reduzido (antes: 124)
+            height: 110,
             child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16), // ✅ Ajustado
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               scrollDirection: Axis.horizontal,
               itemCount: _categories.length,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
@@ -192,9 +187,8 @@ class _AllCutsSectionState extends State<AllCutsSection> {
             ),
           ),
           
-          const SizedBox(height: 16), // ✅ Reduzido (antes: 20)
+          const SizedBox(height: 16),
 
-          // ✨ GRID
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: FutureBuilder<List<Product>>(
@@ -231,14 +225,14 @@ class _AllCutsSectionState extends State<AllCutsSection> {
                       physics: const NeverScrollableScrollPhysics(),
                       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 2,
-                        crossAxisSpacing: 12, // ✅ Reduzido (antes: 16)
-                        mainAxisSpacing: 12,  // ✅ Reduzido (antes: 16)
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
                         childAspectRatio: 0.72,
                       ),
                       itemCount: visible.length,
                       itemBuilder: (_, i) {
                         final p = visible[i];
-                        return CompactProductCard( // ✅ CompactProductCard
+                        return CompactProductCard(
                           product: p,
                           onTap: () => _openDetails(p),
                           onAddToCart: () => _addAndOpenCart(p),
@@ -248,7 +242,6 @@ class _AllCutsSectionState extends State<AllCutsSection> {
                     
                     const SizedBox(height: 16),
                     
-                    // ✨ BOTÃO REVELAR (minimalista com gradiente)
                     if (remaining > 0)
                       Container(
                         width: double.infinity,

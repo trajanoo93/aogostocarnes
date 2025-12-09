@@ -1,4 +1,4 @@
-// lib/api/product_service.dart - VERSÃO COM SUPORTE A VARIAÇÕES
+// lib/api/product_service.dart - VERSÃO DEFINITIVA COM CACHE INTELIGENTE
 
 import 'dart:async';
 import 'dart:convert';
@@ -20,6 +20,13 @@ class ProductService {
     );
     return 'Basic $credentials';
   }
+
+  // ✨ CACHE EM MEMÓRIA COM EXPIRAÇÃO CURTA
+  static final Map<String, CacheEntry<List<Product>>> _cache = {};
+  static final Map<int, Product> _productCache = {};
+  
+  // ⏰ Cache de apenas 2 minutos (atualização rápida de preços)
+  static const Duration _cacheDuration = Duration(minutes: 2);
 
   static const String _FIELDS =
       'id,name,type,regular_price,sale_price,price,images,short_description,categories,meta_data,attributes,variations';
@@ -44,20 +51,25 @@ class ProductService {
     return null;
   }
 
-
-Future<Product?> fetchProductById(int productId) async {
-  final url = '$_baseUrl/products/$productId?$_FIELDS';
-  try {
-    final resp = await http.get(Uri.parse(url), headers: {'Authorization': _authHeader});
-    if (resp.statusCode == 200) {
-      final data = json.decode(resp.body);
-      return _mapProduct(data);
+  Future<Product?> fetchProductById(int productId) async {
+    if (_productCache.containsKey(productId)) {
+      return _productCache[productId];
     }
-  } catch (e) {
-    print('Erro ao carregar produto $productId: $e');
+
+    final url = '$_baseUrl/products/$productId?_fields=$_FIELDS';
+    try {
+      final resp = await http.get(Uri.parse(url), headers: {'Authorization': _authHeader});
+      if (resp.statusCode == 200) {
+        final data = json.decode(resp.body);
+        final product = _mapProduct(data);
+        _productCache[productId] = product;
+        return product;
+      }
+    } catch (e) {
+      print('Erro ao carregar produto $productId: $e');
+    }
+    return null;
   }
-  return null;
-}
 
   Product _mapProduct(Map<String, dynamic> p) {
     final meta = (p['meta_data'] as List?)?.cast<Map<String, dynamic>>();
@@ -82,7 +94,7 @@ Future<Product?> fetchProductById(int productId) async {
 
     final variationIds = (p['variations'] as List?)?.map((v) => v as int).toList();
 
-    return Product(
+    final product = Product(
       id: (p['id'] as num).toInt(),
       name: (p['name'] as String?) ?? '',
       type: type,
@@ -102,6 +114,10 @@ Future<Product?> fetchProductById(int productId) async {
       isSeasoned: _toBool(_findMeta(meta, '_is_seasoned')),
       isBestseller: _toBool(_findMeta(meta, '_is_bestseller')),
     );
+
+    _productCache[product.id] = product;
+
+    return product;
   }
 
   String _cleanHtml(String input) {
@@ -144,7 +160,6 @@ Future<Product?> fetchProductById(int productId) async {
     return lines.join('\n').trim();
   }
 
-  // ✨ NOVO: BUSCAR VARIAÇÕES DE UM PRODUTO
   Future<List<ProductVariation>> fetchProductVariations(int productId) async {
     final url = '$_baseUrl/products/$productId/variations?per_page=100';
     
@@ -167,27 +182,52 @@ Future<Product?> fetchProductById(int productId) async {
     return [];
   }
 
-  // OFERTAS
-  Future<List<Product>> fetchOnSaleProducts({int perPage = 20}) async {
+  // ✨ OFERTAS (COM CACHE + FORCE REFRESH)
+  Future<List<Product>> fetchOnSaleProducts({int perPage = 20, bool forceRefresh = false}) async {
+    final cacheKey = 'onsale_$perPage';
+    
+    if (!forceRefresh && _cache.containsKey(cacheKey) && !_cache[cacheKey]!.isExpired) {
+      print('✅ Cache HIT: Ofertas');
+      return _cache[cacheKey]!.data;
+    }
+
+    print('🔄 Buscando ofertas...');
+    
     final url = '$_baseUrl/products?status=publish&per_page=$perPage&stock_status=instock&category=72&_fields=$_FIELDS';
     try {
       final resp = await http.get(Uri.parse(url), headers: {'Authorization': _authHeader});
       if (resp.statusCode == 200) {
         final List data = json.decode(resp.body);
-        return data.map((e) => _mapProduct(e as Map<String, dynamic>)).toList();
+        final products = data.map((e) => _mapProduct(e as Map<String, dynamic>)).toList();
+        
+        _cache[cacheKey] = CacheEntry(products, DateTime.now().add(_cacheDuration));
+        
+        return products;
       }
-    } catch (_) {}
+    } catch (e) {
+      print('❌ Erro ao buscar ofertas: $e');
+    }
     return [];
   }
 
-  // BUSCA
   Future<List<Product>> fetchProductsBySearch(String query) async {
+    final cacheKey = 'search_$query';
+    
+    if (_cache.containsKey(cacheKey) && !_cache[cacheKey]!.isExpired) {
+      print('✅ Cache HIT: Busca "$query"');
+      return _cache[cacheKey]!.data;
+    }
+
     final url = '$_baseUrl/products?search=${Uri.encodeComponent(query)}&per_page=30&status=publish&stock_status=instock&_fields=$_FIELDS';
     try {
       final resp = await http.get(Uri.parse(url), headers: {'Authorization': _authHeader});
       if (resp.statusCode == 200) {
         final List data = json.decode(resp.body);
-        return data.map((e) => _mapProduct(e as Map<String, dynamic>)).toList();
+        final products = data.map((e) => _mapProduct(e as Map<String, dynamic>)).toList();
+        
+        _cache[cacheKey] = CacheEntry(products, DateTime.now().add(_cacheDuration));
+        
+        return products;
       }
     } catch (_) {}
     return [];
@@ -197,7 +237,17 @@ Future<Product?> fetchProductById(int productId) async {
     int categoryId, {
     int perPage = 20,
     int page = 1,
+    bool forceRefresh = false,
   }) async {
+    final cacheKey = 'cat_${categoryId}_${perPage}_$page';
+    
+    if (!forceRefresh && _cache.containsKey(cacheKey) && !_cache[cacheKey]!.isExpired) {
+      print('✅ Cache HIT: Categoria $categoryId');
+      return _cache[cacheKey]!.data;
+    }
+
+    print('🔄 Buscando categoria $categoryId...');
+
     final url = '$_baseUrl/products?'
         'status=publish'
         '&per_page=$perPage'
@@ -210,7 +260,11 @@ Future<Product?> fetchProductById(int productId) async {
       final resp = await http.get(Uri.parse(url), headers: {'Authorization': _authHeader});
       if (resp.statusCode == 200) {
         final List data = json.decode(resp.body);
-        return data.map((e) => _mapProduct(e as Map<String, dynamic>)).toList();
+        final products = data.map((e) => _mapProduct(e as Map<String, dynamic>)).toList();
+        
+        _cache[cacheKey] = CacheEntry(products, DateTime.now().add(_cacheDuration));
+        
+        return products;
       }
     } catch (e) {
       print('Erro ao carregar categoria $categoryId: $e');
@@ -218,13 +272,22 @@ Future<Product?> fetchProductById(int productId) async {
     return [];
   }
 
-  // VÁRIAS CATEGORIAS
   Future<List<Product>> fetchProductsByCategories(
     List<int> categoryIds, {
-    int perCategory = 50,
+    int perCategory = 20,
     int page = 1,
+    bool forceRefresh = false,
   }) async {
     if (categoryIds.isEmpty) return [];
+
+    final cacheKey = 'cats_${categoryIds.join('_')}_${perCategory}_$page';
+    
+    if (!forceRefresh && _cache.containsKey(cacheKey) && !_cache[cacheKey]!.isExpired) {
+      print('✅ Cache HIT: Categorias múltiplas');
+      return _cache[cacheKey]!.data;
+    }
+
+    print('🔄 Buscando categorias múltiplas...');
 
     try {
       final futures = categoryIds.map((id) {
@@ -245,9 +308,29 @@ Future<Product?> fetchProductById(int productId) async {
           }
         }
       }
-      return unique.values.toList();
+      
+      final products = unique.values.toList();
+      _cache[cacheKey] = CacheEntry(products, DateTime.now().add(_cacheDuration));
+      
+      return products;
     } catch (_) {
       return [];
     }
   }
+
+  // ✨ LIMPAR CACHE (para pull-to-refresh)
+  static void clearCache() {
+    _cache.clear();
+    _productCache.clear();
+    print('🗑️ Cache limpo!');
+  }
+}
+
+class CacheEntry<T> {
+  final T data;
+  final DateTime expiry;
+
+  CacheEntry(this.data, this.expiry);
+
+  bool get isExpired => DateTime.now().isAfter(expiry);
 }

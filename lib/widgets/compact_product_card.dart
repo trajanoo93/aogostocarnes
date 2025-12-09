@@ -1,8 +1,9 @@
-// lib/widgets/compact_product_card.dart - VERSÃO COMPACTA PARA GRID
+// lib/widgets/compact_product_card.dart - COMPLETO COM CACHE
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:ao_gosto_app/models/product.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:ui';
 
 class CompactProductCard extends StatelessWidget {
@@ -53,20 +54,47 @@ class CompactProductCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // IMAGEM + BADGES (compacta)
+              // ✨ IMAGEM COM CACHE
               Stack(
                 children: [
                   ClipRRect(
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                     child: AspectRatio(
-                      aspectRatio: 1.0, // ✅ Mantém proporção
-                      child: Image.network(
-                        product.imageUrl,
+                      aspectRatio: 1.0,
+                      child: CachedNetworkImage(
+                        imageUrl: product.imageUrl,
                         fit: imageFit,
-                        errorBuilder: (_, __, ___) => Container(
-                          color: const Color(0xFFF5F5F5),
-                          child: Icon(Icons.image_not_supported_outlined, color: Colors.grey[400]),
+                        
+                        // Placeholder
+                        placeholder: (context, url) => Container(
+                          color: const Color(0xFFF3F4F6),
+                          child: Center(
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  Colors.grey.shade400,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
+                        
+                        // Erro
+                        errorWidget: (context, url, error) => Container(
+                          color: const Color(0xFFF5F5F5),
+                          child: Icon(
+                            Icons.image_not_supported_outlined,
+                            color: Colors.grey[400],
+                          ),
+                        ),
+                        
+                        // Cache otimizado
+                        fadeInDuration: const Duration(milliseconds: 300),
+                        memCacheWidth: 400,
+                        memCacheHeight: 400,
                       ),
                     ),
                   ),
@@ -208,7 +236,7 @@ class CompactProductCard extends StatelessWidget {
                 ],
               ),
 
-              // INFORMAÇÕES (compactas)
+              // INFORMAÇÕES
               Padding(
                 padding: const EdgeInsets.all(8),
                 child: Column(

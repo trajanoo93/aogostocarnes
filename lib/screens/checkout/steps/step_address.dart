@@ -45,7 +45,7 @@ class StepAddress extends StatelessWidget {
           _PickupSection(),
         const SizedBox(height: 12),
         
-        // 4. AGENDAMENTO (com "Receber hoje" + slots alinhados)
+        // 4. AGENDAMENTO (✨ ATUALIZADO)
         _ScheduleSection(),
         const SizedBox(height: 12),
         
@@ -855,16 +855,23 @@ class _PickupSection extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════
-//         AGENDAMENTO (RECEBER HOJE + SLOTS ALINHADOS)
+//  ✨ ATUALIZADO: AGENDAMENTO COM FORMATAÇÃO INTELIGENTE
 // ═══════════════════════════════════════════════════════════
 class _ScheduleSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.watch<CheckoutController>();
     final hasSchedule = c.selectedTimeSlot != null;
-    final isToday = c.selectedDate.year == DateTime.now().year &&
-        c.selectedDate.month == DateTime.now().month &&
-        c.selectedDate.day == DateTime.now().day;
+    
+    // ✨ Verifica se a data selecionada é um dia fechado
+    final isClosed = CheckoutController.isClosedDay(c.selectedDate);
+    
+    // ✨ Verifica se é um dia especial
+    final isSpecial = CheckoutController.isSpecialDay(c.selectedDate);
+    
+    // ✨ Obtém os slots disponíveis
+    final slots = c.getTimeSlots();
+    final hasNoSlots = slots.isEmpty && !isClosed;
     
     return Container(
       padding: const EdgeInsets.all(20),
@@ -883,7 +890,7 @@ class _ScheduleSection extends StatelessWidget {
           
           const SizedBox(height: 16),
           
-          // Input de data full width
+          // ✨ Input de data com formatação inteligente
           InkWell(
             onTap: () => _showCalendarModal(context, c),
             borderRadius: BorderRadius.circular(12),
@@ -907,15 +914,11 @@ class _ScheduleSection extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      isToday && !hasSchedule
-                          ? 'Receber hoje'
-                          : hasSchedule
-                              ? '${c.selectedDate.day.toString().padLeft(2, '0')}/${c.selectedDate.month.toString().padLeft(2, '0')}/${c.selectedDate.year}'
-                              : 'Receber hoje',
+                      c.getSmartDateLabel(), // ✨ FORMATAÇÃO INTELIGENTE
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: hasSchedule || isToday
+                        color: hasSchedule
                             ? const Color(0xFF18181B)
                             : const Color(0xFF71717A),
                       ),
@@ -931,13 +934,171 @@ class _ScheduleSection extends StatelessWidget {
             ),
           ),
           
-          // Slots FULL WIDTH (alinhados com o input)
-          if (c.getTimeSlots().isNotEmpty) ...[
-            const SizedBox(height: 12),
+          const SizedBox(height: 12),
+          
+          // ═══════════════════════════════════════════════════════════
+          //  ✨ MENSAGENS AMIGÁVEIS + SLOTS
+          // ═══════════════════════════════════════════════════════════
+          
+          // 🎄 DIA FECHADO (RECESSO)
+          if (isClosed)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.red[50]!, Colors.orange[50]!],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red[100],
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.celebration_rounded,
+                      color: Colors.red[700],
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Estamos de recesso! 🎉',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.red[900],
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Não realizamos entregas neste dia.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.red[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          
+          // 🎁 DIA ESPECIAL (HORÁRIO REDUZIDO)
+          else if (isSpecial && slots.isNotEmpty)
+            Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.amber[50]!, Colors.orange[50]!],
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.amber[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        color: Colors.amber[800],
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Horários especiais neste dia 🎄',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.amber[900],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: TimeSlotGrid(
+                    slots: slots,
+                    selectedSlot: c.selectedTimeSlot,
+                    onSlotSelected: (slot) {
+                      c.selectedTimeSlot = slot;
+                      c.notifyListeners();
+                    },
+                  ),
+                ),
+              ],
+            )
+          
+          // 😔 SEM SLOTS (HORÁRIOS ESGOTADOS)
+          else if (hasNoSlots)
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey[300]!),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.schedule_rounded,
+                      color: Colors.grey[700],
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Horários esgotados',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.grey[900],
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Selecione outro dia ou tente amanhã',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            )
+          
+          // ✅ SLOTS DISPONÍVEIS
+          else if (slots.isNotEmpty)
             SizedBox(
               width: double.infinity,
               child: TimeSlotGrid(
-                slots: c.getTimeSlots(),
+                slots: slots,
                 selectedSlot: c.selectedTimeSlot,
                 onSlotSelected: (slot) {
                   c.selectedTimeSlot = slot;
@@ -945,32 +1106,11 @@ class _ScheduleSection extends StatelessWidget {
                 },
               ),
             ),
-          ] else if (hasSchedule)
-            Container(
-              margin: const EdgeInsets.only(top: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red[50],
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, size: 16, color: Colors.red[700]),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Nenhum horário disponível',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.red[700],
-                    ),
-                  ),
-                ],
-              ),
-            ),
           
-          // Resumo
-          if (hasSchedule)
+          // ═══════════════════════════════════════════════════════════
+          //  ✅ RESUMO DO AGENDAMENTO
+          // ═══════════════════════════════════════════════════════════
+          if (hasSchedule && !isClosed)
             Container(
               margin: const EdgeInsets.only(top: 12),
               padding: const EdgeInsets.all(12),
@@ -988,9 +1128,7 @@ class _ScheduleSection extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      isToday
-                          ? 'Hoje • ${c.selectedTimeSlot}'
-                          : 'Agendado: ${c.selectedDate.day.toString().padLeft(2, '0')}/${c.selectedDate.month.toString().padLeft(2, '0')} • ${c.selectedTimeSlot}',
+                      '${c.getSmartDateLabel()} • ${c.selectedTimeSlot}',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
