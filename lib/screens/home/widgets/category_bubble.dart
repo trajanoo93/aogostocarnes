@@ -23,64 +23,69 @@ class CategoryBubble extends StatelessWidget {
       borderRadius: BorderRadius.circular(999),
       child: SizedBox(
         width: 96,
+        height: double.infinity, // ocupa toda a célula da lista
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.end, // encosta embaixo
           children: [
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                // 🔥 Bolha branca com sombra apenas quando ativa
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOut,
-                  width: 80,
-                  height: 80,
-                  decoration: BoxDecoration(
-                    color: Colors.white, // sempre branco
-                    shape: BoxShape.circle,
-                    boxShadow: active
-                        ? const [
-                            BoxShadow(
-                              color: Color(0x1A000000),
-                              blurRadius: 16,
-                              offset: Offset(0, 6),
-                            ),
-                          ]
-                        : [], // sem sombra quando inativa
-                  ),
-                ),
-
-                // 🔥 Ícone
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    image: DecorationImage(
-                      image: AssetImage(imageUrl),
-                      fit: BoxFit.contain,
+            // altura fixa da “bolha”
+            SizedBox(
+              height: 80, // 🔹 antes ficava na casa dos 88+
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  // bolha branca
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOut,
+                    width: 68,   // 🔹 menor
+                    height: 68,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: active
+                          ? const [
+                              BoxShadow(
+                                color: Color(0x1A000000),
+                                blurRadius: 12,
+                                offset: Offset(0, 4),
+                              ),
+                            ]
+                          : [],
                     ),
                   ),
-                ),
 
-                // 🔥 Borda animada quando ativo
-                if (active)
+                  // ícone
                   Container(
-                    width: 88,
-                    height: 88,
+                    width: 60,   // 🔹 menor
+                    height: 60,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(
-                        color: const Color(0xFFFA4815),
-                        width: 4,
+                      image: DecorationImage(
+                        image: AssetImage(imageUrl),
+                        fit: BoxFit.contain,
                       ),
                     ),
                   ),
-              ],
+
+                  // borda ativa
+                  if (active)
+                    Container(
+                      width: 76,  // 🔹 menor
+                      height: 76,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFFFA4815),
+                          width: 4,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 6),
 
-            // 🔥 Nome da categoria
             Text(
               name,
               textAlign: TextAlign.center,

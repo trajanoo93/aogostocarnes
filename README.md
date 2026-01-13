@@ -872,6 +872,406 @@ dependencies:
   mask_text_input_formatter: ^2.5.0
 ```
 
+📝 Seção OMS para o README
+Adicione isso no seu README após a seção de Sistema de Webhook:
+
+🎛️ Sistema OMS (Order Management System) — Controle Remoto Total
+🎯 Visão Geral
+O OMS (Order Management System) é um painel administrativo web que permite controlar remotamente as configurações do aplicativo sem precisar recompilar ou atualizar na App Store/Play Store.
+Com ele, você pode:
+
+✅ Habilitar/desabilitar o app (manutenção)
+✅ Controlar slots de horário dinamicamente
+✅ Ativar/desativar carrousels especiais (ex: Natal)
+✅ Exibir mensagens customizadas no checkout
+✅ Habilitar/desabilitar gateways de pagamento
+✅ Ativar/desativar unidades de retirada
+
+Tudo em tempo real, com cache inteligente de 5 minutos.
+
+🏗️ Arquitetura
+App Flutter → JSON Endpoint (PHP) ← Painel OMS (PHP)
+              ↓
+         Cache Local (5min)
+Componentes:
+/var/www/html/app/oms/
+├── api.php          ← Endpoint público JSON (lido pelo app)
+├── index.php        ← Painel administrativo
+├── save.php         ← Processamento de formulário
+└── config.json      ← Arquivo de configurações (gerado automaticamente)
+Flutter:
+lib/
+├── services/
+│   └── remote_config_service.dart    ← Service de busca
+│
+└── screens/
+    ├── maintenance/
+    │   └── maintenance_screen.dart   ← Tela de manutenção
+    └── checkout/
+        └── steps/
+            ├── step_address.dart     ← Integrado com OMS
+            └── step_payment.dart     ← Integrado com OMS
+
+📱 Funcionalidades Implementadas
+1. Status do Aplicativo
+
+Toggle ON/OFF: Ativa ou desativa o app instantaneamente
+Mensagem customizada: Define texto exibido na tela de manutenção
+Verificação automática: App verifica status ao abrir
+
+dart// main.dart
+final remoteConfig = await RemoteConfigService.fetchConfig(forceRefresh: true);
+
+if (!remoteConfig.appEnabled) {
+  runApp(MaterialApp(
+    home: MaintenanceScreen(message: remoteConfig.maintenanceMessage),
+  ));
+  return;
+}
+
+2. Slots de Horário Dinâmicos
+Configuração por tipo de dia:
+
+✅ Segunda a Sábado (Entrega)
+✅ Domingo e Feriados (Entrega)
+✅ Segunda a Sábado (Retirada)
+✅ Domingo e Feriados (Retirada)
+
+Dias Especiais:
+
+✅ 24/12 e 31/12: Horários reduzidos customizáveis
+✅ 25/12 e 01/01: Dias fechados (recesso)
+
+Painel permite:
+
+Adicionar/remover horários ilimitados
+Habilitar/desabilitar slots por categoria
+Definir dias fechados e especiais
+
+json{
+  "slots_config": {
+    "enabled": true,
+    "delivery_weekday": ["09:00 - 12:00", "12:00 - 15:00", "15:00 - 18:00", "18:00 - 20:00"],
+    "delivery_weekend": ["09:00 - 12:00", "12:00 - 15:00", "15:00 - 16:00"],
+    "pickup_weekday": ["09:00 - 12:00", "12:00 - 15:00", "15:00 - 18:00"],
+    "pickup_weekend": ["09:00 - 12:00"],
+    "special_days": {
+      "2025-12-24": ["09:00 - 12:00", "12:00 - 15:00", "15:00 - 16:00"],
+      "2025-12-31": ["09:00 - 12:00", "12:00 - 15:00", "15:00 - 16:00"]
+    },
+    "closed_days": ["2025-12-25", "2026-01-01"]
+  }
+}
+Lógica no App:
+dart// checkout_controller.dart
+List<TimeSlot> getTimeSlots() {
+  // ✅ Se slots desabilitados remotamente, retorna vazio
+  if (_remoteConfig?.slotsConfig.enabled == false) return [];
+  
+  // ✅ Verifica dias fechados remotos
+  final isClosedRemote = _remoteConfig?.slotsConfig.closedDays.contains(dateKey) ?? false;
+  if (isClosedRemote) return [];
+  
+  // ✅ Verifica slots especiais remotos
+  final specialSlotsRemote = _remoteConfig?.slotsConfig.specialDays[dateKey];
+  if (specialSlotsRemote != null) return _filterSlotsByTime(specialSlotsRemote, isToday);
+  
+  // ✅ Usa slots remotos ou fallback para hardcoded
+  slots = _remoteConfig?.slotsConfig.deliveryWeekday ?? 
+         ['09:00 - 12:00', '12:00 - 15:00', '15:00 - 18:00', '18:00 - 20:00'];
+  
+  return _filterSlotsByTime(slots, isToday);
+}
+
+3. Carrousel de Natal Dinâmico
+Toggle ON/OFF no painel:
+
+✅ Ativa/desativa carrousel "Especial de Natal" na Home
+✅ Produtos: Categoria ID 518 (WooCommerce)
+✅ Renderização condicional no app
+
+dart// home_screen.dart
+class _ChristmasCarouselSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<RemoteConfig>(
+      future: RemoteConfigService.fetchConfig(),
+      builder: (context, snapshot) {
+        final showChristmas = snapshot.data?.showChristmasCarousel ?? false;
+        
+        if (!showChristmas) {
+          return const SliverToBoxAdapter(child: SizedBox.shrink());
+        }
+        
+        return SliverToBoxAdapter(
+          child: ProductCarousel(
+            productsFuture: _especialNatal,
+            height: 295,
+          ),
+        );
+      },
+    );
+  }
+}
+
+4. Mensagens Customizadas no Checkout
+Tipos de mensagem:
+
+🔵 Info: Informações gerais
+🟡 Warning: Avisos importantes
+🔴 Error: Alertas críticos
+🟢 Success: Confirmações positivas
+
+Exibição:
+
+Banner contextual no topo do checkout
+Ícone e cores dinâmicas por tipo
+Título e mensagem personalizáveis
+
+dart// step_payment.dart
+FutureBuilder<RemoteConfig>(
+  future: RemoteConfigService.fetchConfig(),
+  builder: (context, snapshot) {
+    final message = snapshot.data?.customMessage;
+    
+    if (message == null || !message.enabled) {
+      return const SizedBox.shrink();
+    }
+    
+    return _CustomMessageBanner(message: message);
+  },
+)
+Exemplo de uso:
+
+"⚠️ Alto volume de pedidos. Entregas podem atrasar."
+"✅ Frete grátis para pedidos acima de R$ 100!"
+
+
+5. Controle de Gateways de Pagamento
+Gateways disponíveis:
+
+✅ PIX: Pagamento instantâneo (Pagar.me)
+✅ Cartão Online: Em desenvolvimento (toggle preview)
+✅ Dinheiro, Cartão na Entrega, Vale (sempre ativos)
+
+Lógica no App:
+dart// step_payment.dart
+FutureBuilder<RemoteConfig>(
+  future: RemoteConfigService.fetchConfig(),
+  builder: (context, snapshot) {
+    final features = snapshot.data?.features;
+    final enablePix = features?.enablePixPayment ?? true;
+    final enableCardOnline = features?.enableCreditCardOnline ?? false;
+    
+    return Column(
+      children: [
+        if (enablePix) _ModernPaymentOption(title: 'PIX', ...),
+        if (enableCardOnline) _ModernPaymentOption(title: 'Cartão Online', ...),
+      ],
+    );
+  },
+)
+Features:
+
+✅ Habilitar/desabilitar PIX
+✅ Habilitar/desabilitar Cartão Online
+✅ Controlar limite de itens por pedido
+✅ Habilitar/desabilitar cupons
+
+
+6. Unidades de Retirada Dinâmicas
+Unidades disponíveis:
+
+Barreiro
+Sion
+Central (Sagrada Família)
+Lagoa Santa
+
+Controle:
+
+✅ Habilitar/desabilitar unidades individualmente
+✅ App filtra automaticamente lojas ativas
+
+dart// step_address.dart
+class _PickupSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<RemoteConfig>(
+      future: RemoteConfigService.fetchConfig(),
+      builder: (context, snapshot) {
+        final pickupStores = snapshot.data?.pickupStores ?? {
+          'barreiro': true,
+          'sion': true,
+          'central': true,
+          'lagosanta': true,
+        };
+        
+        // ✅ FILTRA APENAS LOJAS HABILITADAS
+        final availableStores = c.pickupLocations.entries
+            .where((e) => pickupStores[e.key] == true)
+            .toList();
+        
+        if (availableStores.isEmpty) {
+          return Text('Nenhuma unidade disponível');
+        }
+        
+        return Column(children: availableStores.map(...));
+      },
+    );
+  }
+}
+
+🔄 Sistema de Cache Inteligente
+Duração: 5 minutos
+Estratégia: Last-Valid-Cache
+dart// remote_config_service.dart
+static const Duration _cacheDuration = Duration(minutes: 5);
+
+static Future<RemoteConfig> fetchConfig({bool forceRefresh = false}) async {
+  // Retorna cache se ainda válido
+  if (!forceRefresh && _cachedConfig != null && _lastFetch != null) {
+    if (DateTime.now().difference(_lastFetch!) < _cacheDuration) {
+      return _cachedConfig!;
+    }
+  }
+  
+  // Busca nova configuração
+  final response = await http.get(Uri.parse(_configUrl));
+  
+  if (response.statusCode == 200) {
+    final config = RemoteConfig.fromJson(json.decode(response.body));
+    
+    // Salva no cache
+    _cachedConfig = config;
+    _lastFetch = DateTime.now();
+    
+    // Persiste localmente
+    final sp = await SharedPreferences.getInstance();
+    await sp.setString(_cacheKey, response.body);
+    
+    return config;
+  }
+  
+  // Fallback para cache local
+  return _loadFromCache();
+}
+Benefícios:
+
+✅ Reduz chamadas à API
+✅ Melhora performance
+✅ Funciona offline (último cache válido)
+✅ Atualização automática a cada 5 minutos
+
+
+📊 Estrutura JSON (config.json)
+json{
+  "app_enabled": true,
+  "maintenance_message": "Estamos em manutenção! Voltamos em breve. 🛠️",
+  "show_christmas_carousel": true,
+  
+  "slots_config": {
+    "enabled": true,
+    "delivery_weekday": ["09:00 - 12:00", "12:00 - 15:00", "15:00 - 18:00", "18:00 - 20:00"],
+    "delivery_weekend": ["09:00 - 12:00", "12:00 - 15:00", "15:00 - 16:00"],
+    "pickup_weekday": ["09:00 - 12:00", "12:00 - 15:00", "15:00 - 18:00"],
+    "pickup_weekend": ["09:00 - 12:00"],
+    "special_days": {
+      "2025-12-24": ["09:00 - 12:00", "12:00 - 15:00", "15:00 - 16:00"],
+      "2025-12-31": ["09:00 - 12:00", "12:00 - 15:00", "15:00 - 16:00"]
+    },
+    "closed_days": ["2025-12-25", "2026-01-01"]
+  },
+  
+  "custom_message": {
+    "enabled": true,
+    "title": "Atenção! 📢",
+    "message": "Estamos com alto volume de pedidos. Entregas podem atrasar.",
+    "type": "warning"
+  },
+  
+  "features": {
+    "enable_checkout": true,
+    "enable_pix_payment": true,
+    "enable_credit_card_online": false,
+    "enable_coupon": true,
+    "max_items_per_order": 50
+  },
+  
+  "pickup_stores": {
+    "barreiro": true,
+    "sion": true,
+    "central": true,
+    "lagosanta": true
+  },
+  
+  "updated_at": "2025-12-14 13:15:02"
+}
+```
+
+---
+
+### 🎨 Painel Administrativo
+
+**URL de Acesso:**
+```
+https://aogosto.com.br/app/oms/
+Senha: aogosto123
+Features da Interface:
+
+✅ Design moderno com gradientes da marca
+✅ Toggle switches intuitivos
+✅ Adicionar/remover slots dinamicamente
+✅ Validação de dados no frontend
+✅ Feedback visual ao salvar
+✅ Responsivo (mobile e desktop)
+
+Componentes:
+
+Status do Aplicativo
+Gerenciamento de Slots
+Unidades de Retirada
+Carrousel de Natal
+Mensagem Personalizada
+Funcionalidades (Features)
+
+
+🛡️ Segurança
+Autenticação:
+
+Login simples com senha
+Sessão PHP ($_SESSION['oms_auth'])
+Logout disponível
+
+Proteção de Dados:
+
+Validação server-side
+Sanitização de inputs
+Arquivo JSON com permissões 666
+
+⚠️ Nota: Sistema básico adequado para MVP. Recomenda-se implementar autenticação mais robusta (JWT/OAuth) em produção.
+
+📈 Casos de Uso
+Cenário 1: Final de Ano Sobrecarregado
+
+Acessa painel OMS
+Remove slots 18:00-20:00
+Adiciona mensagem: "⚠️ Alto volume de pedidos"
+Usuários veem mudanças em até 5 minutos
+
+Cenário 2: Manutenção Emergencial
+
+Toggle "Status do Aplicativo" → OFF
+Define mensagem: "Voltamos em breve! 🛠️"
+App mostra tela de manutenção instantaneamente
+
+Cenário 3: Promoção Especial
+
+Ativa "Carrousel de Natal"
+Adiciona mensagem: "✅ Frete grátis até 25/12!"
+Usuários veem novo conteúdo sem atualizar app
+
+
+
 ---
 
 ## 🤝 Contribuição

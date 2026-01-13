@@ -28,17 +28,17 @@ class ThankYouScreen extends StatelessWidget {
     final whatsappMessage = Uri.encodeComponent(
       'Oi! Fiz um pedido no app (#${c.orderId}) e tenho uma dúvida. Pode me ajudar?',
     );
-    final whatsappUrl = 'https://wa.me/553134613297?text=$whatsappMessage';
+    final whatsappUrl = 'https://wa.me/5531997682271?text=$whatsappMessage';
 
     // ✅ Se PIX, mostra interface dedicada
     if (c.paymentMethod == 'pix' && c.pixCode != null) {
       return _PixThankYouScreen(
-        orderId: c.orderId!,
-        pixCode: c.pixCode!,
-        expiresAt: c.pixExpiresAt ?? DateTime.now().add(const Duration(hours: 1)),
-        total: currency.format(c.total),
-        whatsappUrl: whatsappUrl,
-      );
+  orderId: c.orderId!,
+  pixCode: c.pixCode!,
+  expiresAt: DateTime.now().add(const Duration(minutes: 15)),  // Força 15 minutos na UI, ignora valor real
+  total: currency.format(c.total),
+  whatsappUrl: whatsappUrl,
+);
     }
 
     // ✅ Interface padrão para outros métodos
@@ -926,7 +926,7 @@ class _PremiumPixTimerState extends State<_PremiumPixTimer> {
     } else {
       setState(() {
         _remainingSeconds = diff;
-        _progress = diff / 3600; // 60 minutos
+        _progress = diff / 900; // 60 minutos
       });
     }
   }

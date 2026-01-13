@@ -161,13 +161,20 @@ class _VariationSelectorModalState extends State<_VariationSelectorModal> with S
     super.dispose();
   }
 
-  void _addToCart() async {
-    final navigator = Navigator.of(context);
-    await _animController.reverse();
-    navigator.pop();
-    CartController.instance.add(widget.product, selectedAttributes: _selectedAttributes);
-    await showCartDrawer(context);
-  }
+ void _addToCart() async {
+  final navigator = Navigator.of(context);
+  await _animController.reverse();
+  navigator.pop();
+  
+  // ✅ PASSA O variationId DA VARIAÇÃO SELECIONADA
+  CartController.instance.add(
+    widget.product,
+    variationId: _currentVariation?.id,  // ✅ NOVO!
+    selectedAttributes: _selectedAttributes,
+  );
+  
+  await showCartDrawer(context);
+}
 
   double get _currentPrice {
     if (_currentVariation != null) {

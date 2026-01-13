@@ -1,4 +1,4 @@
-// lib/screens/checkout/steps/step_payment.dart - VERSÃO ULTRA MODERNA
+// lib/screens/checkout/steps/step_payment.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'package:ao_gosto_app/screens/checkout/checkout_controller.dart';
 import 'package:ao_gosto_app/screens/checkout/widgets/progress_timer.dart';
+import 'package:ao_gosto_app/services/remote_config_service.dart';
 
 class StepPayment extends StatelessWidget {
   const StepPayment({super.key});
@@ -16,6 +17,23 @@ class StepPayment extends StatelessWidget {
 
     return Column(
       children: [
+        // ✅ MENSAGEM CUSTOMIZADA (SE HABILITADA NO OMS)
+        FutureBuilder<RemoteConfig>(
+          future: RemoteConfigService.fetchConfig(),
+          builder: (context, snapshot) {
+            final message = snapshot.data?.customMessage;
+            
+            if (message == null || !message.enabled || message.message.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: _CustomMessageBanner(message: message),
+            );
+          },
+        ),
+        
         // 1. Resumo Rápido (compacto e elegante)
         _UltraQuickSummary(),
         
@@ -41,6 +59,100 @@ class StepPayment extends StatelessWidget {
         
         const SizedBox(height: 20),
       ],
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//              MENSAGEM CUSTOMIZADA DO OMS
+// ═══════════════════════════════════════════════════════════
+class _CustomMessageBanner extends StatelessWidget {
+  final CustomMessage message;
+  
+  const _CustomMessageBanner({required this.message});
+  
+  Color _getColorByType() {
+    switch (message.type) {
+      case 'warning':
+        return Colors.orange;
+      case 'error':
+        return Colors.red;
+      case 'success':
+        return Colors.green;
+      default:
+        return Colors.blue;
+    }
+  }
+  
+  IconData _getIconByType() {
+    switch (message.type) {
+      case 'warning':
+        return Icons.warning_rounded;
+      case 'error':
+        return Icons.error_rounded;
+      case 'success':
+        return Icons.check_circle_rounded;
+      default:
+        return Icons.info_rounded;
+    }
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    final color = _getColorByType();
+    
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: color.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              _getIconByType(),
+              color: color,
+              size: 20,
+            ),
+          ),
+          
+          const SizedBox(width: 12),
+          
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message.title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  message.message,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: color.withOpacity(0.8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -74,7 +186,6 @@ class _UltraQuickSummary extends StatelessWidget {
       decoration: _boxDeco(),
       child: Row(
         children: [
-          // Ícone com gradiente
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
@@ -99,7 +210,6 @@ class _UltraQuickSummary extends StatelessWidget {
           
           const SizedBox(width: 12),
           
-          // Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -127,7 +237,6 @@ class _UltraQuickSummary extends StatelessWidget {
             ),
           ),
           
-          // Botão editar
           TextButton(
             onPressed: c.prevStep,
             style: TextButton.styleFrom(
@@ -149,7 +258,7 @@ class _UltraQuickSummary extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════
-//          2. MÉTODOS DE PAGAMENTO PREMIUM
+//          2. MÉTODOS DE PAGAMENTO PREMIUM (COM OMS)
 // ═══════════════════════════════════════════════════════════
 class _PremiumPaymentMethods extends StatefulWidget {
   @override
@@ -161,120 +270,143 @@ class _PremiumPaymentMethodsState extends State<_PremiumPaymentMethods> {
   Widget build(BuildContext context) {
     final c = context.watch<CheckoutController>();
     
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: _boxDeco(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Como você quer pagar?',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF18181B),
-            ),
+    return FutureBuilder<RemoteConfig>(
+      future: RemoteConfigService.fetchConfig(),
+      builder: (context, snapshot) {
+        final features = snapshot.data?.features;
+        final enablePix = features?.enablePixPayment ?? true;
+        final enableCardOnline = features?.enableCreditCardOnline ?? false;
+        
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: _boxDeco(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Como você quer pagar?',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF18181B),
+                ),
+              ),
+              
+              const SizedBox(height: 20),
+              
+              // === PAGAMENTOS ONLINE ===
+              _SectionHeader(
+                icon: Icons.smartphone_rounded,
+                title: 'Pagamento Online',
+              ),
+              
+              const SizedBox(height: 12),
+              
+              // ✅ PIX (controlado pelo OMS)
+              if (enablePix)
+                _ModernPaymentOption(
+                  icon: Icons.pix_rounded,
+                  title: 'PIX',
+                  subtitle: 'Aprovação instantânea',
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF00C9A7), Color(0xFF00B896)],
+                  ),
+                  active: c.paymentMethod == 'pix',
+                  onTap: () {
+                    debugPrint('💳 [PAYMENT] Selecionou: PIX');
+                    c.paymentMethod = 'pix';
+                    if (mounted) setState(() {});
+                  },
+                ),
+              
+              if (enablePix) const SizedBox(height: 10),
+              
+              // ✅ CARTÃO ONLINE (controlado pelo OMS)
+              _ModernPaymentOption(
+                icon: Icons.credit_card_rounded,
+                title: 'Cartão de Crédito',
+                subtitle: enableCardOnline ? 'Pague online' : 'Em breve',
+                gradient: LinearGradient(
+                  colors: enableCardOnline
+                      ? [const Color(0xFF3B82F6), const Color(0xFF2563EB)]
+                      : [Colors.grey[400]!, Colors.grey[300]!],
+                ),
+                active: enableCardOnline && c.paymentMethod == 'card-online',
+                disabled: !enableCardOnline,
+                badge: enableCardOnline ? null : _ComingSoonBadge(),
+                onTap: () {
+                  if (enableCardOnline) {
+                    debugPrint('💳 [PAYMENT] Selecionou: Cartão Online');
+                    c.paymentMethod = 'card-online';
+                    if (mounted) setState(() {});
+                  } else {
+                    debugPrint('⚠️ [PAYMENT] Cartão Online desabilitado');
+                  }
+                },
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // === PAGAR NA ENTREGA ===
+              _SectionHeader(
+                icon: Icons.handshake_rounded,
+                title: 'Pagar na Entrega',
+              ),
+              
+              const SizedBox(height: 12),
+              
+              _ModernPaymentOption(
+                icon: Icons.payments_rounded,
+                title: 'Dinheiro',
+                subtitle: 'Pagamento em espécie',
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF16A34A), Color(0xFF059669)],
+                ),
+                active: c.paymentMethod == 'money',
+                onTap: () {
+                  debugPrint('💰 [PAYMENT] Selecionou: Dinheiro');
+                  c.paymentMethod = 'money';
+                  if (mounted) setState(() {});
+                },
+              ),
+              
+              const SizedBox(height: 10),
+              
+              _ModernPaymentOption(
+                icon: Icons.credit_card_rounded,
+                title: 'Cartão',
+                subtitle: 'Débito ou crédito',
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
+                ),
+                active: c.paymentMethod == 'card-on-delivery',
+                onTap: () {
+                  debugPrint('💳 [PAYMENT] Selecionou: Cartão na Entrega');
+                  c.paymentMethod = 'card-on-delivery';
+                  if (mounted) setState(() {});
+                },
+              ),
+              
+              const SizedBox(height: 10),
+              
+              _ModernPaymentOption(
+                icon: Icons.restaurant_rounded,
+                title: 'Vale Alimentação',
+                subtitle: 'VR, Alelo, Sodexo',
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFEA580C), Color(0xFFDC2626)],
+                ),
+                active: c.paymentMethod == 'voucher',
+                onTap: () {
+                  debugPrint('🎫 [PAYMENT] Selecionou: Voucher');
+                  c.paymentMethod = 'voucher';
+                  if (mounted) setState(() {});
+                },
+              ),
+            ],
           ),
-          
-          const SizedBox(height: 20),
-          
-          // === PAGAMENTOS ONLINE ===
-          _SectionHeader(
-            icon: Icons.smartphone_rounded,
-            title: 'Pagamento Online',
-          ),
-          
-          const SizedBox(height: 12),
-          
-          _ModernPaymentOption(
-            icon: Icons.pix_rounded,
-            title: 'PIX',
-            subtitle: 'Aprovação instantânea',
-            gradient: const LinearGradient(
-              colors: [Color(0xFF00C9A7), Color(0xFF00B896)],
-            ),
-            active: c.paymentMethod == 'pix',
-            onTap: () {
-              c.paymentMethod = 'pix';
-              setState(() {});
-            },
-          ),
-          
-          const SizedBox(height: 10),
-          
-          _ModernPaymentOption(
-            icon: Icons.credit_card_rounded,
-            title: 'Cartão de Crédito',
-            subtitle: 'Em breve',
-            gradient: LinearGradient(
-              colors: [
-                Colors.grey[400]!,
-                Colors.grey[300]!,
-              ],
-            ),
-            active: false,
-            disabled: true,
-            badge: _ComingSoonBadge(),
-            onTap: () {},
-          ),
-          
-          const SizedBox(height: 24),
-          
-          // === PAGAR NA ENTREGA ===
-          _SectionHeader(
-            icon: Icons.handshake_rounded,
-            title: 'Pagar na Entrega',
-          ),
-          
-          const SizedBox(height: 12),
-          
-          _ModernPaymentOption(
-            icon: Icons.payments_rounded,
-            title: 'Dinheiro',
-            subtitle: 'Pagamento em espécie',
-            gradient: const LinearGradient(
-              colors: [Color(0xFF16A34A), Color(0xFF059669)],
-            ),
-            active: c.paymentMethod == 'money',
-            onTap: () {
-              c.paymentMethod = 'money';
-              setState(() {});
-            },
-          ),
-          
-          const SizedBox(height: 10),
-          
-          _ModernPaymentOption(
-            icon: Icons.credit_card_rounded,
-            title: 'Cartão',
-            subtitle: 'Débito ou crédito',
-            gradient: const LinearGradient(
-              colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
-            ),
-            active: c.paymentMethod == 'card-on-delivery',
-            onTap: () {
-              c.paymentMethod = 'card-on-delivery';
-              setState(() {});
-            },
-          ),
-          
-          const SizedBox(height: 10),
-          
-          _ModernPaymentOption(
-            icon: Icons.restaurant_rounded,
-            title: 'Vale Alimentação',
-            subtitle: 'VR, Alelo, Sodexo',
-            gradient: const LinearGradient(
-              colors: [Color(0xFFEA580C), Color(0xFFDC2626)],
-            ),
-            active: c.paymentMethod == 'voucher',
-            onTap: () {
-              c.paymentMethod = 'voucher';
-              setState(() {});
-            },
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -357,7 +489,6 @@ class _ModernPaymentOption extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Ícone com gradiente
             TweenAnimationBuilder<double>(
               duration: const Duration(milliseconds: 300),
               tween: Tween(begin: 0.0, end: active ? 1.0 : 0.0),
@@ -401,7 +532,6 @@ class _ModernPaymentOption extends StatelessWidget {
             
             const SizedBox(width: 16),
             
-            // Texto
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -438,31 +568,31 @@ class _ModernPaymentOption extends StatelessWidget {
               ),
             ),
             
-            // Radio button
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: active ? AppColors.primary : Colors.transparent,
-                border: Border.all(
-                  color: active
-                      ? AppColors.primary
-                      : const Color(0xFFD4D4D8),
-                  width: 2,
+            if (!disabled)
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: active ? AppColors.primary : Colors.transparent,
+                  border: Border.all(
+                    color: active
+                        ? AppColors.primary
+                        : const Color(0xFFD4D4D8),
+                    width: 2,
+                  ),
                 ),
+                child: active
+                    ? const Center(
+                        child: Icon(
+                          Icons.check,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                      )
+                    : null,
               ),
-              child: active
-                  ? const Center(
-                      child: Icon(
-                        Icons.check,
-                        size: 14,
-                        color: Colors.white,
-                      ),
-                    )
-                  : null,
-            ),
           ],
         ),
       ),
@@ -511,7 +641,6 @@ class _ModernPixCard extends StatelessWidget {
       decoration: _boxDeco(),
       child: Column(
         children: [
-          // Header
           Row(
             children: [
               Container(
@@ -563,7 +692,6 @@ class _ModernPixCard extends StatelessWidget {
           
           const SizedBox(height: 20),
           
-          // QR Code placeholder (você pode adicionar um real depois)
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -592,7 +720,6 @@ class _ModernPixCard extends StatelessWidget {
           
           const SizedBox(height: 20),
           
-          // Código PIX
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -659,7 +786,6 @@ class _ModernPixCard extends StatelessWidget {
           
           const SizedBox(height: 20),
           
-          // Timer
           ProgressTimer(expiresAt: expiresAt),
         ],
       ),
@@ -710,6 +836,7 @@ class _ModernChangeCardState extends State<_ModernChangeCard> {
               Expanded(
                 child: InkWell(
                   onTap: () {
+                    debugPrint('💰 [CHANGE] Não precisa de troco');
                     c.needsChange = false;
                     c.changeForAmount = '';
                     setState(() {});
@@ -751,6 +878,7 @@ class _ModernChangeCardState extends State<_ModernChangeCard> {
               Expanded(
                 child: InkWell(
                   onTap: () {
+                    debugPrint('💰 [CHANGE] Precisa de troco');
                     c.needsChange = true;
                     setState(() {});
                   },
@@ -818,6 +946,7 @@ class _ModernChangeCardState extends State<_ModernChangeCard> {
                 contentPadding: const EdgeInsets.all(16),
               ),
               onChanged: (v) {
+                debugPrint('💰 [CHANGE] Valor digitado: $v');
                 c.changeForAmount = v;
                 setState(() {});
               },
@@ -838,7 +967,6 @@ class _ModernCardInfo extends StatelessWidget {
     final c = context.watch<CheckoutController>();
     final total = c.total;
     
-    // ✅ LÓGICA DE PARCELAMENTO
     String message;
     int parcelas;
     
@@ -859,7 +987,6 @@ class _ModernCardInfo extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Row(
             children: [
               Container(
@@ -890,7 +1017,6 @@ class _ModernCardInfo extends StatelessWidget {
           
           const SizedBox(height: 16),
           
-          // ✅ INFO DE PARCELAMENTO (DISCRETA E HARMÔNICA)
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
@@ -920,7 +1046,6 @@ class _ModernCardInfo extends StatelessWidget {
             ),
           ),
           
-          // ✅ CARD COM VALOR DA PARCELA (se > 1x)
           if (parcelas > 1) ...[
             const SizedBox(height: 12),
             Container(
@@ -959,7 +1084,6 @@ class _ModernCardInfo extends StatelessWidget {
     );
   }
 }
-
 
 // ═══════════════════════════════════════════════════════════
 //                   6. VALE ALIMENTAÇÃO

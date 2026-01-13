@@ -1,4 +1,4 @@
-// lib/screens/home/home_screen.dart - CORRIGIDO COM PULL-TO-REFRESH
+// lib/screens/home/home_screen.dart - COM ESPECIAL DE NATAL DINÂMICO 🎄
 import 'package:flutter/material.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'package:ao_gosto_app/api/product_service.dart';
@@ -9,8 +9,8 @@ import 'package:ao_gosto_app/screens/home/widgets/search_filter.dart';
 import 'package:ao_gosto_app/screens/home/widgets/product_carousel.dart';
 import 'package:ao_gosto_app/screens/home/widgets/featured_banner.dart';
 import 'package:ao_gosto_app/screens/home/widgets/kits_churrasco_section.dart';
-import 'package:ao_gosto_app/screens/update/forced_update_screen.dart';
 import 'package:ao_gosto_app/state/navigation_controller.dart';
+import 'package:ao_gosto_app/services/remote_config_service.dart';  // ✅ NOVO
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -30,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static const _idHamburgueres = 390;
   static const _idBebidas = 69;
   static const _idOutros = 62;
+  static const _idEspecialNatal = 518; // 🎄 NATAL
 
   late Future<List<Product>> _paoDeAlho;
   late Future<List<Product>> _espetos;
@@ -37,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen> {
   late Future<List<Product>> _hamburgueres;
   late Future<List<Product>> _bebidas;
   late Future<List<Product>> _outros;
+  late Future<List<Product>> _especialNatal; // 🎄 NATAL
 
   @override
   void initState() {
@@ -59,10 +61,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _hamburgueres = _productService.fetchProductsByCategory(_idHamburgueres, forceRefresh: forceRefresh);
       _bebidas = _productService.fetchProductsByCategory(_idBebidas, forceRefresh: forceRefresh);
       _outros = _productService.fetchProductsByCategory(_idOutros, forceRefresh: forceRefresh);
+      _especialNatal = _productService.fetchProductsByCategory(_idEspecialNatal, forceRefresh: forceRefresh); // 🎄
     });
   }
 
-  // ✨ PULL-TO-REFRESH
   Future<void> _onRefresh() async {
     ProductService.clearCache();
     _loadProducts(forceRefresh: true);
@@ -75,6 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _hamburgueres,
       _bebidas,
       _outros,
+      _especialNatal, // 🎄
     ]);
   }
 
@@ -103,25 +106,15 @@ class _HomeScreenState extends State<HomeScreen> {
                     height: 56,
                     child: Stack(
                       children: [
-                        GestureDetector(
-                          onLongPress: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ForcedUpdateScreen(),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            color: Colors.transparent,
-                            height: 56,
-                            width: double.infinity,
-                          ),
+                        Container(
+                          height: 56,
+                          width: double.infinity,
+                          color: Colors.transparent,
                         ),
 
                         Center(
                           child: Image.asset(
-                            'assets/icon/app_icon.png',
+                            'assets/icon/app_icon_old.png',
                             height: 36,
                             fit: BoxFit.contain,
                           ),
@@ -171,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: KitsChurrascoSection(),
             ),
 
-            // OFERTAS
+            // OFERTAS DA SEMANA
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
@@ -240,7 +233,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
 
-            // ✅ BANNER COM AÇÃO
+            // 🎄 ESPECIAL DE NATAL (DINÂMICO - SÓ APARECE SE HABILITADO)
+            _ChristmasCarouselSection(especialNatal: _especialNatal),
+
+            // BANNER COM AÇÃO
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
@@ -399,6 +395,107 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  🎄 CARROUSEL DE NATAL DINÂMICO (SÓ APARECE SE HABILITADO)
+// ═══════════════════════════════════════════════════════════
+class _ChristmasCarouselSection extends StatelessWidget {
+  final Future<List<Product>> especialNatal;
+  
+  const _ChristmasCarouselSection({required this.especialNatal});
+  
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<RemoteConfig>(
+      future: RemoteConfigService.fetchConfig(),
+      builder: (context, snapshot) {
+        // ✅ SÓ MOSTRA SE HABILITADO NO PAINEL OMS
+        final showChristmas = snapshot.data?.showChristmasCarousel ?? false;
+        
+        if (!showChristmas) {
+          return const SliverToBoxAdapter(child: SizedBox.shrink());
+        }
+        
+        return SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Text(
+                            'Especial de ',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF18181B),
+                            ),
+                          ),
+                          ShaderMask(
+                            shaderCallback: (bounds) => LinearGradient(
+                              colors: [
+                                AppColors.primary,
+                                const Color(0xFFFF8C00),
+                              ],
+                            ).createShader(bounds),
+                            child: const Text(
+                              'Natal',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(
+                            Icons.celebration_rounded,
+                            color: AppColors.primary,
+                            size: 22,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Row(
+                        children: [
+                          Text(
+                            'Torne sua ceia inesquecível',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF71717A),
+                            ),
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            '🎅',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ProductCarousel(
+                  productsFuture: especialNatal,
+                  height: 295,
+                  itemWidth: 170,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

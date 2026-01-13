@@ -57,7 +57,7 @@ class _CheckoutView extends StatelessWidget {
               ),
 
               // === FOOTER ===
-              _buildFooter(c, currency),
+              _buildFooter(context, c, currency),
             ],
           ),
         );
@@ -112,9 +112,12 @@ class _CheckoutView extends StatelessWidget {
               
               const SizedBox(width: 16),
               
-              // Stepper inline
               Expanded(
-                child: _InlineStepper(current: c.currentStep),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: _InlineStepper(current: c.currentStep),
+                ),
               ),
             ],
           ),
@@ -133,7 +136,29 @@ class _CheckoutView extends StatelessWidget {
     );
   }
 
- Widget _buildFooter(CheckoutController c, NumberFormat currency) {
+  // ✅ ATUALIZADO: Footer com Debug e Feedback Visual
+  Widget _buildFooter(BuildContext context, CheckoutController c, NumberFormat currency) {
+    // ✅ ADICIONA LOGS PARA DEBUG
+    final canProceed = c.canProceedToPayment;
+    
+    debugPrint('''
+🔍 DEBUG CHECKOUT FOOTER:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Step: ${c.currentStep}
+Payment Method: ${c.paymentMethod}
+Can Proceed: $canProceed
+Is Processing: ${c.isProcessing}
+Phone: ${c.userPhone}
+Selected Address ID: ${c.selectedAddressId}
+Delivery Type: ${c.deliveryType.name}
+Selected Date: ${c.selectedDate}
+Selected Time Slot: ${c.selectedTimeSlot}
+Delivery Fee: R\$ ${c.deliveryFee}
+Needs Change: ${c.needsChange}
+Change Amount: ${c.changeForAmount}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+''');
+    
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -152,6 +177,38 @@ class _CheckoutView extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // ✅ ADICIONA AVISO QUANDO BOTÃO ESTÁ DESABILITADO
+              if (!canProceed && !c.isProcessing && c.currentStep == 2)
+                Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline_rounded,
+                        color: Colors.orange[700],
+                        size: 20,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _getValidationMessage(c),
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.orange[900],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -181,9 +238,10 @@ class _CheckoutView extends StatelessWidget {
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  onPressed: c.canProceedToPayment && !c.isProcessing
-                      ? c.nextStep
-                      : null,
+                  // ✅ ATUALIZADO: Sempre executa função, mas mostra aviso
+                  onPressed: c.isProcessing 
+                      ? null 
+                      : () => _handleButtonPress(context, c),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     disabledBackgroundColor: const Color(0xFFE5E7EB),
@@ -202,7 +260,7 @@ class _CheckoutView extends StatelessWidget {
                           ),
                         )
                       : Text(
-                          c.finalizarButtonText, // ✅ USANDO O GETTER
+                          c.finalizarButtonText,
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w800,
@@ -218,7 +276,86 @@ class _CheckoutView extends StatelessWidget {
       ),
     );
   }
-} // ✅ ADICIONE ESTA LINHA AQUI - FECHA A CLASSE _CheckoutView
+  
+  // ✅ NOVO: Lógica de clique com validação e feedback
+  void _handleButtonPress(BuildContext context, CheckoutController c) {
+    debugPrint('🔘 BOTÃO CLICADO! Step: ${c.currentStep}, Payment: ${c.paymentMethod}');
+    
+    if (!c.canProceedToPayment) {
+      debugPrint('⚠️ Validação falhou. Mostrando dialog...');
+      // ✅ Mostra dialog explicando o problema
+      _showValidationDialog(context, c);
+      return;
+    }
+    
+    debugPrint('✅ Validação OK. Prosseguindo...');
+    // ✅ Prossegue normalmente
+    c.nextStep();
+  }
+  
+  // ✅ NOVO: Dialog de validação
+  void _showValidationDialog(BuildContext context, CheckoutController c) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.warning_rounded, color: Colors.orange[700]),
+            const SizedBox(width: 12),
+            const Text('Atenção'),
+          ],
+        ),
+        content: Text(_getValidationMessage(c)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // ✅ NOVO: Mensagem específica do erro
+  String _getValidationMessage(CheckoutController c) {
+    if (c.userPhone.isEmpty || c.userPhone.length < 10) {
+      return 'Por favor, adicione um telefone válido';
+    }
+    
+    if (c.deliveryType == DeliveryType.delivery) {
+      if (c.selectedAddressId == null) {
+        return 'Por favor, selecione um endereço de entrega';
+      }
+      if (c.deliveryFee < 0) {
+        return 'CEP fora da área de entrega. Tente retirar na loja.';
+      }
+      if (c.deliveryFee < 9.90) {
+        return 'Taxa de entrega inválida';
+      }
+    } else {
+      if (c.selectedPickup.isEmpty) {
+        return 'Por favor, selecione um local de retirada';
+      }
+    }
+    
+    if (c.selectedDate == DateTime(0) || c.selectedTimeSlot == null) {
+      return 'Por favor, selecione data e horário';
+    }
+    
+    if (c.paymentMethod.isEmpty) {
+      return 'Por favor, selecione uma forma de pagamento';
+    }
+    
+    if (c.needsChange && c.changeForAmount.isEmpty) {
+      return 'Por favor, informe o valor para o troco';
+    }
+    
+    return 'Complete todas as informações para continuar';
+  }
+}
 
 // ═══════════════════════════════════════════════════════════
 //           STEPPER INLINE (UMA LINHA HORIZONTAL)
@@ -235,42 +372,36 @@ class _InlineStepper extends StatelessWidget {
     ];
 
     return Row(
-      children: List.generate(steps.length, (i) {
-        final step = i + 1;
-        final data = steps[i];
-        final isActive = current == step;
-        final isDone = current > step;
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(steps.length * 2 - 1, (i) {
+        // Linha entre steps
+        if (i.isOdd) {
+          final index = (i ~/ 2) + 1;
+          final isDone = current > index;
 
-        return Expanded(
-          child: Row(
-            children: [
-              Expanded(
-                child: _InlineStepItem(
-                  number: data['number'] as String,
-                  label: data['label'] as String,
-                  icon: data['icon'] as IconData,
-                  isActive: isActive,
-                  isDone: isDone,
-                ),
-              ),
-              
-              // Linha conectora
-              if (i < steps.length - 1)
-                Expanded(
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 500),
-                    height: 2,
-                    margin: const EdgeInsets.only(bottom: 4),
-                    decoration: BoxDecoration(
-                      color: isDone
-                          ? Colors.white
-                          : Colors.white.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(1),
-                    ),
-                  ),
-                ),
-            ],
-          ),
+          return Container(
+            width: 32,
+            height: 2,
+            margin: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: isDone ? Colors.white : Colors.white.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          );
+        }
+
+        // Step item
+        final stepIndex = i ~/ 2;
+        final step = steps[stepIndex];
+        final isActive = current == stepIndex + 1;
+        final isDone = current > stepIndex + 1;
+
+        return _InlineStepItem(
+          number: step['number'] as String,
+          label: step['label'] as String,
+          icon: step['icon'] as IconData,
+          isActive: isActive,
+          isDone: isDone,
         );
       }),
     );
@@ -297,90 +428,66 @@ class _InlineStepItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Círculo compacto
-        TweenAnimationBuilder<double>(
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutBack,
-          tween: Tween(begin: 0.0, end: 1.0),
-          builder: (context, value, child) {
-            return Transform.scale(
-              scale: isActive ? (0.95 + (value * 0.05)) : 1.0,
-              child: Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: isDone || isActive
-                      ? Colors.white
-                      : Colors.white.withOpacity(0.3),
-                  shape: BoxShape.circle,
-                  boxShadow: isActive
-                      ? [
-                          BoxShadow(
-                            color: Colors.white.withOpacity(0.5),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ]
-                      : null,
-                ),
-                child: Stack(
-                  children: [
-                    Center(
-                      child: Icon(
-                        isDone ? Icons.check_rounded : icon,
-                        color: isDone || isActive
-                            ? AppColors.primary
-                            : Colors.white.withOpacity(0.6),
-                        size: 16,
-                      ),
-                    ),
-                    if (!isDone)
-                      Positioned(
-                        top: 1,
-                        right: 1,
-                        child: Container(
-                          width: 12,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: isActive
-                                ? AppColors.primary
-                                : Colors.white.withOpacity(0.3),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 1),
-                          ),
-                          child: Center(
-                            child: Text(
-                              number,
-                              style: TextStyle(
-                                fontSize: 8,
-                                fontWeight: FontWeight.w900,
-                                color: isActive
-                                    ? Colors.white
-                                    : Colors.white.withOpacity(0.8),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
+        // circle
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: isDone || isActive
+                ? Colors.white
+                : Colors.white.withOpacity(0.3),
+            shape: BoxShape.circle,
+          ),
+          child: Stack(
+            children: [
+              Center(
+                child: Icon(
+                  isDone ? Icons.check_rounded : icon,
+                  size: 16,
+                  color:
+                      isDone || isActive ? AppColors.primary : Colors.white70,
                 ),
               ),
-            );
-          },
+              if (!isDone)
+                Positioned(
+                  top: 1,
+                  right: 1,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: isActive
+                          ? AppColors.primary
+                          : Colors.white.withOpacity(0.4),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1),
+                    ),
+                    child: Center(
+                      child: Text(
+                        number,
+                        style: TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w900,
+                          color: isActive ? Colors.white : Colors.white70,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
-        
+
         const SizedBox(width: 8),
-        
-        // Label
-        AnimatedDefaultTextStyle(
-          duration: const Duration(milliseconds: 300),
+
+        Text(
+          label,
           style: TextStyle(
             fontSize: 13,
             fontWeight: isActive ? FontWeight.w800 : FontWeight.w600,
             color: Colors.white.withOpacity(isActive ? 1.0 : 0.7),
-            letterSpacing: 0.2,
+            letterSpacing: 0.3,
           ),
-          child: Text(label),
         ),
       ],
     );

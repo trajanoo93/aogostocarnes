@@ -56,11 +56,13 @@ class PagarMeService {
   /// [storeFinal] - Nome completo da loja (ex: "Unidade Sion")
   /// [totalAmount] - Valor total em REAIS (será convertido para centavos)
   /// [customerPhone] - Telefone do cliente (apenas números)
+  /// [customerName] - Nome do cliente pra título personalizado
   Future<PagarMePixResponse> generatePix({
     required String orderId,
     required String storeFinal,
     required double totalAmount,
     required String customerPhone,
+    required String customerName,  // Novo: Nome cliente pra título
   }) async {
     try {
       // ✅ Converte para centavos
@@ -79,18 +81,21 @@ class PagarMeService {
       final areaCode = phoneDigits.substring(0, 2);
       final number = phoneDigits.substring(2);
       
+      // ✅ Título personalizado pro Pagar.me
+      final orderTitle = 'Pedido #$orderId - $customerName - APP';
+      
       // ✅ Monta payload do Pagar.me
      final payload = {
         'items': [
           {
             'amount': amountInCents,
-            'description': 'Pedido #$orderId - Ao Gosto Carnes',
+            'description': orderTitle,  // Atualizado: Título personalizado
             'quantity': 1,
             'code': orderId,
           }
         ],
         'customer': {
-          'name': PagarMeCredentials.companyName,
+          'name': orderTitle,  // Atualizado: Usa título como nome do customer
           'email': PagarMeCredentials.companyEmail,
           'document': PagarMeCredentials.companyCnpj,
           'type': PagarMeCredentials.companyType,

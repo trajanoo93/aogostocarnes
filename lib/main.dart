@@ -1,9 +1,10 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:ao_gosto_app/widgets/global_message_banner.dart'; 
 import 'package:ao_gosto_app/firebase_options.dart';
 import 'package:ao_gosto_app/screens/main_screen.dart';
 import 'package:ao_gosto_app/utils/app_theme.dart';
@@ -13,7 +14,20 @@ import 'package:ao_gosto_app/state/cart_controller.dart';
 import 'package:ao_gosto_app/state/customer_provider.dart';
 import 'package:ao_gosto_app/root_router.dart';
 import 'package:ao_gosto_app/screens/update/forced_update_screen.dart';
-import 'package:ao_gosto_app/services/version_service.dart'; // NOVO
+import 'package:ao_gosto_app/services/version_service.dart';
+import 'package:ao_gosto_app/services/notification_service.dart';
+import 'package:ao_gosto_app/services/remote_config_service.dart';  // ✅ NOVO
+import 'package:ao_gosto_app/screens/maintenance/maintenance_screen.dart';  // ✅ NOVO
+
+/// Handler chamado quando uma notificação é recebida
+/// com o app em **background** ou **terminado**.
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  debugPrint('🔵 Mensagem recebida em BACKGROUND: ${message.messageId}');
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,7 +36,26 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // === CARREGA O CLIENTE (como você já fazia) ===
+  // 🔔 Handler para mensagens em background / app fechado
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // 🔔 Quando o usuário toca na notificação e abre o app
+  FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+    debugPrint('🟡 App aberto pela notificação: ${message.messageId}');
+  });
+
+  // Inicializa FCM + locais + gera token
+  await NotificationService.initialize();
+
+  // 🔔 Inscreve o dispositivo no tópico de promoções
+  try {
+    await FirebaseMessaging.instance.subscribeToTopic('promocoes');
+    debugPrint('✅ Inscrito no tópico "promocoes"');
+  } catch (e) {
+    debugPrint('❌ Erro ao inscrever no tópico "promocoes": $e');
+  }
+
+  // === CARREGA O CLIENTE ===
   final sp = await SharedPreferences.getInstance();
   final phone = sp.getString('customer_phone');
   final name = sp.getString('customer_name');
@@ -34,17 +67,26 @@ void main() async {
     );
   }
 
-  // VERIFICA SE PRECISA FORÇAR ATUALIZAÇÃO
+  // ✅ VERIFICA SE PRECISA FORÇAR ATUALIZAÇÃO
   final needsUpdate = await VersionService.needsForcedUpdate();
 
-  runApp(
-    needsUpdate
-        ? const MaterialApp(
-            debugShowCheckedModeBanner: false,
-            home: ForcedUpdateScreen(),
-          )
-        : const MyApp(),
-  );
+  if (needsUpdate) {
+    runApp(
+      const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: ForcedUpdateScreen(),
+      ),
+    );
+    return;
+  }
+
+  // ✅ VERIFICA CONFIGURAÇÕES REMOTAS (OMS)
+  final remoteConfig = await RemoteConfigService.fetchConfig();
+
+  
+
+  // ✅ TUDO OK, INICIA APP NORMALMENTE
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {

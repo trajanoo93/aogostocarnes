@@ -6,12 +6,21 @@ import 'package:ao_gosto_app/screens/checkout/checkout_controller.dart';
 import 'package:ao_gosto_app/screens/checkout/widgets/calendar_widget.dart';
 import 'package:ao_gosto_app/screens/checkout/widgets/time_slot_grid.dart';
 
+/// ⚠️ AVISO: Este arquivo é OBSOLETO e não deveria estar sendo usado.
+/// A lógica de agendamento está agora integrada no step_address.dart
+/// Mantenha este arquivo apenas para compatibilidade legada.
+
 class StepSchedule extends StatelessWidget {
   const StepSchedule({super.key});
 
   @override
   Widget build(BuildContext context) {
     final c = context.watch<CheckoutController>();
+    
+    // ✅ Obtém slots usando a nova lógica com validações
+    final slots = c.getTimeSlots();
+    final isClosed = CheckoutController.isClosedDay(c.selectedDate);
+    final isSpecial = CheckoutController.isSpecialDay(c.selectedDate);
 
     return Container(
       decoration: _cardDeco(),
@@ -37,6 +46,7 @@ class StepSchedule extends StatelessWidget {
                   onDateSelected: (date) {
                     c.selectedDate = date;
                     c.selectedTimeSlot = null;
+                    c.notifyListeners();
                   },
                 ),
               ),
@@ -45,10 +55,73 @@ class StepSchedule extends StatelessWidget {
               // === SLOTS ===
               Expanded(
                 flex: 2,
-                child: TimeSlotGrid(
-                  slots: c.getTimeSlots(),
-                  selectedSlot: c.selectedTimeSlot,
-                  onSlotSelected: (slot) => c.selectedTimeSlot = slot,
+                child: Column(
+                  children: [
+                    // ⚠️ AVISO DE DIA FECHADO
+                    if (isClosed)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.red[200]!),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.celebration_rounded, color: Colors.red[700], size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Recesso - Não entregamos neste dia',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.red[900],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    
+                    // ⚠️ AVISO DE DIA ESPECIAL
+                    else if (isSpecial)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        margin: const EdgeInsets.only(bottom: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.amber[200]!),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline_rounded, color: Colors.amber[800], size: 18),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Horários especiais 🎄',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.amber[900],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    
+                    // ✅ GRID DE SLOTS
+                    if (!isClosed)
+                      TimeSlotGrid(
+                        slots: slots,
+                        selectedSlot: c.selectedTimeSlot,
+                        onSlotSelected: (slot) {
+                          c.setTimeSlot(slot); // ✅ Usa método que atualiza frete
+                        },
+                      ),
+                  ],
                 ),
               ),
             ],
@@ -57,7 +130,7 @@ class StepSchedule extends StatelessWidget {
           const SizedBox(height: 16),
 
           // === DATA/HORÁRIO SELECIONADO ===
-          if (c.selectedTimeSlot != null)
+          if (c.selectedTimeSlot != null && !isClosed)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(

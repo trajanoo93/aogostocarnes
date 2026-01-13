@@ -68,7 +68,7 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
   }
 
   Future<void> _launchWhatsApp() async {
-    final uri = Uri.parse('https://wa.me/553134613297');
+    final uri = Uri.parse('https://wa.me/5531997682271');
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }

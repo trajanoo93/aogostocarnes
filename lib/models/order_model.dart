@@ -34,14 +34,18 @@ class OrderItem {
   final String imageUrl;
   final double price;
   final int quantity;
+  final int? variationId;  // ✅ NOVO
+  final Map<String, String>? selectedAttributes;  // ✅ NOVO
+  
   const OrderItem({
     required this.name,
     required this.imageUrl,
     required this.price,
     required this.quantity,
+    this.variationId,  // ✅ NOVO
+    this.selectedAttributes,  // ✅ NOVO
   });
 }
-
 
 class Address {
   final String id;

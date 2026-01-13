@@ -165,29 +165,32 @@ class _AllCutsSectionState extends State<AllCutsSection> {
           
           const SizedBox(height: 16),
 
-          SizedBox(
-            height: 110,
-            child: ListView.separated(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              scrollDirection: Axis.horizontal,
-              itemCount: _categories.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (_, i) {
-                final c = _categories[i];
-                return CategoryBubble(
-                  name: c.name,
-                  imageUrl: c.img,
-                  active: _activeCategoryId == c.id,
-                  onTap: () => setState(() {
-                    _activeCategoryId = c.id;
-                    _visibleCount = 10;
-                  }),
-                );
-              },
-            ),
-          ),
+         // AllCutsSection
+
+SizedBox(
+  height: 108, // em vez de 124 ou 110
+  child: ListView.separated(
+    padding: const EdgeInsets.symmetric(horizontal: 16),
+    scrollDirection: Axis.horizontal,
+    itemCount: _categories.length,
+    separatorBuilder: (_, __) => const SizedBox(width: 8),
+    itemBuilder: (_, i) {
+      final c = _categories[i];
+      return CategoryBubble(
+        name: c.name,
+        imageUrl: c.img,
+        active: _activeCategoryId == c.id,
+        onTap: () => setState(() {
+          _activeCategoryId = c.id;
+          _visibleCount = 10;
+        }),
+      );
+    },
+  ),
+),
+
           
-          const SizedBox(height: 16),
+          const SizedBox(height: 0),
 
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),

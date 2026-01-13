@@ -155,11 +155,21 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
   }
 
   Future<void> _saveAndFinish() async {
-  if (_numberCtrl.text.trim().isEmpty) return;
+  if (_numberCtrl.text.trim().isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Por favor, preencha o número')),
+    );
+    return;
+  }
+
   setState(() => _isLoading = true);
 
   try {
     final telefoneLimpo = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+
+    print('INICIANDO CADASTRO DO CLIENTE...');
+    print('Nome: ${_nameCtrl.text.trim()}');
+    print('Telefone limpo: $telefoneLimpo');
 
     final novoEndereco = CustomerAddress(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -174,24 +184,29 @@ class _OnboardingFlowState extends State<OnboardingFlow> with TickerProviderStat
       isDefault: true,
     );
 
+    // SALVA O CLIENTE NO FIRESTORE
     await CustomerProvider.instance.loadOrCreateCustomer(
       name: _nameCtrl.text.trim(),
       phone: telefoneLimpo,
       initialAddress: novoEndereco,
     );
 
-    CartController.instance.setDeliveryFee(_deliveryFee ?? 0.0);
+    print('CLIENTE CADASTRADO COM SUCESSO!');
 
+
+    // SALVA NO SHARED PREFERENCES
     final sp = await SharedPreferences.getInstance();
     await sp.setBool('onboarding_done', true);
-    
-    // ✅ ADICIONE ESTA LINHA
     await sp.setString('customer_phone', telefoneLimpo);
+
+    print('ONBOARDING FINALIZADO COM SUCESSO!');
 
     if (mounted) {
       Navigator.of(context).pop();
     }
-  } catch (e) {
+  } catch (e, s) {
+    print('ERRO NO ONBOARDING: $e');
+    print(s);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Erro ao salvar: $e')),
@@ -592,28 +607,24 @@ Future<void> _skipAddressAndFinish() async {
   try {
     final telefoneLimpo = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
 
-    // ✅ Salva cliente SEM endereço inicial
+    print('PULANDO ENDEREÇO - CADASTRO SEM ENDEREÇO');
+    
     await CustomerProvider.instance.loadOrCreateCustomer(
       name: _nameCtrl.text.trim(),
       phone: telefoneLimpo,
       initialAddress: null,
     );
 
+    
+
     final sp = await SharedPreferences.getInstance();
     await sp.setBool('onboarding_done', true);
-    
-    // ✅ ADICIONE ESTA LINHA
     await sp.setString('customer_phone', telefoneLimpo);
 
-    if (mounted) {
-      Navigator.of(context).pop();
-    }
-  } catch (e) {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erro ao salvar: $e')),
-      );
-    }
+    if (mounted) Navigator.of(context).pop();
+  } catch (e, s) {
+    print('ERRO NO SKIP: $e');
+    print(s);
   } finally {
     if (mounted) setState(() => _isLoading = false);
   }

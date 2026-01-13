@@ -10,6 +10,7 @@ import 'package:ao_gosto_app/screens/checkout/widgets/calendar_widget.dart';
 import 'package:ao_gosto_app/screens/checkout/widgets/time_slot_grid.dart';
 import 'package:ao_gosto_app/screens/checkout/widgets/summary_checkout.dart';
 import 'package:ao_gosto_app/screens/profile/widgets/address_form_sheet.dart';
+import 'package:ao_gosto_app/services/remote_config_service.dart';
 
 class StepAddress extends StatelessWidget {
   const StepAddress({super.key});
@@ -45,7 +46,7 @@ class StepAddress extends StatelessWidget {
           _PickupSection(),
         const SizedBox(height: 12),
         
-        // 4. AGENDAMENTO (✨ ATUALIZADO)
+        // 4. AGENDAMENTO
         _ScheduleSection(),
         const SizedBox(height: 12),
         
@@ -62,7 +63,7 @@ class StepAddress extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════
-//              CONTATO COM ÍCONE WHATSAPP (CORRIGIDO)
+//              CONTATO COM ÍCONE WHATSAPP
 // ═══════════════════════════════════════════════════════════
 class _ContactSection extends StatefulWidget {
   @override
@@ -106,7 +107,6 @@ class _ContactSectionState extends State<_ContactSection> {
                     contentPadding: EdgeInsets.all(12),
                   ),
                   onChanged: (_) {
-                    // Força rebuild
                     setState(() {});
                   },
                 ),
@@ -256,7 +256,7 @@ class _UltraModernDeliveryTypeState extends State<_UltraModernDeliveryType> {
                   active: c.deliveryType == DeliveryType.delivery,
                   onTap: () {
                     c.setDeliveryType(DeliveryType.delivery);
-                    setState(() {}); // ← FORÇA ATUALIZAÇÃO INSTANTÂNEA
+                    setState(() {});
                   },
                 ),
               ),
@@ -274,7 +274,7 @@ class _UltraModernDeliveryTypeState extends State<_UltraModernDeliveryType> {
                   active: c.deliveryType == DeliveryType.pickup,
                   onTap: () {
                     c.setDeliveryType(DeliveryType.pickup);
-                    setState(() {}); // ← FORÇA ATUALIZAÇÃO INSTANTÂNEA
+                    setState(() {});
                   },
                 ),
               ),
@@ -483,7 +483,7 @@ class _DeliveryOptionCard extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════
-//                    ENDEREÇO
+//  ✅ ATUALIZADO: ENDEREÇO COM VALIDAÇÃO DE FRETE
 // ═══════════════════════════════════════════════════════════
 class _AddressSection extends StatelessWidget {
   final List<CustomerAddress> addresses;
@@ -658,51 +658,139 @@ class _AddressSection extends StatelessWidget {
             );
           }),
           
+          // ✅ CARD DE TAXA DE ENTREGA
           if (controller.selectedAddressId != null)
-  Container(
-    margin: const EdgeInsets.only(top: 12),
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: const Color(0xFFF9FAFB),
-      borderRadius: BorderRadius.circular(10),
-    ),
-    child: Row(
-      children: [
-        Icon(
-          Icons.local_shipping_outlined,
-          size: 16,
-          color: Colors.grey[600],
-        ),
-        const SizedBox(width: 8),
-        const Text(
-          'Taxa de Entrega',
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF71717A)),
-        ),
-        const Spacer(),
-        if (controller.isCalculatingFee)
-          const SizedBox(
-            width: 16,
-            height: 16,
-            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
-          )
-        else
-          AnimatedSwitcher(
-  duration: const Duration(milliseconds: 300),
-  child: Text(
-    key: ValueKey(controller.deliveryFee),
-    controller.deliveryFee > 0
-        ? 'R\$ ${controller.deliveryFee.toStringAsFixed(2)}'
-        : 'Grátis',
-    style: TextStyle(
-      fontSize: 14,
-      fontWeight: FontWeight.w900,
-      color: controller.deliveryFee > 0 ? const Color(0xFF18181B) : Colors.green[700],
-    ),
-  ),
-),
-      ],
-    ),
-  ),
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF9FAFB),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.local_shipping_outlined,
+                    size: 16,
+                    color: Colors.grey[600],
+                  ),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'Taxa de Entrega',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF71717A),
+                    ),
+                  ),
+                  const Spacer(),
+                  
+                  // ✅ LOADING
+                  if (controller.isCalculatingFee)
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.primary,
+                      ),
+                    )
+                  
+                  // ✅ ERRO (CEP FORA DE ÁREA)
+                  else if (controller.deliveryFee < 0)
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.error_outline_rounded,
+                          size: 16,
+                          color: Colors.red[700],
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Fora de área',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.red[700],
+                          ),
+                        ),
+                      ],
+                    )
+                  
+                  // ✅ TAXA VÁLIDA
+                  else
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      child: Text(
+                        key: ValueKey(controller.deliveryFee),
+                        controller.deliveryFee > 0
+                            ? 'R\$ ${controller.deliveryFee.toStringAsFixed(2)}'
+                            : 'Grátis',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w900,
+                          color: controller.deliveryFee > 0
+                              ? const Color(0xFF18181B)
+                              : Colors.green[700],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          
+          // ✅ BANNER DE ERRO QUANDO CEP FORA DE ÁREA
+          if (controller.selectedAddressId != null && controller.deliveryFee < 0)
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.red[200]!),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.red[100],
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.location_off_rounded,
+                      color: Colors.red[700],
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'CEP fora da área de entrega',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.red[900],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Infelizmente não entregamos neste endereço. Você pode retirar o pedido em uma de nossas lojas.',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.red[700],
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -739,123 +827,151 @@ void _showAddressSheet(BuildContext context) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//                    RETIRADA
+//                    RETIRADA (CORRIGIDA)
 // ═══════════════════════════════════════════════════════════
 class _PickupSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.watch<CheckoutController>();
     
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: _boxDeco(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Local de Retirada',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF18181B),
+    return FutureBuilder<RemoteConfig>(
+      future: RemoteConfigService.fetchConfig(),
+      builder: (context, snapshot) {
+        final pickupStores = snapshot.data?.pickupStores ?? {
+          'barreiro': true,
+          'sion': true,
+          'central': true,
+          'lagosanta': true,
+        };
+        
+        // ✅ FILTRA APENAS LOJAS HABILITADAS
+        final availableStores = c.pickupLocations.entries
+            .where((e) => pickupStores[e.key] == true)
+            .toList();
+        
+        if (availableStores.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(20),
+            decoration: _boxDeco(),
+            child: const Text(
+              'Nenhuma unidade de retirada disponível no momento',
+              style: TextStyle(color: Color(0xFF71717A)),
             ),
-          ),
-          
-          const SizedBox(height: 12),
-          
-          ...c.pickupLocations.entries.map((e) {
-            final key = e.key;
-            final loc = e.value;
-            final active = key == c.selectedPickup;
-            
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: InkWell(
-                onTap: () => c.selectPickup(key),
-                borderRadius: BorderRadius.circular(12),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: active
-                        ? AppColors.primary.withOpacity(0.05)
-                        : const Color(0xFFF9FAFB),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: active
-                          ? AppColors.primary
-                          : const Color(0xFFE5E7EB),
-                      width: active ? 2 : 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      AnimatedContainer(
-                        duration: const Duration(milliseconds: 200),
-                        width: 18,
-                        height: 18,
-                        decoration: BoxDecoration(
-                          color: active
-                              ? AppColors.primary
-                              : Colors.transparent,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: active
-                                ? AppColors.primary
-                                : const Color(0xFFD4D4D8),
-                            width: 2,
-                          ),
-                        ),
-                        child: active
-                            ? const Icon(
-                                Icons.check,
-                                color: Colors.white,
-                                size: 10,
-                              )
-                            : null,
-                      ),
-                      
-                      const SizedBox(width: 12),
-                      
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              loc['name']!,
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                                color: Color(0xFF18181B),
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              loc['address']!,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: Color(0xFF71717A),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+          );
+        }
+        
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: _boxDeco(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Local de Retirada',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF18181B),
                 ),
               ),
-            );
-          }),
-        ],
-      ),
+              
+              const SizedBox(height: 12),
+              
+              ...availableStores.map((e) {
+                final key = e.key;
+                final loc = e.value;
+                final active = key == c.selectedPickup;
+                
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: InkWell(
+                    onTap: () => c.selectPickup(key),
+                    borderRadius: BorderRadius.circular(12),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: active
+                            ? AppColors.primary.withOpacity(0.05)
+                            : const Color(0xFFF9FAFB),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: active
+                              ? AppColors.primary
+                              : const Color(0xFFE5E7EB),
+                          width: active ? 2 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: 18,
+                            height: 18,
+                            decoration: BoxDecoration(
+                              color: active
+                                  ? AppColors.primary
+                                  : Colors.transparent,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: active
+                                    ? AppColors.primary
+                                    : const Color(0xFFD4D4D8),
+                                width: 2,
+                              ),
+                            ),
+                            child: active
+                                ? const Icon(
+                                    Icons.check,
+                                    color: Colors.white,
+                                    size: 10,
+                                  )
+                                : null,
+                          ),
+                          
+                          const SizedBox(width: 12),
+                          
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  loc['name']!,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF18181B),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  loc['address']!,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF71717A),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ],
+          ),
+        );
+      },
     );
   }
 }
 
 // ═══════════════════════════════════════════════════════════
-//  ✨ ATUALIZADO: AGENDAMENTO COM FORMATAÇÃO INTELIGENTE
+//  AGENDAMENTO COM FORMATAÇÃO INTELIGENTE
 // ═══════════════════════════════════════════════════════════
 class _ScheduleSection extends StatelessWidget {
   @override
@@ -914,7 +1030,7 @@ class _ScheduleSection extends StatelessWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      c.getSmartDateLabel(), // ✨ FORMATAÇÃO INTELIGENTE
+                      c.getSmartDateLabel(),
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -935,10 +1051,6 @@ class _ScheduleSection extends StatelessWidget {
           ),
           
           const SizedBox(height: 12),
-          
-          // ═══════════════════════════════════════════════════════════
-          //  ✨ MENSAGENS AMIGÁVEIS + SLOTS
-          // ═══════════════════════════════════════════════════════════
           
           // 🎄 DIA FECHADO (RECESSO)
           if (isClosed)
@@ -1034,8 +1146,7 @@ class _ScheduleSection extends StatelessWidget {
                     slots: slots,
                     selectedSlot: c.selectedTimeSlot,
                     onSlotSelected: (slot) {
-                      c.selectedTimeSlot = slot;
-                      c.notifyListeners();
+                      c.setTimeSlot(slot);
                     },
                   ),
                 ),
@@ -1101,15 +1212,12 @@ class _ScheduleSection extends StatelessWidget {
                 slots: slots,
                 selectedSlot: c.selectedTimeSlot,
                 onSlotSelected: (slot) {
-                  c.selectedTimeSlot = slot;
-                  c.notifyListeners();
+                  c.setTimeSlot(slot);
                 },
               ),
             ),
           
-          // ═══════════════════════════════════════════════════════════
-          //  ✅ RESUMO DO AGENDAMENTO
-          // ═══════════════════════════════════════════════════════════
+          // ✅ RESUMO DO AGENDAMENTO
           if (hasSchedule && !isClosed)
             Container(
               margin: const EdgeInsets.only(top: 12),

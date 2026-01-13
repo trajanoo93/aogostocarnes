@@ -1,13 +1,15 @@
-// lib/screens/orders/orders_screen.dart
+// lib/screens/orders/orders_screen.dart - VERSÃO CORRIGIDA
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:lottie/lottie.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'package:ao_gosto_app/models/order_model.dart';
 import 'package:ao_gosto_app/screens/orders/order_detail_screen.dart';
 import 'package:ao_gosto_app/api/firestore_service.dart';
-import 'package:ao_gosto_app/state/customer_provider.dart'; 
+import 'package:ao_gosto_app/state/customer_provider.dart';
+import 'package:ao_gosto_app/api/product_image_service.dart'; // ✅ ADICIONA
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -24,6 +26,10 @@ class _OrdersScreenState extends State<OrdersScreen>
   late AnimationController _fadeController;
   late AnimationController _arrowController;
   late Animation<double> _arrowAnimation;
+  
+  // ✅ SERVIÇO DE IMAGENS
+  final ProductImageService _imageService = ProductImageService();
+  final Map<String, Map<String, String>> _orderImages = {}; // {orderId: {productName: imageUrl}}
 
   @override
   bool get wantKeepAlive => true;
@@ -37,7 +43,6 @@ class _OrdersScreenState extends State<OrdersScreen>
       duration: const Duration(milliseconds: 1200),
     );
 
-    // ✨ Animação da seta (bounce suave infinito)
     _arrowController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
@@ -67,96 +72,91 @@ class _OrdersScreenState extends State<OrdersScreen>
   }
 
   Future<void> _loadCustomerId() async {
-  try {
-    final sp = await SharedPreferences.getInstance();
-    
-    // ✅ 1. Tenta buscar do SharedPreferences
-    String? phone = sp.getString('customer_phone');
-    
-    // ✅ 2. FALLBACK: Se não encontrar, busca do CustomerProvider
-    if (phone == null || phone.isEmpty) {
-      final customerProv = CustomerProvider.instance;  // ✅ Agora funciona!
+    try {
+      final sp = await SharedPreferences.getInstance();
       
-      // Se o provider não tem cliente carregado, tenta carregar
-      if (customerProv.customer == null) {
-        final name = sp.getString('customer_name');
-        final fallbackPhone = sp.getString('user_phone'); // Tenta chave antiga
+      String? phone = sp.getString('customer_phone');
+      
+      if (phone == null || phone.isEmpty) {
+        final customerProv = CustomerProvider.instance;
         
-        if (fallbackPhone != null && name != null) {
-          await customerProv.loadOrCreateCustomer(
-            name: name,
-            phone: fallbackPhone,
-          );
+        if (customerProv.customer == null) {
+          final name = sp.getString('customer_name');
+          final fallbackPhone = sp.getString('user_phone');
+          
+          if (fallbackPhone != null && name != null) {
+            await customerProv.loadOrCreateCustomer(
+              name: name,
+              phone: fallbackPhone,
+            );
+          }
+        }
+        
+        phone = customerProv.customer?.phone;
+        
+        if (phone != null && phone.isNotEmpty) {
+          await sp.setString('customer_phone', phone);
         }
       }
-      
-      // Agora sim pega do provider
-      phone = customerProv.customer?.phone;
-      
-      // ✅ 3. Se conseguiu do provider, sincroniza com SharedPreferences
-      if (phone != null && phone.isNotEmpty) {
-        await sp.setString('customer_phone', phone);
-      }
-    }
-    
-    // ✅ DEBUG (REMOVA DEPOIS)
-    print('═══════════════════════════════════════════');
-    print('📱 DEBUG ORDERS SCREEN');
-    print('Telefone final: $phone');
-    print('Todas as chaves: ${sp.getKeys()}');
-    print('═══════════════════════════════════════════');
 
-    if (phone == null || phone.isEmpty) {
+      if (phone == null || phone.isEmpty) {
+        if (mounted) {
+          setState(() {
+            _customerId = null;
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
+      final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+
+      if (mounted) {
+        setState(() {
+          _customerId = cleanPhone;
+          _isLoading = false;
+        });
+
+        _fadeController.forward();
+
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (mounted) {
+            _arrowController.repeat();
+          }
+        });
+      }
+    } catch (e) {
+      print('❌ ERRO ao carregar customer_id: $e');
       if (mounted) {
         setState(() {
           _customerId = null;
           _isLoading = false;
         });
       }
-      return;
     }
+  }
 
-    final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
-
+  // ✅ BUSCA IMAGENS DOS PRODUTOS DO PEDIDO
+  Future<void> _loadOrderImages(AppOrder order) async {
+    if (_orderImages.containsKey(order.id)) return; // Já carregou
+    
+    final images = <String, String>{};
+    for (final item in order.items.take(4)) { // Só as 4 primeiras
+      final imageUrl = await _imageService.getProductImage(item.name);
+      images[item.name] = imageUrl;
+    }
+    
     if (mounted) {
       setState(() {
-        _customerId = cleanPhone;
-        _isLoading = false;
-      });
-
-      _fadeController.forward();
-
-      Future.delayed(const Duration(milliseconds: 800), () {
-        if (mounted) {
-          _arrowController.repeat();
-        }
-      });
-    }
-  } catch (e) {
-    print('❌ ERRO ao carregar customer_id: $e');
-    if (mounted) {
-      setState(() {
-        _customerId = null;
-        _isLoading = false;
+        _orderImages[order.id] = images;
       });
     }
   }
-}
 
   String _formatDate(DateTime date) {
     final months = [
-      'Jan',
-      'Fev',
-      'Mar',
-      'Abr',
-      'Mai',
-      'Jun',
-      'Jul',
-      'Ago',
-      'Set',
-      'Out',
-      'Nov',
-      'Dez'
+      'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+      'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
     ];
     return '${date.day} ${months[date.month - 1]} ${date.year} • '
         '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
@@ -206,7 +206,6 @@ class _OrdersScreenState extends State<OrdersScreen>
           );
         }
 
-        // ✨ ESTADO VAZIO ULTRA PROFISSIONAL
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return Scaffold(
             backgroundColor: Colors.white,
@@ -214,8 +213,12 @@ class _OrdersScreenState extends State<OrdersScreen>
           );
         }
 
-        // ✅ Há pedidos
         final orders = snapshot.data!;
+        
+        // ✅ CARREGA IMAGENS DOS PEDIDOS
+        for (final order in orders) {
+          _loadOrderImages(order);
+        }
 
         return Scaffold(
           backgroundColor: Colors.white,
@@ -239,9 +242,6 @@ class _OrdersScreenState extends State<OrdersScreen>
     );
   }
 
-  // ╔════════════════════════════════════════════════╗
-  // ║                  APP BAR                        ║
-  // ╚════════════════════════════════════════════════╝
   PreferredSizeWidget _buildAppBar(BuildContext context) {
     return AppBar(
       backgroundColor: Colors.white,
@@ -276,32 +276,23 @@ class _OrdersScreenState extends State<OrdersScreen>
     );
   }
 
-  // ╔════════════════════════════════════════════════╗
-  // ║        EMPTY STATE ULTRA PROFISSIONAL          ║
-  // ╚════════════════════════════════════════════════╝
   Widget _buildEmptyStateProfessional(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
-    // Aproximação da posição do ícone "Categorias" no bottom nav
-    // (ajustado para ficar levemente à esquerda do centro)
     final categoriasIconCenterX = size.width * 0.15;
-
-    // Distância da seta até a parte inferior, considerando a safe area
-    const baseBottom = 72.0; // altura média do bottom bar
+    const baseBottom = 72.0;
     final arrowBottom = baseBottom + bottomPadding;
 
     return SafeArea(
       child: Stack(
         children: [
-          // ✨ Conteúdo principal centralizado
           Center(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 32),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // Caixinha / Lottie
                   TweenAnimationBuilder<double>(
                     tween: Tween(begin: 0.85, end: 1.0),
                     duration: const Duration(milliseconds: 600),
@@ -323,7 +314,6 @@ class _OrdersScreenState extends State<OrdersScreen>
 
                   const SizedBox(height: 40),
 
-                  // Título principal
                   FadeTransition(
                     opacity: _fadeController,
                     child: Text(
@@ -342,7 +332,6 @@ class _OrdersScreenState extends State<OrdersScreen>
 
                   const SizedBox(height: 12),
 
-                  // Subtítulo com "Caixinha Laranja" em destaque
                   FadeTransition(
                     opacity: _fadeController,
                     child: RichText(
@@ -371,16 +360,15 @@ class _OrdersScreenState extends State<OrdersScreen>
                     ),
                   ),
 
-                  const SizedBox(height: 80), // espaço para respirar antes da seta
+                  const SizedBox(height: 80),
                 ],
               ),
             ),
           ),
 
-          // ✨ Seta animada & call-to-action apontando para "Categorias"
           Positioned(
             bottom: arrowBottom,
-            left: categoriasIconCenterX - 24, // centraliza o círculo de 48
+            left: categoriasIconCenterX - 24,
             child: FadeTransition(
               opacity: _fadeController,
               child: AnimatedBuilder(
@@ -394,7 +382,6 @@ class _OrdersScreenState extends State<OrdersScreen>
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Texto em cima da seta
                     Text(
                       'Explore as categorias',
                       style: TextStyle(
@@ -406,13 +393,11 @@ class _OrdersScreenState extends State<OrdersScreen>
                       ),
                     ),
                     const SizedBox(height: 6),
-                    // Círculo com a seta
                     Icon(
-  Icons.arrow_downward_rounded,
-  size: 28,
-  color: AppColors.primary,
-)
-
+                      Icons.arrow_downward_rounded,
+                      size: 28,
+                      color: AppColors.primary,
+                    )
                   ],
                 ),
               ),
@@ -423,9 +408,6 @@ class _OrdersScreenState extends State<OrdersScreen>
     );
   }
 
-  // ╔════════════════════════════════════════════════╗
-  // ║                ESTADO DE ERRO                  ║
-  // ╚════════════════════════════════════════════════╝
   Widget _buildErrorState() {
     return SafeArea(
       child: Center(
@@ -482,11 +464,15 @@ class _OrdersScreenState extends State<OrdersScreen>
     );
   }
 
-  // ╔════════════════════════════════════════════════╗
-  // ║                 CARD DE PEDIDO                  ║
-  // ╚════════════════════════════════════════════════╝
+  // ═══════════════════════════════════════════════════════════
+  //  🎴 CARD DE PEDIDO (VERSÃO CORRIGIDA)
+  // ═══════════════════════════════════════════════════════════
   Widget _buildOrderCard(AppOrder order, int index) {
-    final style = _getStatusStyle(order.status);
+    final displayStatus = _getDisplayStatus(order.status);
+    final style = _getStatusStyle(displayStatus);
+    final statusIcon = _getStatusIcon(displayStatus);
+    
+    final isCompleted = order.status == 'Concluído' || order.status == 'Entregue';
 
     final itemPreview = order.items.isEmpty
         ? 'Sem itens'
@@ -515,6 +501,14 @@ class _OrdersScreenState extends State<OrdersScreen>
             color: Colors.grey[200]!,
             width: 1,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 1,
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Material(
           color: Colors.transparent,
@@ -566,39 +560,42 @@ class _OrdersScreenState extends State<OrdersScreen>
                     ],
                   ),
                   const SizedBox(height: 20),
+                  
+                  // ✅ IMAGENS REAIS DOS PRODUTOS
                   Row(
                     children: [
-                      ...order.items.take(4).map(
-                            (item) => Container(
-                              width: 52,
-                              height: 52,
-                              margin: const EdgeInsets.only(right: 8),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[100],
-                                borderRadius: BorderRadius.circular(12),
-                                border:
-                                    Border.all(color: Colors.grey[200]!),
-                              ),
-                              child: item.imageUrl.isNotEmpty
-                                  ? ClipRRect(
-                                      borderRadius: BorderRadius.circular(11),
-                                      child: Image.network(
-                                        item.imageUrl,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => Icon(
-                                          Icons.restaurant,
-                                          color: Colors.grey[400],
-                                          size: 24,
-                                        ),
-                                      ),
-                                    )
-                                  : Icon(
+                      ...order.items.take(4).map((item) {
+                        final imageUrl = _orderImages[order.id]?[item.name];
+                        
+                        return Container(
+                          width: 52,
+                          height: 52,
+                          margin: const EdgeInsets.only(right: 8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey[200]!),
+                          ),
+                          child: imageUrl != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(11),
+                                  child: Image.network(
+                                    imageUrl,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => Icon(
                                       Icons.restaurant,
                                       color: Colors.grey[400],
                                       size: 24,
                                     ),
-                            ),
-                          ),
+                                  ),
+                                )
+                              : Icon(
+                                  Icons.restaurant,
+                                  color: Colors.grey[400],
+                                  size: 24,
+                                ),
+                        );
+                      }),
                       if (order.items.length > 4)
                         Container(
                           width: 52,
@@ -653,6 +650,21 @@ class _OrdersScreenState extends State<OrdersScreen>
                       ),
                     ],
                   ),
+                  
+                  // ✅ RATING (SE CONCLUÍDO)
+                  if (isCompleted && order.rating != null) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: List.generate(5, (i) {
+                        return Icon(
+                          i < order.rating! ? Icons.star : Icons.star_border,
+                          size: 16,
+                          color: i < order.rating! ? Colors.amber : Colors.grey[300],
+                        );
+                      }),
+                    ),
+                  ],
+                  
                   Divider(height: 32, color: Colors.grey[200]),
                   Row(
                     children: [
@@ -683,28 +695,37 @@ class _OrdersScreenState extends State<OrdersScreen>
                       const Spacer(),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
+                          horizontal: 12,
+                          vertical: 6,
                         ),
                         decoration: BoxDecoration(
                           color: style.$1,
                           borderRadius: BorderRadius.circular(8),
+                          // ✅ SEM SOMBRA!
                         ),
-                        child: Text(
-                          order.status == 'Registrado'
-                              ? 'Montado'
-                              : order.status,
-                          style: TextStyle(
-                            fontFamily: 'Poppins',
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: style.$2,
-                          ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              statusIcon,
+                              size: 16,
+                              color: style.$2,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              displayStatus,
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: style.$2,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 12),
                       Icon(
-                        Icons.arrow_forward_ios,
+                        Icons.arrow_forward_ios_rounded,
                         size: 16,
                         color: Colors.grey[400],
                       ),
@@ -719,23 +740,80 @@ class _OrdersScreenState extends State<OrdersScreen>
     );
   }
 
-  // ╔════════════════════════════════════════════════╗
-  // ║        ESTILOS DE STATUS DO PEDIDO             ║
-  // ╚════════════════════════════════════════════════╝
-  (Color, Color) _getStatusStyle(String status) {
-    if (status == 'Registrado') status = 'Montado';
+  // ═══════════════════════════════════════════════════════════
+  //  🏷️ MAPEAMENTO DE STATUS (COMPATÍVEL COM DETAIL)
+  // ═══════════════════════════════════════════════════════════
+  String _getDisplayStatus(String originalStatus) {
+    final normalized = originalStatus.toLowerCase().trim();
+    
+    // ✅ MESMO MAPEAMENTO DO ORDER DETAIL
+    if (normalized == 'pendente' || normalized == 'pending') {
+      return 'Recebido';
+    }
+    if (normalized == 'processando' || normalized == 'processing') {
+      return 'Recebido';
+    }
+    if (normalized == '-' || normalized == '-') {
+      return 'Recebido';
+    }
+    if (normalized == 'recebido') {
+      return 'Recebido';
+    }
+    if (normalized == 'registrado' || normalized == 'registered') {
+      return 'Montado';
+    }
+    if (normalized == 'montado' || normalized == 'em preparo') {
+      return 'Montado';
+    }
+    if (normalized == 'saiu pra entrega' || normalized == 'saiu para entrega') {
+      return 'Saiu pra Entrega';
+    }
+    if (normalized == 'a caminho' || normalized == 'out_for_delivery') {
+      return 'A Caminho';
+    }
+    if (normalized == 'entregue' || normalized == 'completed') {
+      return 'Concluído';
+    }
+    if (normalized == 'concluído') {
+      return 'Concluído';
+    }
+    if (normalized == 'agendado' || normalized == 'scheduled') {
+      return 'Agendado';
+    }
+    if (normalized == 'cancelado' || normalized == 'cancelled') {
+      return 'Cancelado';
+    }
+    
+    return originalStatus;
+  }
 
+  // ═══════════════════════════════════════════════════════════
+  //  🎯 ÍCONES CORRETOS (SEM FERRAMENTA)
+  // ═══════════════════════════════════════════════════════════
+  IconData _getStatusIcon(String displayStatus) {
+    final Map<String, IconData> statusIcons = {
+      'Recebido': Icons.check_circle_rounded, // ✅ Check
+      'Montado': Icons.inventory_2_rounded, // ✅ Caixa (não ferramenta!)
+      'Agendado': Icons.calendar_today_rounded,
+      'Saiu pra Entrega': Icons.two_wheeler_rounded,
+      'Concluído': Icons.done_all_rounded,
+      'Cancelado': Icons.cancel_rounded,
+      'A Caminho': Icons.two_wheeler_rounded,
+    };
+    return statusIcons[displayStatus] ?? Icons.help_outline_rounded;
+  }
+
+  (Color, Color) _getStatusStyle(String displayStatus) {
     final styles = {
-      'Concluído': (const Color(0xFFDCFCE7), const Color(0xFF166534)),
-      'Saiu pra Entrega': (const Color(0xFFDBEAFE), const Color(0xFF1E40AF)),
-      'Montado': (const Color(0xFFFEF3C7), const Color(0xFF92400E)),
-      'Cancelado': (const Color(0xFFFEE2E2), const Color(0xFF991B1B)),
+      'Recebido': (AppColors.primary.withOpacity(0.1), AppColors.primary), // ✅ Laranja
+      'Montado': (const Color(0xFFDBEAFE), const Color(0xFF1E40AF)),
       'Agendado': (const Color(0xFFFEF3C7), const Color(0xFF92400E)),
-      'Entregue': (const Color(0xFFDCFCE7), const Color(0xFF166534)),
+      'Saiu pra Entrega': (const Color(0xFFDBEAFE), const Color(0xFF1E40AF)),
+      'Concluído': (const Color(0xFFDCFCE7), const Color(0xFF166534)),
+      'Cancelado': (const Color(0xFFFEE2E2), const Color(0xFF991B1B)),
       'A Caminho': (const Color(0xFFDBEAFE), const Color(0xFF1E40AF)),
-      'Em Preparo': (const Color(0xFFFEF3C7), const Color(0xFF92400E)),
     };
 
-    return styles[status] ?? (Colors.grey[100]!, Colors.grey[700]!);
+    return styles[displayStatus] ?? (Colors.grey[100]!, Colors.grey[700]!);
   }
 }

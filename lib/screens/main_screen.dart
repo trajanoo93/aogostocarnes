@@ -15,6 +15,7 @@ import 'package:ao_gosto_app/screens/profile/meu_perfil.dart';
 import 'package:ao_gosto_app/widgets/custom_bottom_navigation.dart';
 import 'package:ao_gosto_app/screens/onboarding/onboarding_flow.dart';
 import 'package:ao_gosto_app/widgets/header_menu_modal.dart';
+import 'package:ao_gosto_app/widgets/global_message_banner.dart';  // ← ✅ NOVO
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -69,22 +70,32 @@ class _MainScreenState extends State<MainScreen> {
       key: _scaffoldKey,
       endDrawer: const HeaderMenuModal(),
 
-      body: Stack(
+      body: Column(  // ← ✅ MUDOU DE STACK PARA COLUMN
         children: [
-          /// Página atual
-          _pages[_selectedIndex],
+          // ✅ BANNER GLOBAL NO TOPO
+          const GlobalMessageBanner(),
+          
+          // ✅ CONTEÚDO DAS PÁGINAS
+          Expanded(
+            child: Stack(
+              children: [
+                /// Página atual
+                _pages[_selectedIndex],
 
-          /// Bottom Navigation fixado
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Consumer<CartController>(
-              builder: (context, cart, child) {
-                return CustomBottomNavigation(
-                  currentIndex: _selectedIndex,
-                  onTap: _onItemTapped,
-                  cartItemCount: cart.totalItems,
-                );
-              },
+                /// Bottom Navigation fixado
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: Consumer<CartController>(
+                    builder: (context, cart, child) {
+                      return CustomBottomNavigation(
+                        currentIndex: _selectedIndex,
+                        onTap: _onItemTapped,
+                        cartItemCount: cart.totalItems,
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
           ),
         ],

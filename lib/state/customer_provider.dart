@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/customer_data.dart';
+import '../services/notification_service.dart';
 
 class CustomerProvider extends ChangeNotifier {
   CustomerData? _customer;
@@ -20,14 +21,13 @@ class CustomerProvider extends ChangeNotifier {
     required String name,
     required String phone,
     CustomerAddress? initialAddress,
-    String? fcmToken,
   }) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      final uid = phone.replaceAll(RegExp(r'\D'), '');
-      final docRef = _firestore.collection('clientes_app').doc(uid);
+      final cleanPhone = phone.replaceAll(RegExp(r'\D'), '');
+      final docRef = _firestore.collection('clientes_app').doc(cleanPhone);
       final doc = await docRef.get();
 
       if (doc.exists) {
@@ -35,11 +35,11 @@ class CustomerProvider extends ChangeNotifier {
       } else {
         final addresses = initialAddress != null ? [initialAddress] : <CustomerAddress>[];
         final newCustomer = CustomerData(
-          uid: uid,
+          uid: cleanPhone,
           name: name,
           phone: phone,
           addresses: addresses,
-          fcmToken: fcmToken,
+          fcmToken: null,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
@@ -47,6 +47,15 @@ class CustomerProvider extends ChangeNotifier {
         _customer = newCustomer;
       }
 
+      // SALVA O FCM TOKEN NO FIRESTORE (A MÁGICA ACONTECE AQUI!)
+      final token = await NotificationService.getToken();
+      if (token != null && token.isNotEmpty) {
+        await docRef.set({'fcmToken': token}, SetOptions(merge: true));
+        print('FCM Token salvo no Firestore: $token');
+        _customer = _customer?.copyWith(fcmToken: token);
+      }
+
+      // Salva dados locais
       final sp = await SharedPreferences.getInstance();
       await sp.setString('customer_phone', phone);
       await sp.setString('customer_name', name);
@@ -90,5 +99,19 @@ class CustomerProvider extends ChangeNotifier {
 
     final updated = _customer!.copyWith(addresses: updatedAddresses);
     await updateCustomer(updated);
+  }
+
+  // Atualiza o token se mudar (boa prática)
+  Future<void> updateFcmToken() async {
+    final token = await NotificationService.getToken();
+    if (token != null && _customer != null) {
+      await _firestore
+          .collection('clientes_app')
+          .doc(_customer!.uid)
+          .set({'fcmToken': token}, SetOptions(merge: true));
+      _customer = _customer!.copyWith(fcmToken: token);
+      notifyListeners();
+      print('Token atualizado: $token');
+    }
   }
 }

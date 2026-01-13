@@ -1,7 +1,8 @@
-// lib/screens/profile/widgets/address_form_sheet.dart - VERSÃO CORRIGIDA
+// lib/screens/profile/widgets/address_form_sheet.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
+import 'package:ao_gosto_app/api/shipping_service.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
@@ -32,6 +33,8 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
   late TextEditingController _stateCtrl;
   
   bool _isLoadingCep = false;
+  bool _isValidatingFee = false;
+  String? _feeError;
 
   @override
   void initState() {
@@ -39,7 +42,6 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
     
     final addr = widget.address;
     
-    // ✅ CORREÇÃO: Usar 'apelido' ao invés de 'nickname'
     _nicknameCtrl = TextEditingController(text: addr?['apelido'] ?? '');
     _cepCtrl = TextEditingController(text: addr?['cep'] ?? '');
     _streetCtrl = TextEditingController(text: addr?['street'] ?? '');
@@ -296,6 +298,54 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                   ),
                 ],
               ),
+              
+              // ✅ NOVO: Mensagem de erro/aviso do frete
+              if (_feeError != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 16),
+                  child: Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: _feeError!.contains('fora')
+                          ? Colors.red[50]
+                          : Colors.amber[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: _feeError!.contains('fora')
+                            ? Colors.red[200]!
+                            : Colors.amber[300]!,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          _feeError!.contains('fora')
+                              ? Icons.location_off_rounded
+                              : Icons.warning_amber_rounded,
+                          color: _feeError!.contains('fora')
+                              ? Colors.red[700]
+                              : Colors.amber[700],
+                          size: 20,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _feeError!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _feeError!.contains('fora')
+                                  ? Colors.red[900]
+                                  : Colors.amber[900],
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              
               const SizedBox(height: 32),
 
               // Botões
@@ -325,7 +375,7 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
-                      onPressed: _save,
+                      onPressed: _isValidatingFee ? null : _save,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
@@ -334,14 +384,23 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text(
-                        'Salvar Endereço',
-                        style: TextStyle(
-                          fontFamily: 'Poppins',
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      child: _isValidatingFee
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              'Salvar Endereço',
+                              style: TextStyle(
+                                fontFamily: 'Poppins',
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -397,13 +456,60 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
     );
   }
 
-  void _save() {
+  // ✅ MÉTODO ATUALIZADO: VALIDA FRETE ANTES DE SALVAR
+  void _save() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // ✅ CORREÇÃO: Salvar como 'apelido' ao invés de 'nickname'
+    // ✅ VALIDAÇÃO DE FRETE
+    setState(() {
+      _isValidatingFee = true;
+      _feeError = null;
+    });
+
+    try {
+      final shippingService = ShippingService();
+      final cleanCep = _formatCep(_cepCtrl.text);
+      
+      debugPrint('🔍 Validando frete para CEP: $cleanCep');
+      
+      final feeResult = await shippingService.fetchDeliveryFee(cleanCep);
+      
+      if (feeResult == null) {
+        // ✅ CEP fora de área
+        setState(() {
+          _feeError = 'CEP fora da área de entrega. Você pode salvar mesmo assim (retirada na loja).';
+          _isValidatingFee = false;
+        });
+        
+        // ✅ Pergunta se quer salvar mesmo assim
+        final confirm = await _showOutOfAreaDialog();
+        if (!confirm) return;
+        
+      } else if (feeResult.cost < 9.90) {
+        // ✅ Taxa muito baixa (será ajustada no checkout)
+        setState(() {
+          _feeError = 'Taxa de entrega ajustada para R\$ 20,00 (mínimo da loja)';
+          _isValidatingFee = false;
+        });
+        debugPrint('⚠️ Taxa muito baixa: R\$ ${feeResult.cost}. Será ajustada.');
+      } else {
+        // ✅ Frete válido
+        debugPrint('✅ Frete válido: R\$ ${feeResult.cost} - ${feeResult.name}');
+      }
+    } catch (e) {
+      setState(() {
+        _feeError = 'Erro ao validar frete. Você pode tentar salvar mesmo assim.';
+        _isValidatingFee = false;
+      });
+      debugPrint('❌ Erro ao validar frete: $e');
+    }
+
+    setState(() => _isValidatingFee = false);
+
+    // ✅ Salva o endereço
     final addressData = {
       'id': widget.address?['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      'apelido': _nicknameCtrl.text.trim(), // ✅ CORRIGIDO!
+      'apelido': _nicknameCtrl.text.trim(),
       'street': _streetCtrl.text.trim(),
       'number': _numberCtrl.text.trim(),
       'complement': _complementCtrl.text.trim(),
@@ -416,6 +522,119 @@ class _AddressFormSheetState extends State<AddressFormSheet> {
 
     widget.onSave(addressData);
     Navigator.pop(context);
+  }
+
+  // ✅ NOVO: Dialog de confirmação quando CEP está fora de área
+  Future<bool> _showOutOfAreaDialog() async {
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Ícone
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: Colors.orange[50],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.location_off_rounded,
+                  size: 32,
+                  color: Colors.orange[700],
+                ),
+              ),
+              
+              const SizedBox(height: 20),
+              
+              // Título
+              const Text(
+                'CEP Fora de Área',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.textPrimary,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              
+              const SizedBox(height: 12),
+              
+              // Mensagem
+              Text(
+                'Este CEP não está na nossa área de entrega. Você pode salvar o endereço mesmo assim para retirar pedidos na loja.',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontSize: 14,
+                  color: Colors.grey[700],
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              
+              const SizedBox(height: 24),
+              
+              // Botões
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: BorderSide(color: Colors.grey[300]!),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Cancelar',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Salvar Assim',
+                        style: TextStyle(
+                          fontFamily: 'Poppins',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    ) ?? false;
   }
 
   String _formatCep(String cep) {

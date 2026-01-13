@@ -1,11 +1,13 @@
 // lib/screens/unidades/unidades_screen.dart
 
+import 'dart:math' show cos, sqrt, asin;
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
 import 'package:ao_gosto_app/models/store_unit.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'dart:math' show cos, sqrt, asin;
 
 class UnidadesScreen extends StatefulWidget {
   const UnidadesScreen({super.key});
@@ -19,7 +21,7 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
   bool _isLoading = false;
   bool _hasLocation = false;
   String? _currentAddress;
-  
+
   @override
   void initState() {
     super.initState();
@@ -27,30 +29,34 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
   }
 
   Future<void> _getCurrentLocation() async {
+    if (_isLoading) return;
+
     setState(() => _isLoading = true);
 
     try {
-      // Verifica permissão
       LocationPermission permission = await Geolocator.checkPermission();
+
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
+          if (!mounted) return;
+          setState(() => _isLoading = false);
           _showError('Permissão de localização negada');
           return;
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
         _showError('Permissão de localização negada permanentemente');
         return;
       }
 
-      // Obtém localização
       final position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
 
-      // Calcula distâncias
       final updatedUnits = _units.map((unit) {
         final distance = _calculateDistance(
           position.latitude,
@@ -58,21 +64,12 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
           unit.lat,
           unit.lng,
         );
-        return StoreUnit(
-          name: unit.name,
-          address: unit.address,
-          phone: unit.phone,
-          hours: unit.hours,
-          imageUrl: unit.imageUrl,
-          lat: unit.lat,
-          lng: unit.lng,
-          distance: distance,
-        );
+        return unit.copyWith(distance: distance);
       }).toList();
 
-      // Ordena por distância
-      updatedUnits.sort((a, b) => a.distance!.compareTo(b.distance!));
+      updatedUnits.sort((a, b) => (a.distance ?? 0).compareTo(b.distance ?? 0));
 
+      if (!mounted) return;
       setState(() {
         _units = updatedUnits;
         _hasLocation = true;
@@ -82,20 +79,22 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
 
       _showSuccess('Localização obtida! Lojas ordenadas por proximidade');
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       _showError('Erro ao obter localização: ${e.toString()}');
     }
   }
 
   double _calculateDistance(double lat1, double lon1, double lat2, double lon2) {
-    const p = 0.017453292519943295; // Math.PI / 180
+    const p = 0.017453292519943295; // PI / 180
     final a = 0.5 -
         cos((lat2 - lat1) * p) / 2 +
         cos(lat1 * p) * cos(lat2 * p) * (1 - cos((lon2 - lon1) * p)) / 2;
-    return 12742 * asin(sqrt(a)) * 1000; // 2 * R; R = 6371 km, retorna em metros
+    return 12742 * asin(sqrt(a)) * 1000; // metros
   }
 
   void _showError(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -113,6 +112,7 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
   }
 
   void _showSuccess(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -132,9 +132,211 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
 
   Future<void> _launchUrl(String url) async {
     final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    final ok = await canLaunchUrl(uri);
+    if (!ok) {
+      _showError('Não foi possível abrir o link.');
+      return;
     }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  Widget _imageFallback(StoreUnit unit, int index) {
+    // Fallback UI “igual ao que tinha antes”: gradiente + ícone
+    return Container(
+      height: 140,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Gradiente laranja
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  AppColors.primary.withOpacity(0.3),
+                  AppColors.primary.withOpacity(0.1),
+                ],
+              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+          ),
+
+          Center(
+            child: Icon(
+              Icons.store_rounded,
+              size: 48,
+              color: AppColors.primary.withOpacity(0.5),
+            ),
+          ),
+
+          if (unit.distance != null)
+            Positioned(
+              top: 12,
+              right: 12,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withOpacity(0.3),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+                child: Text(
+                  unit.formattedDistance,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+
+          if (_hasLocation)
+            Positioned(
+              top: 12,
+              left: 12,
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    '${index + 1}',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _imageHeader(StoreUnit unit, int index) {
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      child: SizedBox(
+        height: 140,
+        width: double.infinity,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            CachedNetworkImage(
+              imageUrl: unit.imageUrl,
+              fit: BoxFit.cover,
+
+              // Performance: evita decodificar imagem gigante na memória
+              memCacheWidth: 900,
+              memCacheHeight: 420,
+
+              fadeInDuration: const Duration(milliseconds: 150),
+              fadeOutDuration: const Duration(milliseconds: 100),
+
+              // Enquanto carrega: fallback igual ao antigo
+              placeholder: (context, url) => _imageFallback(unit, index),
+
+              // Se quebrar: fallback igual ao antigo
+              errorWidget: (context, url, error) => _imageFallback(unit, index),
+            ),
+
+            // (Opcional) leve overlay pra melhorar contraste
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withOpacity(0.20),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+
+            // Badge de distância (mantém também no caso de imagem OK)
+            if (unit.distance != null)
+              Positioned(
+                top: 12,
+                right: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withOpacity(0.3),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    unit.formattedDistance,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+
+            // Índice
+            if (_hasLocation)
+              Positioned(
+                top: 12,
+                left: 12,
+                child: Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                  child: Center(
+                    child: Text(
+                      '${index + 1}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -153,14 +355,11 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
             ),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border(
-                bottom: BorderSide(color: Colors.grey[200]!, width: 1),
-              ),
+              border: Border(bottom: BorderSide(color: Colors.grey[200]!, width: 1)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Botão Voltar + Título
                 Row(
                   children: [
                     IconButton(
@@ -174,15 +373,20 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                       constraints: const BoxConstraints(),
                     ),
                     const SizedBox(width: 16),
-                    
-                      
-                    
+                    Expanded(
+                      child: Text(
+                        'Unidades',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.grey[900],
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-                
                 const SizedBox(height: 20),
-                
-                // Subtítulo
+
                 Text(
                   'Encontre a loja mais próxima',
                   style: TextStyle(
@@ -203,17 +407,13 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Botão de Localização
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
                     onTap: _isLoading ? null : _getCurrentLocation,
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 14,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [AppColors.primary, Color(0xFFFF8C00)],
@@ -264,26 +464,18 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                   ),
                 ),
 
-                // Total de unidades
                 const SizedBox(height: 12),
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
                         color: AppColors.primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.store_rounded,
-                            size: 16,
-                            color: AppColors.primary,
-                          ),
+                          Icon(Icons.store_rounded, size: 16, color: AppColors.primary),
                           const SizedBox(width: 6),
                           Text(
                             '${_units.length} unidades',
@@ -296,6 +488,17 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                         ],
                       ),
                     ),
+                    if (_currentAddress != null) ...[
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _currentAddress!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ],
@@ -308,6 +511,7 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
               padding: const EdgeInsets.all(16),
               itemCount: _units.length,
               separatorBuilder: (_, __) => const SizedBox(height: 16),
+              cacheExtent: 1200,
               itemBuilder: (context, index) {
                 final unit = _units[index];
                 return _buildUnitCard(unit, index);
@@ -320,10 +524,10 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
   }
 
   Widget _buildUnitCard(StoreUnit unit, int index) {
-    return TweenAnimationBuilder(
+    return TweenAnimationBuilder<double>(
       duration: Duration(milliseconds: 300 + (index * 50)),
       tween: Tween<double>(begin: 0, end: 1),
-      builder: (context, double value, child) {
+      builder: (context, value, child) {
         return Opacity(
           opacity: value,
           child: Transform.translate(
@@ -348,112 +552,13 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // IMAGEM (placeholder)
-            Container(
-              height: 140,
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(16),
-                ),
-              ),
-              child: Stack(
-                children: [
-                  // Gradiente laranja
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          AppColors.primary.withOpacity(0.3),
-                          AppColors.primary.withOpacity(0.1),
-                        ],
-                      ),
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(16),
-                      ),
-                    ),
-                  ),
-                  
-                  Center(
-                    child: Icon(
-                      Icons.store_rounded,
-                      size: 48,
-                      color: AppColors.primary.withOpacity(0.5),
-                    ),
-                  ),
+            _imageHeader(unit, index),
 
-                  // Badge de distância
-                  if (unit.distance != null)
-                    Positioned(
-                      top: 12,
-                      right: 12,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.primary.withOpacity(0.3),
-                              blurRadius: 8,
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          unit.formattedDistance,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                  // Número da posição
-                  if (_hasLocation)
-                    Positioned(
-                      top: 12,
-                      left: 12,
-                      child: Container(
-                        width: 32,
-                        height: 32,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Text(
-                            '${index + 1}',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-
-            // CONTEÚDO
             Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Nome
                   Text(
                     unit.name,
                     style: const TextStyle(
@@ -464,38 +569,24 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                   ),
                   const SizedBox(height: 8),
 
-                  // Endereço
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.location_on_outlined,
-                        size: 18,
-                        color: Colors.grey[600],
-                      ),
+                      Icon(Icons.location_on_outlined, size: 18, color: Colors.grey[600]),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           unit.address,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[700],
-                            height: 1.4,
-                          ),
+                          style: TextStyle(fontSize: 13, color: Colors.grey[700], height: 1.4),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 12),
 
-                  // Telefone
                   Row(
                     children: [
-                      Icon(
-                        Icons.phone_outlined,
-                        size: 18,
-                        color: Colors.grey[600],
-                      ),
+                      Icon(Icons.phone_outlined, size: 18, color: Colors.grey[600]),
                       const SizedBox(width: 8),
                       Text(
                         unit.phone,
@@ -509,34 +600,23 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Horário
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(
-                        Icons.access_time_rounded,
-                        size: 18,
-                        color: Colors.grey[600],
-                      ),
+                      Icon(Icons.access_time_rounded, size: 18, color: Colors.grey[600]),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           unit.hours.replaceAll('\n', ' | '),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                            height: 1.4,
-                          ),
+                          style: TextStyle(fontSize: 12, color: Colors.grey[600], height: 1.4),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 16),
 
-                  // BOTÕES
                   Row(
                     children: [
-                      // WhatsApp
                       Expanded(
                         child: Material(
                           color: Colors.transparent,
@@ -552,11 +632,7 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                               child: const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(
-                                    Icons.chat_bubble_outline,
-                                    color: Colors.white,
-                                    size: 18,
-                                  ),
+                                  Icon(Icons.chat_bubble_outline, color: Colors.white, size: 18),
                                   SizedBox(width: 8),
                                   Text(
                                     'WhatsApp',
@@ -572,10 +648,7 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                           ),
                         ),
                       ),
-                      
                       const SizedBox(width: 12),
-
-                      // Rotas
                       Expanded(
                         child: Material(
                           color: Colors.transparent,
@@ -587,19 +660,12 @@ class _UnidadesScreenState extends State<UnidadesScreen> {
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: AppColors.primary,
-                                  width: 1.5,
-                                ),
+                                border: Border.all(color: AppColors.primary, width: 1.5),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(
-                                    Icons.directions_rounded,
-                                    color: AppColors.primary,
-                                    size: 18,
-                                  ),
+                                  Icon(Icons.directions_rounded, color: AppColors.primary, size: 18),
                                   const SizedBox(width: 8),
                                   Text(
                                     'Rotas',
