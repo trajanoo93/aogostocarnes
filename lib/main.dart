@@ -1,14 +1,14 @@
-// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:ao_gosto_app/widgets/global_message_banner.dart'; 
+// import 'package:ao_gosto_app/widgets/global_message_banner.dart'; // Comentado se não estiver usando
 import 'package:ao_gosto_app/firebase_options.dart';
 import 'package:ao_gosto_app/screens/main_screen.dart';
+import 'package:overlay_support/overlay_support.dart';
 import 'package:ao_gosto_app/utils/app_theme.dart';
-import 'package:ao_gosto_app/screens/onboarding/onboarding_gate.dart';
+// import 'package:ao_gosto_app/screens/onboarding/onboarding_gate.dart';
 import 'package:ao_gosto_app/screens/onboarding/onboarding_flow.dart';
 import 'package:ao_gosto_app/state/cart_controller.dart';
 import 'package:ao_gosto_app/state/customer_provider.dart';
@@ -16,8 +16,8 @@ import 'package:ao_gosto_app/root_router.dart';
 import 'package:ao_gosto_app/screens/update/forced_update_screen.dart';
 import 'package:ao_gosto_app/services/version_service.dart';
 import 'package:ao_gosto_app/services/notification_service.dart';
-import 'package:ao_gosto_app/services/remote_config_service.dart';  // ✅ NOVO
-import 'package:ao_gosto_app/screens/maintenance/maintenance_screen.dart';  // ✅ NOVO
+import 'package:ao_gosto_app/services/remote_config_service.dart';
+import 'package:ao_gosto_app/screens/maintenance/maintenance_screen.dart';
 
 /// Handler chamado quando uma notificação é recebida
 /// com o app em **background** ou **terminado**.
@@ -44,16 +44,8 @@ void main() async {
     debugPrint('🟡 App aberto pela notificação: ${message.messageId}');
   });
 
-  // Inicializa FCM + locais + gera token
+  // ✅ Inicializa FCM + Locais + Inscreve nos Tópicos (android/ios/promocoes)
   await NotificationService.initialize();
-
-  // 🔔 Inscreve o dispositivo no tópico de promoções
-  try {
-    await FirebaseMessaging.instance.subscribeToTopic('promocoes');
-    debugPrint('✅ Inscrito no tópico "promocoes"');
-  } catch (e) {
-    debugPrint('❌ Erro ao inscrever no tópico "promocoes": $e');
-  }
 
   // === CARREGA O CLIENTE ===
   final sp = await SharedPreferences.getInstance();
@@ -67,9 +59,20 @@ void main() async {
     );
   }
 
-  // ✅ VERIFICA SE PRECISA FORÇAR ATUALIZAÇÃO
-  final needsUpdate = await VersionService.needsForcedUpdate();
+  // ✅ VERIFICA CONFIGURAÇÕES REMOTAS (OMS)
+  final remoteConfig = await RemoteConfigService.fetchConfig();
 
+  // 1. Verifica Manutenção
+  if (!remoteConfig.appEnabled) {
+    runApp(MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: MaintenanceScreen(message: remoteConfig.maintenanceMessage),
+    ));
+    return;
+  }
+
+  // 2. Verifica Atualização Forçada (Lógica local ou remota, mantive a sua local)
+  final needsUpdate = await VersionService.needsForcedUpdate();
   if (needsUpdate) {
     runApp(
       const MaterialApp(
@@ -79,11 +82,6 @@ void main() async {
     );
     return;
   }
-
-  // ✅ VERIFICA CONFIGURAÇÕES REMOTAS (OMS)
-  final remoteConfig = await RemoteConfigService.fetchConfig();
-
-  
 
   // ✅ TUDO OK, INICIA APP NORMALMENTE
   runApp(const MyApp());
@@ -109,10 +107,10 @@ class MyApp extends StatelessWidget {
           };
           return MediaQuery(
             data: MediaQuery.of(context).copyWith(
-              textScaleFactor: 1.0,
+              textScaler: const TextScaler.linear(1.0), // Atualizado para Flutter 3.16+
               boldText: false,
             ),
-            child: child!,
+            child: OverlaySupport.global(child: child!), // ✅ Overlay para notificação
           );
         },
         theme: AppTheme.lightTheme,
@@ -135,7 +133,7 @@ class _MainScreenWrapperState extends State<MainScreenWrapper> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       OnboardingFlow.maybeStart(context);
-      CartController.instance;
+      // CartController.instance; // Apenas acesso não faz nada se não chamar método
     });
   }
 

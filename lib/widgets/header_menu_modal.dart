@@ -1,10 +1,10 @@
-// lib/widgets/header_menu_modal.dart - VERSÃO CORRIGIDA
+// lib/widgets/header_menu_modal.dart - VERSÃO COMPLETA COM WHATSAPP DINÂMICO
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ao_gosto_app/utils/app_colors.dart';
-import 'package:ao_gosto_app/screens/profile/meu_perfil.dart';
 import 'package:ao_gosto_app/screens/unidades/unidades_screen.dart';
 import 'package:ao_gosto_app/state/navigation_controller.dart';
+import 'package:ao_gosto_app/services/remote_config_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class HeaderMenuModal extends StatefulWidget {
@@ -68,9 +68,19 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
   }
 
   Future<void> _launchWhatsApp() async {
-    final uri = Uri.parse('https://wa.me/5531997682271');
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    try {
+      final config = await RemoteConfigService.fetchConfig();
+      final uri = Uri.parse(config.getWhatsAppUrl('Olá! Gostaria de falar com vocês.'));
+      
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      // Fallback
+      final uri = Uri.parse('https://wa.me/5531997682271');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
     }
   }
 
@@ -101,10 +111,7 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
                         icon: Icons.person_outline_rounded,
                         title: 'Meu Perfil',
                         onTap: () {
-                          // ✅ CORRIGIDO: Usar NavigationController ao invés de Navigator.push
-                          Navigator.pop(context); // Fecha o drawer
-                          
-                          // Muda para a aba de perfil (índice 3)
+                          Navigator.pop(context);
                           NavigationController.changeTab?.call(3);
                         },
                       ),
@@ -138,7 +145,6 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
                         onTap: () {},
                       ),
                       
-                      // ✨ NOSSAS UNIDADES - ATIVADO!
                       _buildMenuItem(
                         icon: Icons.store_outlined,
                         title: 'Nossas Unidades',
@@ -205,7 +211,6 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Botão voltar compacto
           SizedBox(
             height: 40,
             child: Align(
@@ -225,7 +230,6 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
           
           const SizedBox(height: 12),
           
-          // Avatar + Nome (compacto)
           Row(
             children: [
               Stack(
@@ -297,7 +301,6 @@ class _HeaderMenuModalState extends State<HeaderMenuModal>
 
           const SizedBox(height: 16),
 
-          // Cashback Badge (compacto)
           Container(
             padding: const EdgeInsets.symmetric(
               horizontal: 14,

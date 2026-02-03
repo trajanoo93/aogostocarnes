@@ -330,7 +330,7 @@ Adicione este novo item:
 - ✅ Botão voltar
 - ✅ Logo no footer
 - ✅ Items: Perfil, WhatsApp, Features em breve
-- ✅ WhatsApp: +55 31 3461-3297
+- ✅ WhatsApp: (31) 2298-0807
 
 ---
 
@@ -1296,7 +1296,7 @@ Distribuição ou uso externo não autorizado é **proibido**.
 
 ## 📞 Contato
 
-**WhatsApp:** +55 31 3461-3297
+**WhatsApp:** (31) 2298-0807
 **Site:** aogosto.com.br
 
 ---

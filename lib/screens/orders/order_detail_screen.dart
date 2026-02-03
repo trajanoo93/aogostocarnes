@@ -330,7 +330,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen>
   }
 
   Future<void> _openWhatsApp() async {
-    final phone = '553134613297';
+    final phone = '553122980807';
     final message = Uri.encodeComponent(
       'Olá 👋, acabei de fazer o pedido #${widget.order.id} no App e gostaria de tirar uma dúvida'
     );

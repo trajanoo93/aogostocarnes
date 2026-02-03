@@ -58,7 +58,7 @@ class _SummaryCheckoutState extends State<SummaryCheckout> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Resumo do Pedido',
+                          'Resumo',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,

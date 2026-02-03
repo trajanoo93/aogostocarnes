@@ -1,4 +1,3 @@
-// lib/services/notification_service.dart
 import 'dart:io'; // ESSENCIAL pro Platform.isIOS
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -20,11 +19,14 @@ class NotificationService {
     );
 
     if (settings.authorizationStatus == AuthorizationStatus.denied) {
-      print('Permissão de notificação negada pelo usuário');
+      debugPrint('❌ Permissão de notificação negada pelo usuário');
       return;
     }
 
-    // 2. Configuração das notificações locais (Android + iOS)
+    // 2. Inscrever nos Tópicos (A MÁGICA ACONTECE AQUI)
+    await _subscribeToTopics();
+
+    // 3. Configuração das notificações locais (Android + iOS)
     const AndroidInitializationSettings android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const DarwinInitializationSettings ios = DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -34,10 +36,13 @@ class NotificationService {
     const InitializationSettings initSettings = InitializationSettings(android: android, iOS: ios);
     await _local.initialize(initSettings);
 
-    // 3. Notificação quando o app está aberto (foreground)
+    // 4. Notificação quando o app está aberto (foreground)
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      debugPrint('📩 Notificação recebida em Foreground: ${message.notification?.title}');
+      
       final notification = message.notification;
       if (notification != null) {
+        // Mostra o Banner colorido no topo
         showSimpleNotification(
           Text(
             notification.title ?? "Ao Gosto Carnes",
@@ -50,7 +55,7 @@ class NotificationService {
           position: NotificationPosition.top,
         );
 
-        // Som e vibração local (Android + iOS)
+        // Som e vibração local (Android + iOS system tray)
         _local.show(
           notification.hashCode,
           notification.title,
@@ -70,12 +75,33 @@ class NotificationService {
       }
     });
 
-    // 4. Pega o token (com proteção pro simulador iOS)
+    // 5. Pega o token (com proteção pro simulador iOS)
     final token = await getToken();
     if (token != null) {
-      print('FCM TOKEN GERADO COM SUCESSO: $token');
+      debugPrint('✅ FCM TOKEN: $token');
     } else {
-      print('FCM TOKEN NÃO GERADO (normal no simulador iOS)');
+      debugPrint('⚠️ FCM TOKEN NÃO GERADO (normal no simulador iOS)');
+    }
+  }
+
+  /// Gerencia a inscrição nos tópicos para o painel PHP funcionar
+  static Future<void> _subscribeToTopics() async {
+    try {
+      // 1. Tópico Geral (Opção "Todos" do painel)
+      await _messaging.subscribeToTopic('promocoes');
+      debugPrint('✅ Inscrito no tópico: promocoes');
+
+      // 2. Tópico por Sistema (Opção "Android/iOS" do painel)
+      if (Platform.isAndroid) {
+        await _messaging.subscribeToTopic('android');
+        debugPrint('✅ Inscrito no tópico: android');
+      } else if (Platform.isIOS) {
+        await _messaging.subscribeToTopic('ios');
+        debugPrint('✅ Inscrito no tópico: ios');
+      }
+      
+    } catch (e) {
+      debugPrint('❌ Erro ao inscrever nos tópicos: $e');
     }
   }
 
@@ -85,7 +111,7 @@ class NotificationService {
       if (Platform.isIOS) {
         final apnsToken = await _messaging.getAPNSToken();
         if (apnsToken == null) {
-          print('APNS token não disponível (simulador iOS ou permissão negada)');
+          // No simulador iOS isso sempre retorna null e é normal
           return null;
         }
       }
@@ -93,7 +119,7 @@ class NotificationService {
       final fcmToken = await _messaging.getToken();
       return fcmToken;
     } catch (e) {
-      print('Erro ao gerar FCM token: $e');
+      debugPrint('Erro ao gerar FCM token: $e');
       return null;
     }
   }

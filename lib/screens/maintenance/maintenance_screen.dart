@@ -145,7 +145,7 @@ class MaintenanceScreen extends StatelessWidget {
                             ),
                             const SizedBox(width: 8),
                             const Text(
-                              '(31) 3461-3297',
+                              '(31) 2298-0807',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
