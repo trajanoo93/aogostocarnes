@@ -220,9 +220,24 @@ class _ProductDetailsPageState extends State<ProductDetailsPage> {
   }
 
   void _addToCart() async {
-    for (var i = 0; i < _qty; i++) {
-      CartController.instance.add(widget.product, selectedAttributes: widget.product.hasVariations ? _selectedAttributes : null);
+    // Se for variável, garante que tem variação selecionada
+    if (widget.product.hasVariations && _currentVariation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Selecione uma opção disponível')),
+      );
+      return;
     }
+
+    for (var i = 0; i < _qty; i++) {
+      CartController.instance.add(
+        widget.product,
+  
+        variationId: _currentVariation?.id,
+        selectedAttributes: widget.product.hasVariations ? _selectedAttributes : null,
+        priceOverride: _currentVariation?.price, 
+      );
+    }
+    
     await showCartDrawer(context);
   }
 

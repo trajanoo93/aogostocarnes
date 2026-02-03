@@ -21,6 +21,64 @@ class ProductService {
     return 'Basic $credentials';
   }
 
+  // ==============================================================================
+  // 🛡️ VALIDAÇÃO DE ESTOQUE EM TEMPO REAL (SEM CACHE)
+  // ==============================================================================
+  Future<List<String>> validateStock(List<dynamic> cartItems) async {
+    final List<String> outOfStockItems = [];
+
+    for (final item in cartItems) {
+      try {
+        final productId = item.product.id;
+        final variationId = item.variationId;
+        final quantity = item.quantity;
+
+        String url;
+        if (variationId != null && variationId > 0) {
+          // Checa a variação específica
+          url = '$_baseUrl/products/$productId/variations/$variationId';
+        } else {
+          // Checa o produto simples
+          url = '$_baseUrl/products/$productId';
+        }
+
+        final resp = await http.get(
+          Uri.parse(url),
+          headers: {'Authorization': _authHeader},
+        );
+
+        if (resp.statusCode == 200) {
+          final data = json.decode(resp.body);
+          
+          final stockStatus = data['stock_status']; // 'instock', 'outofstock', 'onbackorder'
+          final manageStock = data['manage_stock'] == true;
+          final stockQty = data['stock_quantity']; // pode ser null
+
+          // 1. Verifica status geral
+          if (stockStatus != 'instock') {
+            outOfStockItems.add("${item.product.name} (Esgotado)");
+            continue;
+          }
+
+          // 2. Verifica quantidade numérica (se gerenciamento estiver ativo)
+          if (manageStock && stockQty != null) {
+            if (stockQty < quantity) {
+              outOfStockItems.add("${item.product.name} (Apenas $stockQty em estoque)");
+            }
+          }
+        } else if (resp.statusCode == 404) {
+           outOfStockItems.add("${item.product.name} (Não encontrado)");
+        }
+      } catch (e) {
+        print('Erro ao validar estoque do item ${item.product.name}: $e');
+        // Em caso de erro de rede, optamos por não bloquear, ou bloquear dependendo da regra de negócio.
+        // Aqui não adicionamos à lista para não travar venda por erro de internet momentâneo.
+      }
+    }
+
+    return outOfStockItems;
+  }
+
   // ✨ CACHE EM MEMÓRIA COM EXPIRAÇÃO CURTA
   static final Map<String, CacheEntry<List<Product>>> _cache = {};
   static final Map<int, Product> _productCache = {};

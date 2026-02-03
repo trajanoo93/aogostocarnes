@@ -1,33 +1,35 @@
-// lib/models/cart_item.dart
-
 import 'package:ao_gosto_app/models/product.dart';
 
 class CartItem {
-  final Product product; // <- O app inteiro espera isso existir
+  final Product product;
   final int quantity;
   final int? variationId;
   final Map<String, String>? selectedAttributes;
+  final double? priceOverride; // ✅ NOVO: Para forçar o preço da variação
 
-  CartItem({
+  const CartItem({
     required this.product,
     required this.quantity,
     this.variationId,
     this.selectedAttributes,
+    this.priceOverride,
   });
 
-  double get totalPrice => product.price * quantity;
+  // Retorna o preço correto (Variação ou Pai)
+  double get unitPrice => priceOverride ?? product.price;
+
+  double get totalPrice => unitPrice * quantity;
 
   CartItem copyWith({
-    Product? product,
     int? quantity,
-    int? variationId,
-    Map<String, String>? selectedAttributes,
+    double? priceOverride,
   }) {
     return CartItem(
-      product: product ?? this.product,
+      product: product,
       quantity: quantity ?? this.quantity,
-      variationId: variationId ?? this.variationId,
-      selectedAttributes: selectedAttributes ?? this.selectedAttributes,
+      variationId: variationId,
+      selectedAttributes: selectedAttributes,
+      priceOverride: priceOverride ?? this.priceOverride,
     );
   }
 }

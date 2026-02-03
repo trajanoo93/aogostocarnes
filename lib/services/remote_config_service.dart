@@ -5,7 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class RemoteConfigService {
-  static const String _configUrl = 'https://aogosto.com.br/app/oms/api.php';
+  // Adicionamos um parâmetro de tempo na URL para evitar cache agressivo do servidor/CDN
+  static const String _baseUrl = 'https://aogosto.com.br/app/oms/api.php';
   static const String _cacheKey = 'remote_config_cache';
   static const Duration _cacheDuration = Duration(minutes: 5);
   
@@ -14,48 +15,48 @@ class RemoteConfigService {
 
   static Future<RemoteConfig> fetchConfig({bool forceRefresh = false}) async {
     try {
-      // ✅ Retorna cache se ainda válido
+      // 1. Verifica Cache de Memória (para navegação rápida dentro do app)
       if (!forceRefresh && _cachedConfig != null && _lastFetch != null) {
         final now = DateTime.now();
         if (now.difference(_lastFetch!) < _cacheDuration) {
-          debugPrint('🔵 Remote Config: Usando cache (válido por mais ${_cacheDuration.inMinutes - now.difference(_lastFetch!).inMinutes} min)');
+          debugPrint('🔵 [RemoteConfig] Usando cache de memória (Válido)');
           return _cachedConfig!;
         }
       }
 
-      debugPrint('🔵 Buscando Remote Config de: $_configUrl');
+      // 2. Busca na API (com timestamp para garantir dados frescos)
+      final uri = Uri.parse('$_baseUrl?t=${DateTime.now().millisecondsSinceEpoch}');
+      debugPrint('🔵 [RemoteConfig] Buscando: $uri');
       
-      final response = await http.get(Uri.parse(_configUrl)).timeout(
-        const Duration(seconds: 10),
-      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
-      debugPrint('📡 Status da API: ${response.statusCode}');
-
+      debugPrint('📡 [RemoteConfig] Status Code: ${response.statusCode}');
+      
       if (response.statusCode == 200) {
+        // Log do corpo para debug (verifique isso no terminal se der erro)
+        debugPrint('📡 [RemoteConfig] Body: ${response.body}');
+        
         final jsonData = json.decode(response.body);
         
-        // Converter JSON para Objeto com proteções extras
+        // Parsing Seguro (Blinda contra tipos errados do PHP)
         final config = RemoteConfig.fromJson(jsonData);
         
-        // ✅ Salva no cache em memória
+        // Atualiza Cache
         _cachedConfig = config;
         _lastFetch = DateTime.now();
         
-        // ✅ Salva no cache local (SharedPreferences)
+        // Persiste no disco
         final sp = await SharedPreferences.getInstance();
         await sp.setString(_cacheKey, response.body);
         
-        debugPrint('✅ Remote Config carregado com sucesso!');
-        debugPrint('   App Enabled: ${config.appEnabled}');
-        debugPrint('   WhatsApp: ${config.whatsappNumber}');
-        
+        debugPrint('✅ [RemoteConfig] Carregado com sucesso!');
         return config;
       } else {
-        debugPrint('⚠️ API retornou status ${response.statusCode}');
+        debugPrint('⚠️ [RemoteConfig] Erro na API. Status: ${response.statusCode}');
         return _loadFromCache();
       }
     } catch (e) {
-      debugPrint('❌ Erro ao buscar Remote Config: $e');
+      debugPrint('❌ [RemoteConfig] Exception ao buscar: $e');
       return _loadFromCache();
     }
   }
@@ -66,22 +67,20 @@ class RemoteConfigService {
       final cachedJson = sp.getString(_cacheKey);
       
       if (cachedJson != null) {
-        debugPrint('📦 Usando Remote Config do cache local');
-        final config = RemoteConfig.fromJson(json.decode(cachedJson));
-        _cachedConfig = config;
-        return config;
+        debugPrint('📦 [RemoteConfig] Recuperando do Cache Local (Disco)');
+        return RemoteConfig.fromJson(json.decode(cachedJson));
       }
     } catch (e) {
-      debugPrint('⚠️ Erro ao carregar cache: $e');
+      debugPrint('⚠️ [RemoteConfig] Falha ao ler cache local: $e');
     }
     
-    debugPrint('🔴 Usando configuração padrão (fallback total)');
+    debugPrint('🔴 [RemoteConfig] Usando Default Config (Fallback Total)');
     return RemoteConfig.defaultConfig();
   }
 }
 
 // ═══════════════════════════════════════════════════════════
-//                    MODELO REMOTE CONFIG
+//                    MODELO REMOTE CONFIG (BLINDADO)
 // ═══════════════════════════════════════════════════════════
 class RemoteConfig {
   final bool appEnabled;
@@ -106,21 +105,38 @@ class RemoteConfig {
     required this.updatedAt,
   });
 
+  /// 🛡️ MÁGICA: Converte qualquer coisa (0, 1, "true", "0") em bool seguro.
+  /// Isso resolve o problema de travamento se o PHP mandar "0" ou 0.
+  static bool _parseBool(dynamic value, {bool defaultValue = false}) {
+    if (value == null) return defaultValue;
+    if (value is bool) return value;
+    if (value is int) return value == 1;
+    if (value is String) {
+      final v = value.toLowerCase();
+      return v == '1' || v == 'true' || v == 'yes' || v == 'on';
+    }
+    return defaultValue;
+  }
+
   factory RemoteConfig.fromJson(Map<String, dynamic> json) {
     return RemoteConfig(
-      appEnabled: json['app_enabled'] ?? true,
-      maintenanceMessage: json['maintenance_message'] ?? 'Estamos em manutenção.',
-      showChristmasCarousel: json['show_christmas_carousel'] ?? false,
+      // ✅ Default true para o app não travar se o campo vier nulo
+      appEnabled: _parseBool(json['app_enabled'], defaultValue: true),
       
-      // ✅ CORREÇÃO 1: Verifica se slots_config é um Map válido antes de processar
+      maintenanceMessage: json['maintenance_message'] ?? 'Estamos em manutenção.',
+      
+      showChristmasCarousel: _parseBool(json['show_christmas_carousel']),
+      
+      // ✅ Proteção: Se slots_config não for Map, usa default
       slotsConfig: (json['slots_config'] is Map<String, dynamic>)
           ? SlotsConfig.fromJson(json['slots_config'])
           : SlotsConfig.defaultConfig(),
 
       customMessage: CustomMessage.fromJson(json['custom_message'] ?? {}),
+      
       features: Features.fromJson(json['features'] ?? {}),
       
-      // ✅ CORREÇÃO 2: Verifica se pickup_stores é Map. Se o PHP mandar [] (vazio), usa o padrão.
+      // ✅ Proteção: Se pickup_stores não for Map, usa default
       pickupStores: (json['pickup_stores'] is Map)
           ? Map<String, bool>.from(json['pickup_stores'])
           : {
@@ -130,17 +146,17 @@ class RemoteConfig {
               'lagosanta': true,
             },
       
-      whatsappNumber: json['whatsapp_number'] ?? '5531997682271',
+      whatsappNumber: json['whatsapp_number'] ?? '553122980807',
       
       updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'])
+          ? DateTime.tryParse(json['updated_at']) ?? DateTime.now()
           : DateTime.now(),
     );
   }
 
   factory RemoteConfig.defaultConfig() {
     return RemoteConfig(
-      appEnabled: true,
+      appEnabled: true, // Padrão ABERTO
       maintenanceMessage: 'Estamos em manutenção. Voltamos em breve! 🛠️',
       showChristmasCarousel: false,
       slotsConfig: SlotsConfig.defaultConfig(),
@@ -152,7 +168,8 @@ class RemoteConfig {
         'central': true,
         'lagosanta': true,
       },
-      whatsappNumber: '5531997682271',
+      // ✅ Atualizado para o número novo
+      whatsappNumber: '553122980807',
       updatedAt: DateTime.now(),
     );
   }
@@ -189,31 +206,26 @@ class SlotsConfig {
 
   factory SlotsConfig.fromJson(Map<String, dynamic> json) {
     return SlotsConfig(
-      enabled: json['enabled'] ?? true,
+      enabled: RemoteConfig._parseBool(json['enabled'], defaultValue: true),
       
-      // Listas simples geralmente não dão erro com null safety se usarmos o ?? []
       deliveryWeekday: List<String>.from(json['delivery_weekday'] ?? [
-        '09:00 - 12:00',
-        '12:00 - 15:00',
-        '15:00 - 18:00',
-        '18:00 - 20:00',
+        '09:00 - 12:00', '12:00 - 15:00', '15:00 - 18:00', '18:00 - 20:00'
       ]),
+      
       deliveryWeekend: List<String>.from(json['delivery_weekend'] ?? [
-        '09:00 - 12:00',
-        '12:00 - 15:00',
-        '15:00 - 16:00',
+        '09:00 - 12:00', '12:00 - 15:00', '15:00 - 16:00'
       ]),
+      
       pickupWeekday: List<String>.from(json['pickup_weekday'] ?? [
-        '09:00 - 12:00',
-        '12:00 - 15:00',
-        '15:00 - 18:00',
+        '09:00 - 12:00', '12:00 - 15:00', '15:00 - 18:00'
       ]),
+      
       pickupWeekend: List<String>.from(json['pickup_weekend'] ?? [
-        '09:00 - 12:00',
+        '09:00 - 12:00'
       ]),
 
-      // ✅ CORREÇÃO 3 (A MAIS IMPORTANTE): special_days
-      // Se o PHP mandar [] (array vazio), o 'is Map' falha e retornamos {} (Map vazio)
+      // ✅ Proteção crítica: PHP envia array vazio [] quando map está vazio.
+      // O Dart espera Map. Essa lógica previne o crash.
       specialDays: (json['special_days'] is Map)
           ? (json['special_days'] as Map<String, dynamic>).map(
               (key, value) => MapEntry(key, List<String>.from(value)),
@@ -228,23 +240,16 @@ class SlotsConfig {
     return const SlotsConfig(
       enabled: true,
       deliveryWeekday: [
-        '09:00 - 12:00',
-        '12:00 - 15:00',
-        '15:00 - 18:00',
-        '18:00 - 20:00',
+        '09:00 - 12:00', '12:00 - 15:00', '15:00 - 18:00', '18:00 - 20:00'
       ],
       deliveryWeekend: [
-        '09:00 - 12:00',
-        '12:00 - 15:00',
-        '15:00 - 16:00',
+        '09:00 - 12:00', '12:00 - 15:00', '15:00 - 16:00'
       ],
       pickupWeekday: [
-        '09:00 - 12:00',
-        '12:00 - 15:00',
-        '15:00 - 18:00',
+        '09:00 - 12:00', '12:00 - 15:00', '15:00 - 18:00'
       ],
       pickupWeekend: [
-        '09:00 - 12:00',
+        '09:00 - 12:00'
       ],
       specialDays: {},
       closedDays: [],
@@ -259,7 +264,7 @@ class CustomMessage {
   final bool enabled;
   final String title;
   final String message;
-  final String type;
+  final String type; // info, warning, error, success
 
   const CustomMessage({
     required this.enabled,
@@ -270,7 +275,7 @@ class CustomMessage {
 
   factory CustomMessage.fromJson(Map<String, dynamic> json) {
     return CustomMessage(
-      enabled: json['enabled'] ?? false,
+      enabled: RemoteConfig._parseBool(json['enabled']),
       title: json['title'] ?? 'Atenção!',
       message: json['message'] ?? '',
       type: json['type'] ?? 'info',
@@ -307,11 +312,11 @@ class Features {
 
   factory Features.fromJson(Map<String, dynamic> json) {
     return Features(
-      enableCheckout: json['enable_checkout'] ?? true,
-      enablePixPayment: json['enable_pix_payment'] ?? true,
-      enableCreditCardOnline: json['enable_credit_card_online'] ?? false,
-      enableCoupon: json['enable_coupon'] ?? true,
-      maxItemsPerOrder: json['max_items_per_order'] ?? 50,
+      enableCheckout: RemoteConfig._parseBool(json['enable_checkout'], defaultValue: true),
+      enablePixPayment: RemoteConfig._parseBool(json['enable_pix_payment'], defaultValue: true),
+      enableCreditCardOnline: RemoteConfig._parseBool(json['enable_credit_card_online']),
+      enableCoupon: RemoteConfig._parseBool(json['enable_coupon'], defaultValue: true),
+      maxItemsPerOrder: int.tryParse(json['max_items_per_order']?.toString() ?? '50') ?? 50,
     );
   }
 

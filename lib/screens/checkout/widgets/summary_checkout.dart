@@ -152,13 +152,18 @@ class _SummaryCheckoutState extends State<SummaryCheckout> {
 //                    ITEM DO PRODUTO
 // ═══════════════════════════════════════════════════════════
 class _ProductItem extends StatelessWidget {
-  final dynamic item;
+  final dynamic item; // Idealmente seria CartItem, mas dynamic funciona se o objeto tiver as props
   final NumberFormat currency;
   
   const _ProductItem({required this.item, required this.currency});
   
   @override
   Widget build(BuildContext context) {
+    // ✅ CORREÇÃO: Usa unitPrice (inteligente) se disponível, senão fallback para product.price
+    // Se 'item' for CartItem, ele tem o getter unitPrice e totalPrice
+    final double priceToUse = (item.unitPrice is double) ? item.unitPrice : item.product.price;
+    final double totalToUse = (item.totalPrice is double) ? item.totalPrice : (priceToUse * item.quantity);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Row(
@@ -200,6 +205,25 @@ class _ProductItem extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
+                
+                // Mostra variações se houver
+                if (item.selectedAttributes != null && item.selectedAttributes!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      item.selectedAttributes!.entries
+                          .map((e) => "${e.key}: ${e.value}")
+                          .join(" | "),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF71717A),
+                        fontStyle: FontStyle.italic,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+
                 const SizedBox(height: 2),
                 Text(
                   'Qtd: ${item.quantity}',
@@ -216,7 +240,7 @@ class _ProductItem extends StatelessWidget {
           
           // Preço
           Text(
-            currency.format(item.product.price * item.quantity),
+            currency.format(totalToUse), // ✅ Agora usa o preço certo (totalPrice)
             style: const TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w900,
@@ -228,7 +252,6 @@ class _ProductItem extends StatelessWidget {
     );
   }
 }
-
 // ═══════════════════════════════════════════════════════════
 //                    SEÇÃO DE CUPOM
 // ═══════════════════════════════════════════════════════════

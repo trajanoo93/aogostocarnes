@@ -166,16 +166,15 @@ class _VariationSelectorModalState extends State<_VariationSelectorModal> with S
   await _animController.reverse();
   navigator.pop();
   
-  // ✅ PASSA O variationId DA VARIAÇÃO SELECIONADA
   CartController.instance.add(
     widget.product,
-    variationId: _currentVariation?.id,  // ✅ NOVO!
+    variationId: _currentVariation?.id,
     selectedAttributes: _selectedAttributes,
+    priceOverride: _currentVariation?.price, // ✅ AQUI TAMBÉM
   );
   
   await showCartDrawer(context);
 }
-
   double get _currentPrice {
     if (_currentVariation != null) {
       return _currentVariation!.price;

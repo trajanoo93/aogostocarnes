@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:collection/collection.dart';
 import 'package:ao_gosto_app/state/customer_provider.dart';
+import 'package:ao_gosto_app/api/product_service.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:ao_gosto_app/models/customer_data.dart';
@@ -16,8 +17,8 @@ import 'package:ao_gosto_app/api/order_service.dart';
 import 'package:ao_gosto_app/services/pagarme_service.dart';
 import 'package:ao_gosto_app/config/pagarme_credentials.dart';
 import 'package:ao_gosto_app/services/remote_config_service.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
-/// Modelo de slot de horário
 class TimeSlot {
   final String id;
   final String label;
@@ -25,12 +26,8 @@ class TimeSlot {
   const TimeSlot({required this.id, required this.label, this.available = true});
 }
 
-/// Tipo de entrega
 enum DeliveryType { delivery, pickup }
 
-/// ===============================================================
-///    ENDEREÇO DO CHECKOUT
-/// ===============================================================
 class CheckoutAddress {
   final String id;
   final String street, number, complement, neighborhood, city, state, cep;
@@ -71,20 +68,15 @@ class CheckoutAddress {
   String get short => '$street, $number';
 }
 
-/// Cupom de desconto
 class Coupon {
   final String code;
   final double discount;
   const Coupon({required this.code, required this.discount});
 }
 
-/// ===============================================================
-///              CONTROLADOR PRINCIPAL DO CHECKOUT
-/// ===============================================================
 class CheckoutController extends ChangeNotifier {
   final ShippingService _shipping = ShippingService();
 
-  // === ESTADO PRINCIPAL ===
   int currentStep = 1;
   DeliveryType deliveryType = DeliveryType.delivery;
   String? selectedAddressId;
@@ -111,30 +103,35 @@ class CheckoutController extends ChangeNotifier {
   String? pixCode;
   DateTime? pixExpiresAt;
 
-  // === CUPOM ===
   Coupon? appliedCoupon;
   String couponCode = '';
   String? couponError;
   bool showCouponInput = false;
   bool isApplyingCoupon = false;
 
-  // === TROCO ===
-  bool needsChange = false;
-  String changeForAmount = '';
+  bool _needsChange = false;
+  bool get needsChange => _needsChange;
+  set needsChange(bool value) {
+    _needsChange = value;
+    notifyListeners();
+  }
 
-  // === DADOS ===
+  String _changeForAmount = '';
+  String get changeForAmount => _changeForAmount;
+  set changeForAmount(String value) {
+    _changeForAmount = value;
+    notifyListeners();
+  }
+
   List<CheckoutAddress> addresses = [];
   double deliveryFee = 0.0;
   StoreInfo? storeInfo;
 
-  // === TELEFONE ===
   String userPhone = '';
   bool isEditingPhone = false;
 
-  // === REMOTE CONFIG ===
   RemoteConfig? _remoteConfig;
 
-  // === LOCAIS DE RETIRADA ===
   final Map<String, Map<String, String>> pickupLocations = {
     'barreiro': {
       'name': 'Unidade Barreiro',
@@ -171,7 +168,6 @@ class CheckoutController extends ChangeNotifier {
     return 'Pagar na Entrega';
   }
 
-  // === FERIADOS ===
   static final List<DateTime> holidays = [
     DateTime(2025, 1, 1),
     DateTime(2025, 3, 3),
@@ -189,7 +185,6 @@ class CheckoutController extends ChangeNotifier {
     DateTime(2025, 12, 8),
   ];
 
-  // === DIAS FECHADOS (RECESSO) ===
   static final List<DateTime> closedDays = [
     DateTime(2025, 12, 25),
     DateTime(2026, 1, 1),
@@ -197,7 +192,6 @@ class CheckoutController extends ChangeNotifier {
     DateTime(2027, 1, 1),
   ];
 
-  // === DIAS ESPECIAIS (HORÁRIO REDUZIDO) ===
   static final List<DateTime> specialDays = [
     DateTime(2025, 12, 24),
     DateTime(2025, 12, 31),
@@ -205,8 +199,9 @@ class CheckoutController extends ChangeNotifier {
     DateTime(2026, 12, 31),
   ];
 
+  // ✅ CORREÇÃO 1: Usa 'totalPrice' do item (que respeita o override), não o preço do produto pai
   double get subtotal =>
-      CartController.instance.items.fold(0, (s, i) => s + i.product.price * i.quantity);
+      CartController.instance.items.fold(0, (s, i) => s + i.totalPrice);
 
   double get total {
     final base = subtotal + deliveryFee;
@@ -247,17 +242,11 @@ class CheckoutController extends ChangeNotifier {
     return '${selected.day.toString().padLeft(2, '0')}/${selected.month.toString().padLeft(2, '0')}/${selected.year}';
   }
 
-  /// ===========================================================
-  ///                     CONSTRUTOR
-  /// ===========================================================
   CheckoutController() {
     _bootstrap();
     _loadRemoteConfig();
   }
 
-  /// ===========================================================
-  ///             INICIALIZAÇÃO DO CHECKOUT
-  /// ===========================================================
   Future<void> _bootstrap() async {
     isLoading = true;
     notifyListeners();
@@ -324,9 +313,6 @@ class CheckoutController extends ChangeNotifier {
     return phone;
   }
 
-  /// ===========================================================
-  ///             CARREGA CONFIGURAÇÕES REMOTAS (OMS)
-  /// ===========================================================
   Future<void> _loadRemoteConfig() async {
     try {
       _remoteConfig = await RemoteConfigService.fetchConfig();
@@ -336,11 +322,7 @@ class CheckoutController extends ChangeNotifier {
     }
   }
 
-  /// ===========================================================
-  ///  ✅ SLOTS DE HORÁRIO (VERSÃO ÚNICA COM REMOTE CONFIG)
-  /// ===========================================================
   List<TimeSlot> getTimeSlots() {
-    // ✅ Se slots desabilitados remotamente, retorna vazio
     if (_remoteConfig?.slotsConfig.enabled == false) {
       return [];
     }
@@ -361,7 +343,6 @@ class CheckoutController extends ChangeNotifier {
     
     final dateKey = DateFormat('yyyy-MM-dd').format(selectedDate);
     
-    // ✅ Verifica se está nos dias fechados remotos
     final isClosedRemote = _remoteConfig?.slotsConfig.closedDays.contains(dateKey) ?? false;
     if (isClosedRemote) return [];
     
@@ -372,7 +353,6 @@ class CheckoutController extends ChangeNotifier {
     
     if (isClosed) return [];
     
-    // ✅ Verifica se tem slots especiais remotos
     final specialSlotsRemote = _remoteConfig?.slotsConfig.specialDays[dateKey];
     if (specialSlotsRemote != null && specialSlotsRemote.isNotEmpty) {
       return _filterSlotsByTime(specialSlotsRemote, isToday);
@@ -397,12 +377,11 @@ class CheckoutController extends ChangeNotifier {
     
     List<String> slots;
     
-    // ✅ USA SLOTS REMOTOS OU FALLBACK PARA HARDCODED
     if (deliveryType == DeliveryType.pickup) {
       if (isSunday || isHoliday) {
         slots = _remoteConfig?.slotsConfig.pickupWeekend ?? ['09:00 - 12:00'];
       } else {
-        slots = _remoteConfig?.slotsConfig.pickupWeekday ?? 
+        slots = _remoteConfig?.slotsConfig.pickupWeekend ?? 
                ['09:00 - 12:00', '12:00 - 15:00', '15:00 - 18:00'];
       }
     } else {
@@ -417,7 +396,6 @@ class CheckoutController extends ChangeNotifier {
     return _filterSlotsByTime(slots, isToday);
   }
 
-  /// Método auxiliar para filtrar slots passados
   List<TimeSlot> _filterSlotsByTime(List<String> slots, bool isToday) {
     if (!isToday) {
       return slots.map((label) => TimeSlot(id: label, label: label)).toList();
@@ -444,9 +422,6 @@ class CheckoutController extends ChangeNotifier {
     return filtered.map((label) => TimeSlot(id: label, label: label)).toList();
   }
 
-  // ===========================================================
-  //                        ENDEREÇOS
-  // ===========================================================
   Future<void> addAddress(CheckoutAddress address, {String? apelido}) async {
     final newAddr = address.copyWith(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -519,9 +494,6 @@ class CheckoutController extends ChangeNotifier {
     _safeNotify();
   }
 
-  // ===========================================================
-  //                   ENTREGA OU RETIRADA
-  // ===========================================================
   void setDeliveryType(DeliveryType type) {
     deliveryType = type;
     if (type == DeliveryType.pickup) deliveryFee = 0;
@@ -534,9 +506,6 @@ class CheckoutController extends ChangeNotifier {
     _safeNotify();
   }
 
-  // ===========================================================
-  //  ✅ ATUALIZADO: FRETE COM VALIDAÇÕES DE SEGURANÇA
-  // ===========================================================
   Future<void> _refreshFee() async {
     if (deliveryType != DeliveryType.delivery || selectedAddressId == null) {
       deliveryFee = 0;
@@ -553,9 +522,6 @@ class CheckoutController extends ChangeNotifier {
       final dateFormatted = DateFormat('yyyy-MM-dd').format(selectedDate);
       final timeSlot = selectedTimeSlot ?? '';
 
-      debugPrint('🔍 Calculando frete para CEP: ${addr.cep}');
-      debugPrint('📅 Data: $dateFormatted | Horário: $timeSlot');
-
       final result = await _shipping.fetchDeliveryFee(
         addr.cep,
         deliveryDate: dateFormatted,
@@ -563,9 +529,7 @@ class CheckoutController extends ChangeNotifier {
       );
 
       if (result != null) {
-        // ✅ VALIDAÇÃO EXTRA: Garante taxa mínima de R$ 9,90
         if (result.cost < 9.90) {
-          debugPrint('⚠️ Taxa retornada (R\$ ${result.cost}) menor que mínima. Ajustando para R\$ 20,00');
           deliveryFee = 20.00;
           storeInfo = StoreInfo(
             name: '${result.name} (Taxa Ajustada)',
@@ -575,17 +539,12 @@ class CheckoutController extends ChangeNotifier {
         } else {
           deliveryFee = result.cost;
           storeInfo = result;
-          debugPrint('✅ Taxa válida: R\$ ${result.cost} - ${result.name}');
         }
       } else {
-        // ✅ CRÍTICO: API falhou ou CEP fora de área
-        // Usa -1 para sinalizar erro (bloqueia checkout)
         deliveryFee = -1;
         storeInfo = null;
-        debugPrint('❌ CEP fora de área ou API falhou');
       }
     } catch (e) {
-      // ✅ Em caso de exceção, também bloqueia checkout
       deliveryFee = -1;
       storeInfo = null;
       debugPrint('❌ Erro ao calcular frete: $e');
@@ -595,9 +554,6 @@ class CheckoutController extends ChangeNotifier {
     }
   }
 
-  // ===========================================================
-  //                FLUXO DE NAVEGAÇÃO NO CHECKOUT
-  // ===========================================================
   Future<void> nextStep() async {
     if (currentStep == 1) {
       if (storeInfo == null) {
@@ -615,9 +571,6 @@ class CheckoutController extends ChangeNotifier {
     _safeNotify();
   }
 
-  // ===========================================================
-  //  ✅ ATUALIZADO: VALIDAÇÃO COM TAXA MÍNIMA
-  // ===========================================================
   bool get canProceedToPayment {
     if (userPhone.isEmpty || userPhone.length < 10) return false;
 
@@ -630,16 +583,9 @@ class CheckoutController extends ChangeNotifier {
         return false;
       }
 
-      // ✅ CRÍTICO: Valida taxa mínima
-      if (deliveryFee < 0) {
-        debugPrint('⚠️ Checkout bloqueado: Taxa de frete inválida (API falhou)');
-        return false; // API falhou ou CEP fora de área
-      }
+      if (deliveryFee < 0) return false;
       
-      if (deliveryFee < 9.90) {
-        debugPrint('⚠️ Checkout bloqueado: Taxa menor que R\$ 9,90');
-        return false; // Taxa abaixo do mínimo
-      }
+      if (deliveryFee < 9.90) return false;
     } else {
       if (selectedPickup.isEmpty) return false;
     }
@@ -657,9 +603,6 @@ class CheckoutController extends ChangeNotifier {
     if (canProceedToPayment) nextStep();
   }
 
-  // ===========================================================
-  //                     CUPOM DE DESCONTO
-  // ===========================================================
   Future<void> applyCoupon(String code) async {
     isApplyingCoupon = true;
     couponError = null;
@@ -717,9 +660,6 @@ class CheckoutController extends ChangeNotifier {
     _safeNotify();
   }
 
-  // ===========================================================
-  //                       TELEFONE
-  // ===========================================================
   void startEditPhone() {
     isEditingPhone = true;
     _safeNotify();
@@ -754,7 +694,41 @@ class CheckoutController extends ChangeNotifier {
     isProcessing = true;
     _safeNotify();
 
+    // 🛑 1. VALIDAÇÃO DE ESTOQUE JUST-IN-TIME
     try {
+      debugPrint('🔍 Verificando estoque em tempo real...');
+      final productService = ProductService(); // Instancia direto para usar o método novo
+      final cartItems = CartController.instance.items;
+      
+      final outOfStockList = await productService.validateStock(cartItems);
+
+      if (outOfStockList.isNotEmpty) {
+        // Se houver itens sem estoque, para tudo e avisa
+        isProcessing = false;
+        _safeNotify();
+        
+        // Dispara erro para a UI tratar (ou usa um callback/listener se preferir)
+        // Como estamos no Controller, o ideal é ter uma variável de erro ou lançar exceção
+        // Mas para simplificar, vamos lançar um erro que o botão na UI pode pegar, 
+        // ou você pode tratar exibindo um Dialog aqui se tiver acesso ao context (o que não é ideal em Provider puro).
+        
+        // Vamos usar uma flag de erro no controller para a UI reagir
+        notifyListeners();
+        return Future.error("Estoque Insuficiente:\n${outOfStockList.join('\n')}");
+      }
+      debugPrint('✅ Estoque validado com sucesso!');
+    } catch (e) {
+      // Se for o erro de estoque acima, repassa
+      if (e.toString().contains("Estoque Insuficiente")) rethrow;
+      // Outros erros de validação ignoramos para tentar seguir
+      debugPrint('⚠️ Erro na validação de estoque (rede?): $e');
+    }
+
+    // 🚀 2. FLUXO NORMAL DE CRIAÇÃO (Se passou pelo estoque)
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      final String appVersion = "${packageInfo.version}+${packageInfo.buildNumber}";
+
       final sp = await SharedPreferences.getInstance();
       final customerId = sp.getString('customer_id');
 
@@ -763,11 +737,9 @@ class CheckoutController extends ChangeNotifier {
 
       debugPrint('''
 ====================================
-CHECKOUT FINAL
+CHECKOUT FINAL (v$appVersion)
 Loja: $effectiveStoreName
 Loja ID: $effectiveStoreId
-Tipo: ${deliveryType.name}
-Taxa de Entrega: R\$ $deliveryFee
 ====================================
 ''');
 
@@ -777,11 +749,9 @@ Taxa de Entrega: R\$ $deliveryFee
           'quantity': item.quantity,
         };
 
-        // ✅ SE FOR PRODUTO VARIÁVEL, ADICIONA variation_id e variation
         if (item.variationId != null && item.variationId! > 0) {
           lineItem['variation_id'] = item.variationId;
           
-          // Formata os atributos no padrão do WooCommerce
           if (item.selectedAttributes != null && item.selectedAttributes!.isNotEmpty) {
             lineItem['variation'] = item.selectedAttributes!.entries
                 .map((e) => {
@@ -802,19 +772,25 @@ Taxa de Entrega: R\$ $deliveryFee
       final nameParts = fullName.split(' ');
       final firstName = nameParts.isNotEmpty ? nameParts.first : "Cliente";
       final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : "";
+      
       await sp.setString('customer_phone', userPhoneRaw);
 
-      String observacaoFinal = orderNotes;
+      String observacaoFinal = orderNotes.trim(); 
+      
       if (needsChange && changeForAmount.isNotEmpty) {
-        final trocoInfo = "💰 Precisa de troco para: R\$ $changeForAmount";
+        String valorFormatado = changeForAmount;
+        if (!changeForAmount.contains('R\$')) {
+           valorFormatado = "R\$ $changeForAmount";
+        }
+        final trocoInfo = "💰 Precisa de troco para: $valorFormatado";
         observacaoFinal = observacaoFinal.isEmpty
             ? trocoInfo
-            : "$observacaoFinal\n\n$trocoInfo";
+            : "$observacaoFinal\n------------------\n$trocoInfo"; 
       }
       
       final orderData = {
         "status": paymentMethod == 'pix' ? "pending" : "processing",
-        "created_via": "App",
+        "created_via": "App Android/iOS",
 
         "billing": {
           "company": "App",
@@ -868,6 +844,7 @@ Taxa de Entrega: R\$ $deliveryFee
 
         "meta_data": [
           {"key": "_processed_by_app", "value": "true"},
+          {"key": "_app_version", "value": appVersion},
           {"key": "_store_final", "value": effectiveStoreName},
           {"key": "_effective_store_final", "value": effectiveStoreName},
           {"key": "_shipping_pickup_store_id", "value": effectiveStoreId},
@@ -949,7 +926,7 @@ Taxa de Entrega: R\$ $deliveryFee
           debugPrint('✅ PIX gerado com sucesso!');
         } catch (e) {
           debugPrint('❌ Erro ao gerar PIX: $e');
-          pixCode = _generateMockPix();
+          pixCode = _generateMockPix(); 
           pixExpiresAt = DateTime.now().add(const Duration(minutes: 60));
         }
       }
@@ -961,7 +938,6 @@ Taxa de Entrega: R\$ $deliveryFee
       final bool isAgendado = _isFutureDate();
 
       String statusFinal;
-
       if (paymentMethod == 'pix') {
         statusFinal = "Pendente";
       } else if (isAgendado) {
@@ -977,7 +953,7 @@ Taxa de Entrega: R\$ $deliveryFee
         items: CartController.instance.items.map((i) => OrderItem(
           name: i.product.name,
           imageUrl: i.product.imageUrl,
-          price: i.product.price,
+          price: i.unitPrice, 
           quantity: i.quantity,
           variationId: i.variationId,
           selectedAttributes: i.selectedAttributes,
@@ -1010,26 +986,24 @@ Taxa de Entrega: R\$ $deliveryFee
         deliveryType: deliveryType.name,
         coupon: appliedCoupon,
         orderNotes: observacaoFinal,
+        appVersion: appVersion,
       );
 
       debugPrint('✅ Pedido $orderId salvo no Firestore com status: $statusFinal');
     } catch (e) {
       debugPrint('❌ Erro ao criar pedido: $e');
+      rethrow; // Repassa erro (de estoque ou outro) para a UI
     } finally {
       isProcessing = false;
       _safeNotify();
     }
   }
-
+  
   Future<void> refreshFee() async {
     await _refreshFee();
     _safeNotify();
   }
 
-  // ===========================================================
-  //                     MÉTODOS AUXILIARES
-  // ===========================================================
-  
   String _getEffectiveStoreId() {
     if (deliveryType == DeliveryType.pickup) {
       return pickupLocations[selectedPickup]?['id'] ?? '86261';
@@ -1101,22 +1075,6 @@ Taxa de Entrega: R\$ $deliveryFee
     return '00020126580014br.gov.bcb.pix2536e8b4af-e461-4a8c-9a4a-1f2b6e5e8e6f5204000053039865802BR5913Joao da Silva6009SAO PAULO62070503***6304E5B3';
   }
 
-  String formatPhone(String phone) {
-    final digits = phone.replaceAll(RegExp(r'\D'), '');
-
-    if (digits.length == 11) {
-      return '(${digits.substring(0, 2)}) ${digits.substring(2, 7)}-${digits.substring(7)}';
-    }
-    if (digits.length == 10) {
-      return '(${digits.substring(0, 2)}) ${digits.substring(2, 6)}-${digits.substring(6)}';
-    }
-
-    return phone;
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  //  ✨ MÉTODOS ESTÁTICOS PARA VERIFICAÇÃO DE DATAS
-  // ═══════════════════════════════════════════════════════════
   static bool isDateUnavailable(DateTime date) {
     return holidays.any((d) =>
             d.year == date.year &&
@@ -1142,16 +1100,12 @@ Taxa de Entrega: R\$ $deliveryFee
         d.day == date.day);
   }
 
-  // ===========================================================
-  //                     NOTIFY SEGURO
-  // ===========================================================
   void _safeNotify() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (hasListeners) notifyListeners();
     });
   }
 
-  // Método para setar slot e refresh fee
   void setTimeSlot(String slot) {
     selectedTimeSlot = slot;
     _refreshFee();

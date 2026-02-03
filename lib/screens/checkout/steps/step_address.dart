@@ -73,6 +73,17 @@ class _ContactSection extends StatefulWidget {
 class _ContactSectionState extends State<_ContactSection> {
   late TextEditingController _controller;
   
+  // ✅ CORREÇÃO: Formatador local para evitar dependência do controller
+  String _formatPhone(String phone) {
+    final digits = phone.replaceAll(RegExp(r'\D'), '');
+    if (digits.length == 11) {
+      return '(${digits.substring(0, 2)}) ${digits.substring(2, 7)}-${digits.substring(7)}';
+    } else if (digits.length == 10) {
+      return '(${digits.substring(0, 2)}) ${digits.substring(2, 6)}-${digits.substring(6)}';
+    }
+    return phone;
+  }
+  
   @override
   void initState() {
     super.initState();
@@ -176,7 +187,8 @@ class _ContactSectionState extends State<_ContactSection> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        c.formatPhone(c.userPhone.isEmpty ? '—' : c.userPhone),
+                        // ✅ USANDO O FORMATADOR LOCAL AQUI
+                        _formatPhone(c.userPhone.isEmpty ? '—' : c.userPhone),
                         style: const TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,

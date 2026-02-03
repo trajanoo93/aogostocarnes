@@ -1,4 +1,3 @@
-// lib/models/order_model.dart
 import 'package:flutter/material.dart';
 
 class AppOrder {
@@ -34,16 +33,16 @@ class OrderItem {
   final String imageUrl;
   final double price;
   final int quantity;
-  final int? variationId;  // ✅ NOVO
-  final Map<String, String>? selectedAttributes;  // ✅ NOVO
+  final int? variationId;
+  final Map<String, String>? selectedAttributes;
   
   const OrderItem({
     required this.name,
     required this.imageUrl,
     required this.price,
     required this.quantity,
-    this.variationId,  // ✅ NOVO
-    this.selectedAttributes,  // ✅ NOVO
+    this.variationId,
+    this.selectedAttributes,
   });
 }
 

@@ -23,6 +23,16 @@ class CheckoutScreen extends StatelessWidget {
 class _CheckoutView extends StatelessWidget {
   const _CheckoutView();
 
+  // ✅ Lógica inteligente para o botão Voltar (Físico ou Appbar)
+  Future<bool> _onWillPop(BuildContext context, CheckoutController c) async {
+    if (c.currentStep > 1) {
+      // Se estiver no passo 2, volta para o 1 e NÃO fecha a tela
+      c.prevStep();
+      return false; // Impede o pop
+    }
+    return true; // Se estiver no passo 1, deixa fechar
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<CheckoutController>(
@@ -41,24 +51,33 @@ class _CheckoutView extends StatelessWidget {
           return const ThankYouScreen();
         }
 
-        return Scaffold(
-          backgroundColor: const Color(0xFFFAFAFA),
-          body: Column(
-            children: [
-              // === HEADER ULTRA COMPACTO ===
-              _buildUltraCompactHeader(context, c),
+        // ✅ PopScope (Novo WillPopScope) para controlar o botão físico do Android
+        return PopScope(
+          canPop: c.currentStep == 1, // Só deixa fechar se estiver no passo 1
+          onPopInvoked: (didPop) {
+            if (didPop) return;
+            // Se não fechou (estava no passo 2), volta um passo
+            c.prevStep();
+          },
+          child: Scaffold(
+            backgroundColor: const Color(0xFFFAFAFA),
+            body: Column(
+              children: [
+                // === HEADER ULTRA COMPACTO ===
+                _buildUltraCompactHeader(context, c),
 
-              // === BODY ===
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
-                  child: _buildStepContent(c),
+                // === BODY ===
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+                    child: _buildStepContent(c),
+                  ),
                 ),
-              ),
 
-              // === FOOTER ===
-              _buildFooter(context, c, currency),
-            ],
+                // === FOOTER ===
+                _buildFooter(context, c, currency),
+              ],
+            ),
           ),
         );
       },
@@ -91,9 +110,9 @@ class _CheckoutView extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              // Botão Voltar
+              // ✅ Botão Voltar Inteligente
               IconButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(context).maybePop(),
                 icon: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
@@ -136,28 +155,9 @@ class _CheckoutView extends StatelessWidget {
     );
   }
 
-  // ✅ ATUALIZADO: Footer com Debug e Feedback Visual
   Widget _buildFooter(BuildContext context, CheckoutController c, NumberFormat currency) {
-    // ✅ ADICIONA LOGS PARA DEBUG
+    // Lógica para desabilitar botão visualmente se não puder prosseguir
     final canProceed = c.canProceedToPayment;
-    
-    debugPrint('''
-🔍 DEBUG CHECKOUT FOOTER:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Step: ${c.currentStep}
-Payment Method: ${c.paymentMethod}
-Can Proceed: $canProceed
-Is Processing: ${c.isProcessing}
-Phone: ${c.userPhone}
-Selected Address ID: ${c.selectedAddressId}
-Delivery Type: ${c.deliveryType.name}
-Selected Date: ${c.selectedDate}
-Selected Time Slot: ${c.selectedTimeSlot}
-Delivery Fee: R\$ ${c.deliveryFee}
-Needs Change: ${c.needsChange}
-Change Amount: ${c.changeForAmount}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-''');
     
     return Container(
       decoration: BoxDecoration(
@@ -177,7 +177,7 @@ Change Amount: ${c.changeForAmount}
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // ✅ ADICIONA AVISO QUANDO BOTÃO ESTÁ DESABILITADO
+              // Aviso contextual se tentar avançar sem dados
               if (!canProceed && !c.isProcessing && c.currentStep == 2)
                 Container(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -238,7 +238,6 @@ Change Amount: ${c.changeForAmount}
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
-                  // ✅ ATUALIZADO: Sempre executa função, mas mostra aviso
                   onPressed: c.isProcessing 
                       ? null 
                       : () => _handleButtonPress(context, c),
@@ -277,23 +276,43 @@ Change Amount: ${c.changeForAmount}
     );
   }
   
-  // ✅ NOVO: Lógica de clique com validação e feedback
-  void _handleButtonPress(BuildContext context, CheckoutController c) {
-    debugPrint('🔘 BOTÃO CLICADO! Step: ${c.currentStep}, Payment: ${c.paymentMethod}');
-    
+  // Substitua o método _handleButtonPress por este:
+  void _handleButtonPress(BuildContext context, CheckoutController c) async {
     if (!c.canProceedToPayment) {
-      debugPrint('⚠️ Validação falhou. Mostrando dialog...');
-      // ✅ Mostra dialog explicando o problema
       _showValidationDialog(context, c);
       return;
     }
     
-    debugPrint('✅ Validação OK. Prosseguindo...');
-    // ✅ Prossegue normalmente
-    c.nextStep();
+    // ✅ NOVO: Captura erros (como estoque insuficiente)
+    try {
+      await c.nextStep();
+    } catch (e) {
+      // Remove "Exception:" do texto se houver
+      final message = e.toString().replaceAll("Exception: ", "");
+      
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.inventory_2_outlined, color: Colors.red[700]),
+              const SizedBox(width: 12),
+              const Text('Atenção'),
+            ],
+          ),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Entendi'),
+            ),
+          ],
+        ),
+      );
+    }
   }
   
-  // ✅ NOVO: Dialog de validação
   void _showValidationDialog(BuildContext context, CheckoutController c) {
     showDialog(
       context: context,
@@ -319,7 +338,6 @@ Change Amount: ${c.changeForAmount}
     );
   }
   
-  // ✅ NOVO: Mensagem específica do erro
   String _getValidationMessage(CheckoutController c) {
     if (c.userPhone.isEmpty || c.userPhone.length < 10) {
       return 'Por favor, adicione um telefone válido';
@@ -357,9 +375,6 @@ Change Amount: ${c.changeForAmount}
   }
 }
 
-// ═══════════════════════════════════════════════════════════
-//           STEPPER INLINE (UMA LINHA HORIZONTAL)
-// ═══════════════════════════════════════════════════════════
 class _InlineStepper extends StatelessWidget {
   final int current;
   const _InlineStepper({required this.current});
@@ -374,7 +389,6 @@ class _InlineStepper extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: List.generate(steps.length * 2 - 1, (i) {
-        // Linha entre steps
         if (i.isOdd) {
           final index = (i ~/ 2) + 1;
           final isDone = current > index;
@@ -390,7 +404,6 @@ class _InlineStepper extends StatelessWidget {
           );
         }
 
-        // Step item
         final stepIndex = i ~/ 2;
         final step = steps[stepIndex];
         final isActive = current == stepIndex + 1;
@@ -428,7 +441,6 @@ class _InlineStepItem extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // circle
         Container(
           width: 32,
           height: 32,

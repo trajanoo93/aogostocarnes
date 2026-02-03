@@ -1,5 +1,3 @@
-// lib/api/firestore_service.dart - VERSÃO FINAL COM PREÇOS
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:ao_gosto_app/models/order_model.dart';
 import 'package:ao_gosto_app/screens/checkout/checkout_controller.dart';
@@ -8,7 +6,6 @@ import 'package:flutter/foundation.dart';
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  /// ✅ SALVA NO FIRESTORE (COM PREÇOS)
   Future<void> saveOrder(
     AppOrder order,
     String customerPhone, {
@@ -16,32 +13,30 @@ class FirestoreService {
     required String janelaTexto,
     required bool isAgendado,
     required String customerName,
-    required String deliveryType,  // Novo: 'delivery' ou 'pickup'
+    required String deliveryType,
+    required String appVersion, // ✅ NOVO: Recebe a versão do app
     Coupon? coupon,
     String? orderNotes,
   }) async {  
     try {
       final metodoPrincipal = _mapMetodoPagamentoParaSite(order.payment.type);
 
-      // ✅ FORMATA LISTA DE PRODUTOS (COM PREÇO)
+      // Formata string única para visualização rápida no painel
       final listaProdutosTexto = order.items.map((i) {
-  // Monta a string base
-  String itemText = "${i.name} (Qtd: ${i.quantity})";
-  
-  // ✅ ADICIONA VARIAÇÕES SE EXISTIR
-  if (i.selectedAttributes != null && i.selectedAttributes!.isNotEmpty) {
-    final variacoesTexto = i.selectedAttributes!.entries
-        .map((e) => "${e.key}: ${e.value}")
-        .join(" | ");
-    itemText += " - $variacoesTexto";
-  } else {
-    // Se não tiver variação, adiciona o preço
-    itemText += " - R\$ ${i.price.toStringAsFixed(2)}";
-  }
-  
-  itemText += " *";
-  return itemText;
-}).join("\n");
+        String itemText = "${i.name} (Qtd: ${i.quantity})";
+        
+        if (i.selectedAttributes != null && i.selectedAttributes!.isNotEmpty) {
+          final variacoesTexto = i.selectedAttributes!.entries
+              .map((e) => "${e.key}: ${e.value}")
+              .join(" | ");
+          itemText += " - $variacoesTexto";
+        } else {
+          itemText += " - R\$ ${i.price.toStringAsFixed(2)}";
+        }
+        
+        itemText += " *";
+        return itemText;
+      }).join("\n");
 
       final dataPedido = "${order.date.day.toString().padLeft(2, '0')}-${order.date.month.toString().padLeft(2, '0')}";
       final horarioPedido = "${order.date.hour.toString().padLeft(2, '0')}:${order.date.minute.toString().padLeft(2, '0')}";
@@ -52,9 +47,10 @@ class FirestoreService {
         "created_at": FieldValue.serverTimestamp(),
         "updated_at": FieldValue.serverTimestamp(),
         "status": order.status,
-        "tipo_entrega": deliveryType,  // Atualizado: Usa param
+        "tipo_entrega": deliveryType,
         "cd": cd,
         "is_ativo": true,
+        "app_version": appVersion, // ✅ NOVO: Salva versão no banco
 
         "cliente": {
           "nome": customerName,
@@ -81,8 +77,8 @@ class FirestoreService {
         "pagamento": {
           "metodo_principal": metodoPrincipal,
           "taxa_entrega": order.deliveryFee,
-          "subtotal": order.subtotal,  // ✅ SUBTOTAL
-          "desconto": order.discount,  // ✅ DESCONTO
+          "subtotal": order.subtotal,
+          "desconto": order.discount,
           "valor_total": order.total,
           "valor_liquido": order.total,
           "conta_stripe": null,
@@ -97,30 +93,31 @@ class FirestoreService {
 
         "desconto_cartao_presente": null,
 
-        // ✅ ITENS COM PREÇO!
-       // ✅ ITENS COM PREÇO E VARIAÇÕES!
-"itens": order.items.map((item) {
-  final itemData = <String, dynamic>{
-    "nome": item.name,
-    "quantidade": item.quantity,
-    "preco": item.price,  // ✅ PREÇO!
-  };
+        "itens": order.items.map((item) {
+          final itemData = <String, dynamic>{
+            "nome": item.name,
+            "quantidade": item.quantity,
+            "preco": item.price,
+          };
 
-  // ✅ ADICIONA VARIAÇÕES SE EXISTIR
-  if (item.variationId != null && item.variationId! > 0) {
-    itemData["variation_id"] = item.variationId;
-    
-    if (item.selectedAttributes != null && item.selectedAttributes!.isNotEmpty) {
-      itemData["variacoes"] = item.selectedAttributes!.entries
-          .map((e) => "${e.key}: ${e.value}")
-          .toList();
-    }
-  } else {
-    itemData["variacoes"] = [];
-  }
+          // Lógica de variação para o Firestore
+          // Salva como array de strings ["Sabor: Picanha", "Molho: Alho"]
+          if (item.variationId != null && item.variationId! > 0) {
+            itemData["variation_id"] = item.variationId;
+            
+            if (item.selectedAttributes != null && item.selectedAttributes!.isNotEmpty) {
+              itemData["variacoes"] = item.selectedAttributes!.entries
+                  .map((e) => "${e.key}: ${e.value}")
+                  .toList();
+            } else {
+              itemData["variacoes"] = [];
+            }
+          } else {
+            itemData["variacoes"] = [];
+          }
 
-  return itemData;
-}).toList(),
+          return itemData;
+        }).toList(),
 
         "lista_produtos_texto": listaProdutosTexto,
         "observacao": orderNotes ?? "",
@@ -135,12 +132,9 @@ class FirestoreService {
           .doc(order.id)
           .set(dados, SetOptions(merge: true));
 
-      debugPrint('✅ Pedido ${order.id} salvo');
-      if (coupon != null) {
-        debugPrint('🎫 Cupom: R\$ ${coupon.discount.toStringAsFixed(2)}');
-      }
+      debugPrint('✅ Pedido ${order.id} salvo no Firestore (v$appVersion)');
     } catch (e) {
-      debugPrint('❌ Erro: $e');
+      debugPrint('❌ Erro ao salvar no Firestore: $e');
       rethrow;
     }
   }
@@ -156,7 +150,6 @@ class FirestoreService {
     }
   }
 
-  /// ✅ BUSCA PEDIDOS (COM PREÇOS)
   Stream<List<AppOrder>> getCustomerOrders(String customerPhone) {
     try {
       return _firestore
@@ -180,25 +173,26 @@ class FirestoreService {
             status: data['status'] ?? '-',
             
             items: (data['itens'] as List?)?.map((item) {
-  return OrderItem(
-    name: item['nome'] ?? 'Produto',
-    imageUrl: '',
-    price: (item['preco'] as num?)?.toDouble() ?? 0.0,
-    quantity: item['quantidade'] ?? 1,
-    variationId: item['variation_id'] as int?,  // ✅ NOVO
-    selectedAttributes: (item['variacoes'] as List?)?.isNotEmpty == true
-        ? Map<String, String>.fromIterable(
-            (item['variacoes'] as List).where((v) => v.toString().contains(':')),
-            key: (v) => v.toString().split(':')[0].trim(),
-            value: (v) => v.toString().split(':')[1].trim(),
-          )
-        : null,  // ✅ NOVO
-  );
-}).toList() ?? [],
+              return OrderItem(
+                name: item['nome'] ?? 'Produto',
+                imageUrl: '',
+                price: (item['preco'] as num?)?.toDouble() ?? 0.0,
+                quantity: item['quantidade'] ?? 1,
+                variationId: item['variation_id'] as int?,
+                // Reconstrói o Map a partir da lista ["Chave: Valor"]
+                selectedAttributes: (item['variacoes'] as List?)?.isNotEmpty == true
+                    ? Map<String, String>.fromIterable(
+                        (item['variacoes'] as List).where((v) => v.toString().contains(':')),
+                        key: (v) => v.toString().split(':')[0].trim(),
+                        value: (v) => v.toString().split(':')[1].trim(),
+                      )
+                    : null,
+              );
+            }).toList() ?? [],
             
             subtotal: subtotal,
             deliveryFee: deliveryFee,
-            discount: discount,  // ✅ DESCONTO!
+            discount: discount,
             total: total,
             
             address: Address(
@@ -219,7 +213,7 @@ class FirestoreService {
         }).toList();
       });
     } catch (e) {
-      debugPrint('❌ Erro: $e');
+      debugPrint('❌ Erro ao buscar pedidos: $e');
       return Stream.value([]);
     }
   }
@@ -252,6 +246,14 @@ class FirestoreService {
               imageUrl: '',
               price: (item['preco'] as num?)?.toDouble() ?? 0.0,
               quantity: item['quantidade'] ?? 1,
+              variationId: item['variation_id'] as int?,
+              selectedAttributes: (item['variacoes'] as List?)?.isNotEmpty == true
+                  ? Map<String, String>.fromIterable(
+                      (item['variacoes'] as List).where((v) => v.toString().contains(':')),
+                      key: (v) => v.toString().split(':')[0].trim(),
+                      value: (v) => v.toString().split(':')[1].trim(),
+                    )
+                  : null,
             );
           }).toList() ?? [],
           
@@ -277,7 +279,7 @@ class FirestoreService {
         );
       });
     } catch (e) {
-      debugPrint('❌ Erro: $e');
+      debugPrint('❌ Erro ao buscar pedido ID: $e');
       return Stream.value(null);
     }
   }

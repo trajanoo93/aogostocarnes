@@ -1,4 +1,3 @@
-// lib/screens/checkout/steps/step_payment.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -17,7 +16,6 @@ class StepPayment extends StatelessWidget {
 
     return Column(
       children: [
-        // ✅ MENSAGEM CUSTOMIZADA (SE HABILITADA NO OMS)
         FutureBuilder<RemoteConfig>(
           future: RemoteConfigService.fetchConfig(),
           builder: (context, snapshot) {
@@ -34,17 +32,14 @@ class StepPayment extends StatelessWidget {
           },
         ),
         
-        // 1. Resumo Rápido (compacto e elegante)
         _UltraQuickSummary(),
         
         const SizedBox(height: 12),
         
-        // 2. Métodos de Pagamento (visual premium)
         _PremiumPaymentMethods(),
         
         const SizedBox(height: 12),
         
-        // 3. Informações específicas do método
         if (c.paymentMethod == 'pix' && c.pixCode != null)
           _ModernPixCard(code: c.pixCode!, expiresAt: c.pixExpiresAt!),
         
@@ -63,9 +58,6 @@ class StepPayment extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════
-//              MENSAGEM CUSTOMIZADA DO OMS
-// ═══════════════════════════════════════════════════════════
 class _CustomMessageBanner extends StatelessWidget {
   final CustomMessage message;
   
@@ -157,9 +149,6 @@ class _CustomMessageBanner extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════
-//              1. RESUMO RÁPIDO ULTRA CLEAN
-// ═══════════════════════════════════════════════════════════
 class _UltraQuickSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -257,9 +246,6 @@ class _UltraQuickSummary extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════
-//          2. MÉTODOS DE PAGAMENTO PREMIUM (COM OMS)
-// ═══════════════════════════════════════════════════════════
 class _PremiumPaymentMethods extends StatefulWidget {
   @override
   State<_PremiumPaymentMethods> createState() => _PremiumPaymentMethodsState();
@@ -294,7 +280,6 @@ class _PremiumPaymentMethodsState extends State<_PremiumPaymentMethods> {
               
               const SizedBox(height: 20),
               
-              // === PAGAMENTOS ONLINE ===
               _SectionHeader(
                 icon: Icons.smartphone_rounded,
                 title: 'Pagamento Online',
@@ -302,7 +287,6 @@ class _PremiumPaymentMethodsState extends State<_PremiumPaymentMethods> {
               
               const SizedBox(height: 12),
               
-              // ✅ PIX (controlado pelo OMS)
               if (enablePix)
                 _ModernPaymentOption(
                   icon: Icons.pix_rounded,
@@ -321,7 +305,6 @@ class _PremiumPaymentMethodsState extends State<_PremiumPaymentMethods> {
               
               if (enablePix) const SizedBox(height: 10),
               
-              // ✅ CARTÃO ONLINE (controlado pelo OMS)
               _ModernPaymentOption(
                 icon: Icons.credit_card_rounded,
                 title: 'Cartão de Crédito',
@@ -347,7 +330,6 @@ class _PremiumPaymentMethodsState extends State<_PremiumPaymentMethods> {
               
               const SizedBox(height: 24),
               
-              // === PAGAR NA ENTREGA ===
               _SectionHeader(
                 icon: Icons.handshake_rounded,
                 title: 'Pagar na Entrega',
@@ -411,7 +393,6 @@ class _PremiumPaymentMethodsState extends State<_PremiumPaymentMethods> {
   }
 }
 
-// === HEADER DE SEÇÃO ===
 class _SectionHeader extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -445,7 +426,6 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-// === OPÇÃO DE PAGAMENTO MODERNA ===
 class _ModernPaymentOption extends StatelessWidget {
   final IconData icon;
   final String title;
@@ -600,7 +580,6 @@ class _ModernPaymentOption extends StatelessWidget {
   }
 }
 
-// === BADGE EM BREVE ===
 class _ComingSoonBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -625,9 +604,6 @@ class _ComingSoonBadge extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════
-//                   3. PIX MODERNO
-// ═══════════════════════════════════════════════════════════
 class _ModernPixCard extends StatelessWidget {
   final String code;
   final DateTime expiresAt;
@@ -793,27 +769,35 @@ class _ModernPixCard extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════
-//                   4. DINHEIRO (TROCO)
-// ═══════════════════════════════════════════════════════════
 class _ModernChangeCard extends StatefulWidget {
   @override
   State<_ModernChangeCard> createState() => _ModernChangeCardState();
 }
 
 class _ModernChangeCardState extends State<_ModernChangeCard> {
-  final _controller = TextEditingController();
-  
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    final c = context.read<CheckoutController>();
+    _controller = TextEditingController(text: c.changeForAmount);
+  }
+
   @override
   void dispose() {
     _controller.dispose();
     super.dispose();
   }
-  
+
   @override
   Widget build(BuildContext context) {
     final c = context.watch<CheckoutController>();
     
+    if (c.changeForAmount != _controller.text && !_controller.selection.isValid) {
+       _controller.text = c.changeForAmount;
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: _boxDeco(),
@@ -836,10 +820,9 @@ class _ModernChangeCardState extends State<_ModernChangeCard> {
               Expanded(
                 child: InkWell(
                   onTap: () {
-                    debugPrint('💰 [CHANGE] Não precisa de troco');
                     c.needsChange = false;
                     c.changeForAmount = '';
-                    setState(() {});
+                    _controller.clear(); 
                   },
                   borderRadius: BorderRadius.circular(12),
                   child: AnimatedContainer(
@@ -878,9 +861,7 @@ class _ModernChangeCardState extends State<_ModernChangeCard> {
               Expanded(
                 child: InkWell(
                   onTap: () {
-                    debugPrint('💰 [CHANGE] Precisa de troco');
                     c.needsChange = true;
-                    setState(() {});
                   },
                   borderRadius: BorderRadius.circular(12),
                   child: AnimatedContainer(
@@ -920,9 +901,10 @@ class _ModernChangeCardState extends State<_ModernChangeCard> {
             const SizedBox(height: 16),
             TextField(
               controller: _controller,
-              keyboardType: TextInputType.number,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(
-                hintText: 'Troco para quanto? Ex: R\$ 50,00',
+                hintText: 'Troco para quanto? Ex: 50.00',
+                prefixText: 'R\$ ',
                 hintStyle: const TextStyle(
                   fontSize: 14,
                   color: Color(0xFF9CA3AF),
@@ -946,9 +928,7 @@ class _ModernChangeCardState extends State<_ModernChangeCard> {
                 contentPadding: const EdgeInsets.all(16),
               ),
               onChanged: (v) {
-                debugPrint('💰 [CHANGE] Valor digitado: $v');
                 c.changeForAmount = v;
-                setState(() {});
               },
             ),
           ],
@@ -958,9 +938,6 @@ class _ModernChangeCardState extends State<_ModernChangeCard> {
   }
 }
 
-// ═══════════════════════════════════════════════════════════
-//                   5. CARTÃO NA ENTREGA
-// ═══════════════════════════════════════════════════════════
 class _ModernCardInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -1085,9 +1062,6 @@ class _ModernCardInfo extends StatelessWidget {
   }
 }
 
-// ═══════════════════════════════════════════════════════════
-//                   6. VALE ALIMENTAÇÃO
-// ═══════════════════════════════════════════════════════════
 class _ModernVoucherInfo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -1202,7 +1176,6 @@ class _VoucherBrand extends StatelessWidget {
   }
 }
 
-// === ESTILO COMUM ===
 BoxDecoration _boxDeco() => BoxDecoration(
       color: Colors.white,
       borderRadius: BorderRadius.circular(16),
